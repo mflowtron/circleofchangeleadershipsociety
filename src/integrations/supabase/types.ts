@@ -73,6 +73,64 @@ export type Database = {
         }
         Relationships: []
       }
+      attendees: {
+        Row: {
+          additional_info: Json | null
+          attendee_email: string | null
+          attendee_name: string | null
+          created_at: string
+          id: string
+          order_id: string
+          order_item_id: string
+          ticket_type_id: string
+          updated_at: string
+        }
+        Insert: {
+          additional_info?: Json | null
+          attendee_email?: string | null
+          attendee_name?: string | null
+          created_at?: string
+          id?: string
+          order_id: string
+          order_item_id: string
+          ticket_type_id: string
+          updated_at?: string
+        }
+        Update: {
+          additional_info?: Json | null
+          attendee_email?: string | null
+          attendee_name?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string
+          order_item_id?: string
+          ticket_type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendees_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendees_order_item_id_fkey"
+            columns: ["order_item_id"]
+            isOneToOne: false
+            referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendees_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chapters: {
         Row: {
           created_at: string
@@ -290,6 +348,7 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
+          edit_token: string | null
           email: string
           event_id: string
           fees_cents: number
@@ -306,6 +365,7 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string
+          edit_token?: string | null
           email: string
           event_id: string
           fees_cents?: number
@@ -322,6 +382,7 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string
+          edit_token?: string | null
           email?: string
           event_id?: string
           fees_cents?: number
@@ -599,6 +660,10 @@ export type Database = {
       }
       is_event_owner: {
         Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
+      verify_order_edit_token: {
+        Args: { _order_id: string; _token: string }
         Returns: boolean
       }
     }

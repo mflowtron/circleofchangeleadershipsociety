@@ -107,10 +107,41 @@ serve(async (req) => {
 
         logStep("Ticket quantities updated");
 
+        // Create attendee records for each ticket purchased
+        const { data: orderItems } = await supabaseAdmin
+          .from('order_items')
+          .select('id, ticket_type_id, quantity')
+          .eq('order_id', order_id);
+
+        if (orderItems) {
+          const attendeeRecords = [];
+          for (const item of orderItems) {
+            for (let i = 0; i < item.quantity; i++) {
+              attendeeRecords.push({
+                order_id: order_id,
+                order_item_id: item.id,
+                ticket_type_id: item.ticket_type_id,
+              });
+            }
+          }
+
+          if (attendeeRecords.length > 0) {
+            const { error: attendeeError } = await supabaseAdmin
+              .from('attendees')
+              .insert(attendeeRecords);
+
+            if (attendeeError) {
+              logStep("Failed to create attendees", { error: attendeeError });
+            } else {
+              logStep("Attendee records created", { count: attendeeRecords.length });
+            }
+          }
+        }
+
         // Fetch updated order
         const { data: updatedOrder } = await supabaseAdmin
           .from('orders')
-          .select('*, order_items(*, ticket_type:ticket_types(name))')
+          .select('*, order_items(*, ticket_type:ticket_types(name)), edit_token')
           .eq('id', order_id)
           .single();
 

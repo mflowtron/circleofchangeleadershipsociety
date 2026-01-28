@@ -1,12 +1,14 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Download, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Download, ShoppingCart, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EventStats } from '@/components/events/EventStats';
 import { OrdersTable } from '@/components/events/OrdersTable';
+import { AttendeesTable } from '@/components/events/AttendeesTable';
 import { useEventById } from '@/hooks/useEvents';
 import { useEventOrders, useEventOrderStats } from '@/hooks/useOrders';
 import { useTicketTypes } from '@/hooks/useTicketTypes';
+import { useEventAttendees } from '@/hooks/useAttendees';
 
 export default function EventOrders() {
   const { id } = useParams<{ id: string }>();
@@ -14,8 +16,9 @@ export default function EventOrders() {
   const { data: orders, isLoading: isLoadingOrders } = useEventOrders(id || '');
   const { data: stats, isLoading: isLoadingStats } = useEventOrderStats(id || '');
   const { ticketTypes, isLoading: isLoadingTickets } = useTicketTypes(id || '');
+  const { data: attendees, isLoading: isLoadingAttendees } = useEventAttendees(id);
 
-  const exportAttendees = () => {
+  const exportOrders = () => {
     if (!orders || !event) return;
 
     const completedOrders = orders.filter(o => o.status === 'completed');
@@ -33,6 +36,33 @@ export default function EventOrders() {
           (order.total_cents / 100).toFixed(2),
         ]);
       });
+    });
+
+    const csvContent = rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${event.slug}-orders.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportAttendees = () => {
+    if (!attendees || !event) return;
+
+    const rows = [['Attendee Name', 'Attendee Email', 'Ticket Type', 'Order #', 'Purchaser Name', 'Purchaser Email', 'Status']];
+
+    attendees.forEach(attendee => {
+      rows.push([
+        attendee.attendee_name || '',
+        attendee.attendee_email || '',
+        attendee.ticket_type?.name || 'Unknown',
+        attendee.order?.order_number || '',
+        attendee.order?.full_name || '',
+        attendee.order?.email || '',
+        attendee.attendee_name && attendee.attendee_email ? 'Complete' : 'Incomplete',
+      ]);
     });
 
     const csvContent = rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -85,10 +115,6 @@ export default function EventOrders() {
             <p className="text-muted-foreground">{event.title}</p>
           </div>
         </div>
-        <Button variant="outline" onClick={exportAttendees} disabled={!orders?.length}>
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
       </div>
 
       {/* Stats */}
@@ -104,10 +130,20 @@ export default function EventOrders() {
       <Tabs defaultValue="orders" className="space-y-4">
         <TabsList>
           <TabsTrigger value="orders">All Orders</TabsTrigger>
+          <TabsTrigger value="attendees" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Attendees
+          </TabsTrigger>
           <TabsTrigger value="tickets">Ticket Sales</TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders">
+          <div className="flex justify-end mb-4">
+            <Button variant="outline" size="sm" onClick={exportOrders} disabled={!orders?.length}>
+              <Download className="h-4 w-4 mr-2" />
+              Export Orders
+            </Button>
+          </div>
           {!orders?.length && !isLoadingOrders ? (
             <div className="text-center py-16 rounded-lg border bg-card">
               <ShoppingCart className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
@@ -118,6 +154,25 @@ export default function EventOrders() {
             </div>
           ) : (
             <OrdersTable orders={orders || []} isLoading={isLoadingOrders} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="attendees">
+          {!attendees?.length && !isLoadingAttendees ? (
+            <div className="text-center py-16 rounded-lg border bg-card">
+              <Users className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <h2 className="text-xl font-semibold mb-2">No attendees yet</h2>
+              <p className="text-muted-foreground">
+                Attendee records will be created when orders are completed
+              </p>
+            </div>
+          ) : (
+            <AttendeesTable 
+              attendees={attendees || []} 
+              isLoading={isLoadingAttendees}
+              ticketTypes={ticketTypes.map(t => ({ id: t.id, name: t.name }))}
+              onExport={exportAttendees}
+            />
           )}
         </TabsContent>
 
