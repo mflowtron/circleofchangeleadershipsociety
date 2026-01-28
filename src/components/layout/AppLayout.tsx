@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import InstallBanner from '@/components/pwa/InstallBanner';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -37,6 +38,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
         </main>
       </div>
+      <InstallBanner />
     </div>
   );
 }
