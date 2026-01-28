@@ -125,7 +125,7 @@ export default function ManageTickets() {
           </Button>
         </div>
       ) : (
-        <div className="rounded-lg border">
+        <div className="rounded-lg border overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>

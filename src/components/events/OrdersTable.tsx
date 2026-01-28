@@ -124,7 +124,7 @@ export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: Or
           <p className="text-muted-foreground">No orders found</p>
         </div>
       ) : (
-        <div className="rounded-lg border">
+        <div className="rounded-lg border overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
