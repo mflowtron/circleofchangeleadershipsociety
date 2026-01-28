@@ -40,6 +40,10 @@ const CheckoutSuccess = lazy(() => import("@/pages/events/CheckoutSuccess"));
 const OrderAttendees = lazy(() => import("@/pages/events/OrderAttendees"));
 const EventsDashboardLayout = lazy(() => import("@/layouts/EventsDashboardLayout"));
 
+// Order Portal pages - lazy loaded
+const OrderPortalIndex = lazy(() => import("@/pages/orders/Index"));
+const OrderPortalDashboard = lazy(() => import("@/pages/orders/Dashboard"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -222,6 +226,18 @@ function AppRoutes() {
       <Route path="/events/:slug/order/:orderId/attendees" element={
         <Suspense fallback={<PageLoader />}>
           <OrderAttendees />
+        </Suspense>
+      } />
+      
+      {/* Order Portal Routes (Public) */}
+      <Route path="/my-orders" element={
+        <Suspense fallback={<PageLoader />}>
+          <OrderPortalIndex />
+        </Suspense>
+      } />
+      <Route path="/my-orders/dashboard" element={
+        <Suspense fallback={<PageLoader />}>
+          <OrderPortalDashboard />
         </Suspense>
       } />
       

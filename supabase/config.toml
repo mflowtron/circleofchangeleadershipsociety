@@ -2,3 +2,18 @@ project_id = "ghwyhwcmhemeeixwbfgp"
 
 [functions.mux-webhook]
 verify_jwt = false
+
+[functions.send-order-access-code]
+verify_jwt = false
+
+[functions.verify-order-access-code]
+verify_jwt = false
+
+[functions.get-orders-by-email]
+verify_jwt = false
+
+[functions.update-attendee-public]
+verify_jwt = false
+
+[functions.mark-message-read]
+verify_jwt = false
