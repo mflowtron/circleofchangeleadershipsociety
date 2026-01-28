@@ -23,7 +23,6 @@ const navItems = [
   { path: '/events/manage/orders', label: 'Orders', icon: ShoppingCart },
   { path: '/events/manage/attendees', label: 'Attendees', icon: Users },
   { path: '/events/manage', label: 'Events', icon: Calendar, exact: true },
-  { path: '/events/manage/new', label: 'Create Event', icon: Plus },
 ];
 
 export function EventsDashboardSidebar({ 
