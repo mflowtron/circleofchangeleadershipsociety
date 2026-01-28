@@ -75,7 +75,7 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
   const isVerticalVideo = post.video_aspect_ratio?.startsWith('9:') || post.video_aspect_ratio === '3:4';
 
   return (
-    <Card className="shadow-soft border-border/50 overflow-hidden hover:shadow-medium transition-shadow duration-300">
+    <Card className="shadow-soft border-border/50 overflow-hidden hover:shadow-medium transition-shadow duration-300 max-w-full">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -122,8 +122,8 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
           )}
         </div>
       </CardHeader>
-      <CardContent className="pb-3">
-        <p className="text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
+      <CardContent className="pb-3 overflow-hidden">
+        <p className="text-foreground whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">{post.content}</p>
         {post.video_url && (
           <div className={cn(
             "mt-4 -mx-6 overflow-hidden relative",
@@ -173,7 +173,7 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
             href={post.link_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-4 block text-primary hover:underline text-sm"
+            className="mt-4 block text-primary hover:underline text-sm truncate"
           >
             {post.link_url}
           </a>
