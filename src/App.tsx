@@ -22,6 +22,8 @@ const Moderation = lazy(() => import("@/pages/Moderation"));
 const MyChapter = lazy(() => import("@/pages/MyChapter"));
 const Announcements = lazy(() => import("@/pages/Announcements"));
 const DashboardSelector = lazy(() => import("@/pages/DashboardSelector"));
+const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
+const UserApprovals = lazy(() => import("@/pages/UserApprovals"));
 
 // Event pages - lazy loaded
 const EventsIndex = lazy(() => import("@/pages/events/Index"));
@@ -62,14 +64,20 @@ function PageLoader() {
   );
 }
 
-function ProtectedRoute({ children, allowedRoles, useEventsLayout }: { 
+function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApproval = true }: { 
   children: React.ReactNode; 
   allowedRoles?: string[]; 
   useEventsLayout?: boolean;
+  requireApproval?: boolean;
 }) {
-  const { role, loading, hasLMSAccess, hasEventsAccess } = useAuth();
+  const { role, loading, isApproved } = useAuth();
   
   if (loading) return null;
+  
+  // Check approval status if required
+  if (requireApproval && !isApproved) {
+    return <Navigate to="/pending-approval" replace />;
+  }
   
   if (allowedRoles && role && !allowedRoles.includes(role)) {
     return <Navigate to="/" replace />;
@@ -87,7 +95,7 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout }: {
 }
 
 function AppRoutes() {
-  const { user, loading, role, hasLMSAccess, hasEventsAccess, hasDualAccess } = useAuth();
+  const { user, loading, hasLMSAccess, hasEventsAccess, hasDualAccess, isApproved } = useAuth();
 
   if (loading) {
     return <FullPageLoader />;
@@ -96,6 +104,11 @@ function AppRoutes() {
   // Determine default route based on user role
   const getDefaultRoute = () => {
     if (!user) return '/auth';
+    
+    // Unapproved users go to pending approval page
+    if (!isApproved) {
+      return '/pending-approval';
+    }
     
     // Users with dual access: always go to selector
     if (hasDualAccess) {
@@ -114,6 +127,11 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth" element={user ? <Navigate to={getDefaultRoute()} replace /> : <Auth />} />
+      <Route path="/pending-approval" element={
+        <Suspense fallback={<PageLoader />}>
+          <PendingApproval />
+        </Suspense>
+      } />
       <Route path="/select-dashboard" element={
         <Suspense fallback={<PageLoader />}>
           <DashboardSelector />
@@ -191,6 +209,16 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={['admin']}>
             <Suspense fallback={<PageLoader />}>
               <Announcements />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/user-approvals" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Suspense fallback={<PageLoader />}>
+              <UserApprovals />
             </Suspense>
           </ProtectedRoute>
         } 

@@ -15,8 +15,10 @@ interface AuthContextType {
     full_name: string;
     avatar_url: string | null;
     chapter_id: string | null;
+    is_approved: boolean;
   } | null;
   role: AppRole | null;
+  isApproved: boolean;
   signOut: () => Promise<void>;
   // Access helpers
   hasLMSAccess: boolean;
@@ -45,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setTimeout(async () => {
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('id, full_name, avatar_url, chapter_id')
+              .select('id, full_name, avatar_url, chapter_id, is_approved')
               .eq('user_id', session.user.id)
               .single();
 
@@ -85,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
   const hasEventsAccess = role === 'admin' || role === 'event_organizer';
   const hasDualAccess = hasLMSAccess && hasEventsAccess;
+  const isApproved = profile?.is_approved ?? false;
 
   return (
     <AuthContext.Provider value={{ 
@@ -93,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading, 
       profile, 
       role, 
+      isApproved,
       signOut,
       hasLMSAccess,
       hasEventsAccess,
