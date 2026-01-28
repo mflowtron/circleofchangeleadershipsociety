@@ -134,7 +134,7 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
                     className="data-[state=checked]:bg-primary"
                   />
                   <Label htmlFor="share-scope" className="text-xs text-muted-foreground cursor-pointer">
-                    {isGlobal ? 'Everyone' : 'Chapter'}
+                    {isGlobal ? 'Everyone' : 'Chapter only'}
                   </Label>
                 </div>
               )}
