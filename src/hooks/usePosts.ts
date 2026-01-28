@@ -137,7 +137,7 @@ export function usePosts(filter: FilterType = 'all') {
     return urlData.publicUrl;
   };
 
-  const createPost = async (content: string, isGlobal: boolean, imageFile?: File) => {
+  const createPost = async (content: string, isGlobal: boolean, imageFile?: File, videoPlaybackId?: string) => {
     if (!user) return;
 
     try {
@@ -153,6 +153,7 @@ export function usePosts(filter: FilterType = 'all') {
         is_global: isGlobal,
         chapter_id: isGlobal ? null : profile?.chapter_id,
         image_url: imageUrl,
+        video_url: videoPlaybackId || null,
       });
 
       if (error) throw error;
