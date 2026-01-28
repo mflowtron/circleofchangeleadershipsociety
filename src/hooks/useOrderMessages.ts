@@ -6,9 +6,11 @@ export interface OrderMessage {
   order_id: string;
   message: string;
   is_important: boolean;
-  created_by: string;
+  created_by: string | null;
   read_at: string | null;
   created_at: string;
+  sender_type: 'organizer' | 'customer';
+  sender_email: string | null;
 }
 
 export function useOrderMessages(orderId: string | undefined) {
@@ -53,6 +55,7 @@ export function useCreateOrderMessage() {
           message,
           is_important: isImportant,
           created_by: user.id,
+          sender_type: 'organizer',
         })
         .select()
         .single();
