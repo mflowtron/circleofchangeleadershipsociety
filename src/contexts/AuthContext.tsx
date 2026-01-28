@@ -3,7 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
-type AppRole = Database['public']['Enums']['app_role'];
+// Note: app_role enum includes 'admin', 'advisor', 'student', 'event_organizer'
+type AppRole = Database['public']['Enums']['app_role'] | 'event_organizer';
 
 interface AuthContextType {
   user: User | null;

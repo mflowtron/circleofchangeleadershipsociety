@@ -10,7 +10,8 @@ import {
   Shield,
   X,
   Sparkles,
-  Megaphone
+  Megaphone,
+  Calendar
 } from 'lucide-react';
 import logo from '@/assets/coclc-logo.png';
 import { Button } from '@/components/ui/button';
@@ -32,9 +33,14 @@ const navItems = {
     { path: '/', label: 'Feed', icon: Home },
     { path: '/recordings', label: 'Recordings', icon: Video },
     { path: '/announcements', label: 'Announcements', icon: Megaphone },
+    { path: '/events/manage', label: 'Events', icon: Calendar },
     { path: '/users', label: 'Users', icon: Users },
     { path: '/chapters', label: 'Chapters', icon: BookOpen },
     { path: '/moderation', label: 'Moderation', icon: Shield },
+    { path: '/profile', label: 'Profile', icon: User },
+  ],
+  event_organizer: [
+    { path: '/events/manage', label: 'Events', icon: Calendar },
     { path: '/profile', label: 'Profile', icon: User },
   ],
 };
