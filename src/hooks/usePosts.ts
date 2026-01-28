@@ -33,6 +33,8 @@ export function usePosts(filter: FilterType = 'all') {
   const fetchPosts = async () => {
     if (!user) return;
     
+    setLoading(true);
+    
     try {
       let query = supabase
         .from('posts')
