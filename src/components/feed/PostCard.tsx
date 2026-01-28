@@ -126,13 +126,25 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
         <p className="text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
         {post.video_url && (
           <div className={cn(
-            "mt-4 -mx-6 overflow-hidden",
-            isVerticalVideo ? "flex justify-center bg-muted/30" : ""
+            "mt-4 -mx-6 overflow-hidden relative",
+            isVerticalVideo ? "flex justify-center items-center" : ""
           )}>
+            {/* Blurred poster background for vertical videos */}
+            {isVerticalVideo && (
+              <div 
+                className="absolute inset-0 bg-cover bg-center"
+                style={{
+                  backgroundImage: `url(https://image.mux.com/${post.video_url}/thumbnail.png?width=100&height=100)`,
+                  filter: 'blur(40px)',
+                  transform: 'scale(1.2)',
+                }}
+                aria-hidden="true"
+              />
+            )}
             <Suspense fallback={
               <div className={cn(
                 "bg-muted animate-pulse",
-                isVerticalVideo ? "max-w-[320px] aspect-[9/16]" : "w-full aspect-video"
+                isVerticalVideo ? "max-w-[320px] aspect-[9/16] relative z-10" : "w-full aspect-video"
               )} />
             }>
               <MuxPlayer
@@ -142,8 +154,7 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
                 }}
                 accentColor="#C9A55C"
                 className={cn(
-                  "w-full",
-                  isVerticalVideo ? "max-w-[320px] aspect-[9/16]" : "aspect-video"
+                  isVerticalVideo ? "max-w-[320px] aspect-[9/16] relative z-10" : "w-full aspect-video"
                 )}
               />
             </Suspense>
