@@ -62,7 +62,7 @@ export default function Sidebar() {
         style={{ backgroundImage: "var(--gradient-dark)" }}
       >
         {/* Header */}
-        <div className="p-5 flex items-center justify-between border-b border-sidebar-border/50">
+        <div className="p-5 flex items-center justify-between border-b border-sidebar-border/50" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-3">
             <img src={logo} alt="Circle of Change" className="h-10" />
           </div>
