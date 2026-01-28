@@ -8,6 +8,7 @@ import { Heart, MessageCircle, Trash2, Globe, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import CommentsSection from './CommentsSection';
+import ImageLightbox from '@/components/ui/image-lightbox';
 
 interface PostCardProps {
   post: Post;
@@ -64,7 +65,7 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
       <CardContent className="pb-3">
         <p className="text-foreground whitespace-pre-wrap">{post.content}</p>
         {post.image_url && (
-          <img src={post.image_url} alt="" className="mt-3 rounded-lg max-h-96 object-cover" />
+          <ImageLightbox src={post.image_url} className="mt-3 rounded-lg max-h-96 object-cover" />
         )}
         {post.link_url && (
           <a
