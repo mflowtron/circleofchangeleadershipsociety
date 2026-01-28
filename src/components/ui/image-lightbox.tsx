@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -269,97 +270,97 @@ export default function ImageLightbox({ src, alt = '', className }: ImageLightbo
   const backgroundOpacity = 1 - dragProgress * 0.5;
   const imageScale = 1 - dragProgress * 0.1;
 
-  if (!isOpen) {
-    return (
+  const lightboxContent = (
+    <div
+      className={cn(
+        "fixed inset-0 z-[9999] flex items-center justify-center",
+        isClosing ? "animate-fade-out" : "animate-fade-in"
+      )}
+      style={{
+        backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity * 0.95})`,
+        transition: isDragging ? 'none' : 'background-color 0.2s ease-out',
+      }}
+    >
+      {/* Close button - Apple style */}
+      <button
+        onClick={handleClose}
+        className={cn(
+          "absolute z-30 w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center transition-all duration-300",
+          showControls ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+        )}
+        style={{ 
+          top: 'max(1rem, env(safe-area-inset-top))',
+          left: 'max(1rem, env(safe-area-inset-left))'
+        }}
+      >
+        <X className="h-5 w-5 text-white" />
+      </button>
+
+      {/* Zoom indicator - subtle */}
+      {transform.scale > 1 && (
+        <div className={cn(
+          "absolute z-30 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 text-xs font-medium text-white transition-opacity duration-300",
+          showControls ? "opacity-100" : "opacity-0"
+        )} style={{ 
+          top: 'max(1rem, env(safe-area-inset-top))',
+          right: 'max(1rem, env(safe-area-inset-right))'
+        }}>
+          {Math.round(transform.scale * 100)}%
+        </div>
+      )}
+
+      {/* Image container */}
+      <div 
+        ref={imageRef}
+        className="w-full h-full flex items-center justify-center overflow-hidden touch-none"
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-full max-h-full object-contain select-none"
+          style={{
+            transform: `translate(${transform.translateX + dragOffset.x}px, ${transform.translateY + dragOffset.y}px) scale(${transform.scale * imageScale})`,
+            transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            willChange: 'transform',
+          }}
+          onTouchEnd={handleDoubleTap}
+          draggable={false}
+        />
+      </div>
+
+      {/* Swipe hint - only show briefly on first open */}
+      <div className={cn(
+        "absolute left-1/2 -translate-x-1/2 z-20 text-white/60 text-xs font-medium transition-opacity duration-500 pointer-events-none",
+        showControls ? "opacity-100" : "opacity-0"
+      )} style={{ bottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+        Swipe down to close
+      </div>
+
+      {/* Click outside to close on desktop */}
+      <div 
+        className="absolute inset-0 -z-10 hidden sm:block"
+        onClick={handleClose}
+      />
+    </div>
+  );
+
+  return (
+    <>
+      {/* Thumbnail */}
       <img
         src={src}
         alt={alt}
         className={cn("cursor-zoom-in transition-opacity active:opacity-80", className)}
         onClick={() => setIsOpen(true)}
       />
-    );
-  }
-
-  return (
-    <>
-      {/* Thumbnail (hidden when lightbox is open) */}
-      <img
-        src={src}
-        alt={alt}
-        className={cn("opacity-0", className)}
-      />
       
-      {/* Fullscreen Lightbox */}
-      <div
-        className={cn(
-          "fixed inset-0 z-50 flex items-center justify-center",
-          isClosing ? "animate-fade-out" : "animate-fade-in"
-        )}
-        style={{
-          backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity * 0.95})`,
-          transition: isDragging ? 'none' : 'background-color 0.2s ease-out',
-        }}
-      >
-        {/* Close button - Apple style */}
-        <button
-          onClick={handleClose}
-          className={cn(
-            "absolute top-4 left-4 z-30 w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center transition-all duration-300",
-            showControls ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
-          )}
-          style={{ paddingTop: 'env(safe-area-inset-top)' }}
-        >
-          <X className="h-5 w-5 text-white" />
-        </button>
-
-        {/* Zoom indicator - subtle */}
-        {transform.scale > 1 && (
-          <div className={cn(
-            "absolute top-4 right-4 z-30 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 text-xs font-medium text-white transition-opacity duration-300",
-            showControls ? "opacity-100" : "opacity-0"
-          )}>
-            {Math.round(transform.scale * 100)}%
-          </div>
-        )}
-
-        {/* Image container */}
-        <div 
-          ref={imageRef}
-          className="w-full h-full flex items-center justify-center overflow-hidden touch-none"
-          onWheel={handleWheel}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onTouchCancel={handleTouchEnd}
-        >
-          <img
-            src={src}
-            alt={alt}
-            className="max-w-full max-h-full object-contain select-none"
-            style={{
-              transform: `translate(${transform.translateX + dragOffset.x}px, ${transform.translateY + dragOffset.y}px) scale(${transform.scale * imageScale})`,
-              transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              willChange: 'transform',
-            }}
-            onTouchEnd={handleDoubleTap}
-            draggable={false}
-          />
-        </div>
-
-        {/* Swipe hint - only show briefly on first open */}
-        <div className={cn(
-          "absolute bottom-8 left-1/2 -translate-x-1/2 z-20 text-white/60 text-xs font-medium transition-opacity duration-500 pointer-events-none",
-          showControls ? "opacity-100" : "opacity-0"
-        )} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          Swipe down to close
-        </div>
-
-        {/* Click outside to close on desktop */}
-        <div 
-          className="absolute inset-0 -z-10 hidden sm:block"
-          onClick={handleClose}
-        />
-      </div>
+      {/* Fullscreen Lightbox - rendered via portal to escape container constraints */}
+      {isOpen && createPortal(lightboxContent, document.body)}
     </>
   );
 }
