@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ImageLightboxProps {
   src: string;
@@ -17,28 +16,57 @@ interface Transform {
 
 export default function ImageLightbox({ src, alt = '', className }: ImageLightboxProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [transform, setTransform] = useState<Transform>({ scale: 1, translateX: 0, translateY: 0 });
+  const [showControls, setShowControls] = useState(true);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  
   const imageRef = useRef<HTMLDivElement>(null);
   const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
   const lastDistanceRef = useRef<number | null>(null);
   const initialTransformRef = useRef<Transform>({ scale: 1, translateX: 0, translateY: 0 });
+  const velocityRef = useRef({ x: 0, y: 0 });
+  const lastMoveTimeRef = useRef(0);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const resetTransform = useCallback(() => {
     setTransform({ scale: 1, translateX: 0, translateY: 0 });
+    setDragOffset({ x: 0, y: 0 });
   }, []);
 
-  const handleZoomIn = useCallback(() => {
-    setTransform(prev => ({ ...prev, scale: Math.min(prev.scale * 1.5, 5) }));
-  }, []);
+  const handleClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+      resetTransform();
+      setShowControls(true);
+    }, 250);
+  }, [resetTransform]);
 
-  const handleZoomOut = useCallback(() => {
-    setTransform(prev => ({
-      ...prev,
-      scale: Math.max(prev.scale / 1.5, 1),
-      translateX: prev.scale <= 1.5 ? 0 : prev.translateX,
-      translateY: prev.scale <= 1.5 ? 0 : prev.translateY,
-    }));
-  }, []);
+  // Auto-hide controls after 3 seconds
+  const resetControlsTimeout = useCallback(() => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    setShowControls(true);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (transform.scale <= 1) {
+        setShowControls(false);
+      }
+    }, 3000);
+  }, [transform.scale]);
+
+  // Toggle controls on tap
+  const handleTap = useCallback(() => {
+    if (transform.scale <= 1) {
+      setShowControls(prev => !prev);
+      if (!showControls) {
+        resetControlsTimeout();
+      }
+    }
+  }, [transform.scale, showControls, resetControlsTimeout]);
 
   // Handle wheel zoom on desktop
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -53,7 +81,8 @@ export default function ImageLightbox({ src, alt = '', className }: ImageLightbo
         translateY: newScale === 1 ? 0 : prev.translateY,
       };
     });
-  }, []);
+    resetControlsTimeout();
+  }, [resetControlsTimeout]);
 
   // Get distance between two touch points
   const getDistance = (touch1: React.Touch, touch2: React.Touch): number => {
@@ -72,10 +101,11 @@ export default function ImageLightbox({ src, alt = '', className }: ImageLightbo
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 1) {
-      // Single touch - start pan
       lastTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      velocityRef.current = { x: 0, y: 0 };
+      lastMoveTimeRef.current = Date.now();
+      setIsDragging(true);
     } else if (e.touches.length === 2) {
-      // Two fingers - start pinch
       lastDistanceRef.current = getDistance(e.touches[0], e.touches[1]);
       lastTouchRef.current = getCenter(e.touches[0], e.touches[1]);
     }
@@ -85,13 +115,15 @@ export default function ImageLightbox({ src, alt = '', className }: ImageLightbo
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     
+    const now = Date.now();
+    const timeDelta = now - lastMoveTimeRef.current;
+    
     if (e.touches.length === 2 && lastDistanceRef.current !== null) {
       // Pinch to zoom
       const currentDistance = getDistance(e.touches[0], e.touches[1]);
       const scale = currentDistance / lastDistanceRef.current;
       const newScale = Math.max(1, Math.min(initialTransformRef.current.scale * scale, 5));
       
-      // Also handle pan during pinch
       const currentCenter = getCenter(e.touches[0], e.touches[1]);
       if (lastTouchRef.current) {
         const deltaX = currentCenter.x - lastTouchRef.current.x;
@@ -103,38 +135,103 @@ export default function ImageLightbox({ src, alt = '', className }: ImageLightbo
           translateY: newScale > 1 ? initialTransformRef.current.translateY + deltaY : 0,
         });
       }
-    } else if (e.touches.length === 1 && lastTouchRef.current && transform.scale > 1) {
-      // Single touch pan (only when zoomed)
+      setDragOffset({ x: 0, y: 0 });
+    } else if (e.touches.length === 1 && lastTouchRef.current) {
       const deltaX = e.touches[0].clientX - lastTouchRef.current.x;
       const deltaY = e.touches[0].clientY - lastTouchRef.current.y;
       
-      setTransform(prev => ({
-        ...prev,
-        translateX: initialTransformRef.current.translateX + deltaX,
-        translateY: initialTransformRef.current.translateY + deltaY,
-      }));
+      // Calculate velocity for momentum
+      if (timeDelta > 0) {
+        velocityRef.current = {
+          x: deltaX / timeDelta,
+          y: deltaY / timeDelta,
+        };
+      }
+      lastMoveTimeRef.current = now;
+      
+      if (transform.scale > 1) {
+        // Pan when zoomed
+        setTransform(prev => ({
+          ...prev,
+          translateX: initialTransformRef.current.translateX + deltaX,
+          translateY: initialTransformRef.current.translateY + deltaY,
+        }));
+      } else {
+        // Swipe to dismiss when not zoomed - Apple Photos style
+        setDragOffset({ x: deltaX, y: deltaY });
+      }
     }
   }, [transform.scale]);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    setIsDragging(false);
+    
+    // Check for swipe to dismiss
+    if (transform.scale <= 1 && (Math.abs(dragOffset.y) > 100 || Math.abs(velocityRef.current.y) > 0.5)) {
+      handleClose();
+    } else {
+      // Spring back
+      setDragOffset({ x: 0, y: 0 });
+    }
+    
+    // Snap back if zoomed out
+    if (transform.scale < 1) {
+      setTransform(prev => ({ ...prev, scale: 1 }));
+    }
+    
     lastTouchRef.current = null;
     lastDistanceRef.current = null;
-  }, []);
+  }, [transform.scale, dragOffset.y, handleClose]);
 
   // Handle double tap to zoom
   const lastTapRef = useRef<number>(0);
+  const lastTapPosRef = useRef<{ x: number; y: number } | null>(null);
+  
   const handleDoubleTap = useCallback((e: React.TouchEvent) => {
     const now = Date.now();
-    if (now - lastTapRef.current < 300) {
-      // Double tap detected
-      if (transform.scale > 1) {
-        resetTransform();
-      } else {
-        setTransform({ scale: 2.5, translateX: 0, translateY: 0 });
+    const touch = e.changedTouches[0];
+    const currentPos = { x: touch.clientX, y: touch.clientY };
+    
+    if (lastTapPosRef.current) {
+      const distance = Math.sqrt(
+        Math.pow(currentPos.x - lastTapPosRef.current.x, 2) +
+        Math.pow(currentPos.y - lastTapPosRef.current.y, 2)
+      );
+      
+      if (now - lastTapRef.current < 300 && distance < 50) {
+        // Double tap detected
+        e.preventDefault();
+        if (transform.scale > 1) {
+          resetTransform();
+        } else {
+          // Zoom to tap location
+          const rect = imageRef.current?.getBoundingClientRect();
+          if (rect) {
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const offsetX = (centerX - touch.clientX) * 1.5;
+            const offsetY = (centerY - touch.clientY) * 1.5;
+            setTransform({ scale: 2.5, translateX: offsetX, translateY: offsetY });
+          } else {
+            setTransform({ scale: 2.5, translateX: 0, translateY: 0 });
+          }
+        }
+        lastTapRef.current = 0;
+        lastTapPosRef.current = null;
+        return;
       }
     }
+    
     lastTapRef.current = now;
-  }, [transform.scale, resetTransform]);
+    lastTapPosRef.current = currentPos;
+    
+    // Single tap - toggle controls after a short delay
+    setTimeout(() => {
+      if (Date.now() - lastTapRef.current >= 280) {
+        handleTap();
+      }
+    }, 300);
+  }, [transform.scale, resetTransform, handleTap]);
 
   // Reset transform when dialog closes
   useEffect(() => {
@@ -143,89 +240,126 @@ export default function ImageLightbox({ src, alt = '', className }: ImageLightbo
     }
   }, [isOpen, resetTransform]);
 
-  return (
-    <>
+  // Start controls timeout when opening
+  useEffect(() => {
+    if (isOpen) {
+      resetControlsTimeout();
+    }
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [isOpen, resetControlsTimeout]);
+
+  // Lock body scroll when open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  // Calculate background opacity based on drag
+  const dragProgress = Math.min(1, Math.abs(dragOffset.y) / 300);
+  const backgroundOpacity = 1 - dragProgress * 0.5;
+  const imageScale = 1 - dragProgress * 0.1;
+
+  if (!isOpen) {
+    return (
       <img
         src={src}
         alt={alt}
-        className={`cursor-zoom-in transition-opacity hover:opacity-90 ${className}`}
+        className={cn("cursor-zoom-in transition-opacity active:opacity-80", className)}
         onClick={() => setIsOpen(true)}
       />
+    );
+  }
+
+  return (
+    <>
+      {/* Thumbnail (hidden when lightbox is open) */}
+      <img
+        src={src}
+        alt={alt}
+        className={cn("opacity-0", className)}
+      />
       
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 border-none bg-foreground/90 shadow-none">
-          {/* Controls */}
-          <div className="absolute top-4 right-4 z-20 flex gap-2">
-            <Button
-              variant="secondary"
-              size="icon"
-              className="rounded-full bg-background/80 backdrop-blur-sm"
-              onClick={handleZoomIn}
-            >
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="rounded-full bg-background/80 backdrop-blur-sm"
-              onClick={handleZoomOut}
-            >
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="rounded-full bg-background/80 backdrop-blur-sm"
-              onClick={resetTransform}
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="rounded-full bg-background/80 backdrop-blur-sm"
-              onClick={() => setIsOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Zoom level indicator */}
-          {transform.scale > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-background/80 backdrop-blur-sm rounded-full px-3 py-1 text-sm">
-              {Math.round(transform.scale * 100)}%
-            </div>
+      {/* Fullscreen Lightbox */}
+      <div
+        className={cn(
+          "fixed inset-0 z-50 flex items-center justify-center",
+          isClosing ? "animate-fade-out" : "animate-fade-in"
+        )}
+        style={{
+          backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity * 0.95})`,
+          transition: isDragging ? 'none' : 'background-color 0.2s ease-out',
+        }}
+      >
+        {/* Close button - Apple style */}
+        <button
+          onClick={handleClose}
+          className={cn(
+            "absolute top-4 left-4 z-30 w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center transition-all duration-300",
+            showControls ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
           )}
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+          <X className="h-5 w-5 text-white" />
+        </button>
 
-          {/* Image container */}
-          <div 
-            ref={imageRef}
-            className="w-full h-full flex items-center justify-center overflow-hidden touch-none"
-            onWheel={handleWheel}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-          >
-            <img
-              src={src}
-              alt={alt}
-              className="max-w-full max-h-full object-contain select-none"
-              style={{
-                transform: `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale})`,
-                transition: lastTouchRef.current ? 'none' : 'transform 0.2s ease-out',
-              }}
-              onTouchEnd={handleDoubleTap}
-              draggable={false}
-            />
+        {/* Zoom indicator - subtle */}
+        {transform.scale > 1 && (
+          <div className={cn(
+            "absolute top-4 right-4 z-30 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 text-xs font-medium text-white transition-opacity duration-300",
+            showControls ? "opacity-100" : "opacity-0"
+          )}>
+            {Math.round(transform.scale * 100)}%
           </div>
+        )}
 
-          {/* Instructions hint */}
-          <div className="absolute bottom-4 right-4 z-20 text-xs text-background/60 hidden sm:block">
-            Scroll to zoom • Drag to pan
-          </div>
-        </DialogContent>
-      </Dialog>
+        {/* Image container */}
+        <div 
+          ref={imageRef}
+          className="w-full h-full flex items-center justify-center overflow-hidden touch-none"
+          onWheel={handleWheel}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+        >
+          <img
+            src={src}
+            alt={alt}
+            className="max-w-full max-h-full object-contain select-none"
+            style={{
+              transform: `translate(${transform.translateX + dragOffset.x}px, ${transform.translateY + dragOffset.y}px) scale(${transform.scale * imageScale})`,
+              transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              willChange: 'transform',
+            }}
+            onTouchEnd={handleDoubleTap}
+            draggable={false}
+          />
+        </div>
+
+        {/* Swipe hint - only show briefly on first open */}
+        <div className={cn(
+          "absolute bottom-8 left-1/2 -translate-x-1/2 z-20 text-white/60 text-xs font-medium transition-opacity duration-500 pointer-events-none",
+          showControls ? "opacity-100" : "opacity-0"
+        )} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          Swipe down to close
+        </div>
+
+        {/* Click outside to close on desktop */}
+        <div 
+          className="absolute inset-0 -z-10 hidden sm:block"
+          onClick={handleClose}
+        />
+      </div>
     </>
   );
 }
