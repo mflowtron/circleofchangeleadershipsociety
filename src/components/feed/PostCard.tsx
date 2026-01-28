@@ -22,8 +22,23 @@ interface PostCardProps {
   onDelete: () => void;
 }
 
+// CSS for heart animation
+const heartAnimationStyles = `
+  @keyframes heart-pop {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.3); }
+    50% { transform: scale(0.95); }
+    75% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  .animate-heart-pop {
+    animation: heart-pop 0.4s ease-out;
+  }
+`;
+
 export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
   const [showComments, setShowComments] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const { user, role } = useAuth();
 
   const canDelete = user?.id === post.user_id || role === 'admin';
@@ -33,9 +48,17 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
     .join('')
     .toUpperCase();
 
+  const handleLike = () => {
+    setIsAnimating(true);
+    onLike();
+    setTimeout(() => setIsAnimating(false), 400);
+  };
+
   return (
-    <Card className="shadow-soft border-border/50 overflow-hidden hover:shadow-medium transition-shadow duration-300">
-      <CardHeader className="pb-3">
+    <>
+      <style>{heartAnimationStyles}</style>
+      <Card className="shadow-soft border-border/50 overflow-hidden hover:shadow-medium transition-shadow duration-300">
+        <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="h-11 w-11 ring-2 ring-primary/10">
@@ -107,13 +130,17 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={onLike}
+            onClick={handleLike}
             className={cn(
               "flex-1 gap-2 rounded-xl h-10 hover:bg-destructive/10",
               post.user_has_liked && "text-destructive"
             )}
           >
-            <Heart className={cn("h-5 w-5", post.user_has_liked && "fill-current")} />
+            <Heart className={cn(
+              "h-5 w-5 transition-transform",
+              post.user_has_liked && "fill-current",
+              isAnimating && "animate-heart-pop"
+            )} />
             <span className="font-medium">{post.likes_count}</span>
           </Button>
           <Button
@@ -128,6 +155,7 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
         </div>
         {showComments && <CommentsSection postId={post.id} />}
       </CardFooter>
-    </Card>
+      </Card>
+    </>
   );
 }

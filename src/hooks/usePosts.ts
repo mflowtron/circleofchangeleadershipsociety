@@ -175,6 +175,19 @@ export function usePosts(filter: FilterType = 'all') {
   const toggleLike = async (postId: string, hasLiked: boolean) => {
     if (!user) return;
 
+    // Optimistic update - immediately update UI
+    setPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.id === postId
+          ? {
+              ...post,
+              user_has_liked: !hasLiked,
+              likes_count: hasLiked ? post.likes_count - 1 : post.likes_count + 1,
+            }
+          : post
+      )
+    );
+
     try {
       if (hasLiked) {
         await supabase
@@ -188,8 +201,19 @@ export function usePosts(filter: FilterType = 'all') {
           user_id: user.id,
         });
       }
-      fetchPosts();
     } catch (error: any) {
+      // Revert optimistic update on error
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId
+            ? {
+                ...post,
+                user_has_liked: hasLiked,
+                likes_count: hasLiked ? post.likes_count + 1 : post.likes_count - 1,
+              }
+            : post
+        )
+      );
       toast({
         variant: 'destructive',
         title: 'Error',
