@@ -29,6 +29,7 @@ import ManageTickets from "@/pages/events/manage/ManageTickets";
 import EventOrders from "@/pages/events/manage/EventOrders";
 import ManageOrders from "@/pages/events/manage/Orders";
 import ManageAttendees from "@/pages/events/manage/Attendees";
+import OrderDetail from "@/pages/events/manage/OrderDetail";
 import Checkout from "@/pages/events/Checkout";
 import CheckoutSuccess from "@/pages/events/CheckoutSuccess";
 import OrderAttendees from "@/pages/events/OrderAttendees";
@@ -165,6 +166,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
             <ManageOrders />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/events/manage/orders/:orderId" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+            <OrderDetail />
           </ProtectedRoute>
         } 
       />

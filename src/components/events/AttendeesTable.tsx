@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Check, X, Pencil, Download, Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -253,7 +254,16 @@ export function AttendeesTable({
                     </TableCell>
                     <TableCell>{attendee.ticket_type?.name || '-'}</TableCell>
                     <TableCell className="font-mono text-sm">
-                      {attendee.order?.order_number || '-'}
+                      {attendee.order_id ? (
+                        <Link
+                          to={`/events/manage/orders/${attendee.order_id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {attendee.order?.order_number || '-'}
+                        </Link>
+                      ) : (
+                        '-'
+                      )}
                     </TableCell>
                     <TableCell>{attendee.order?.full_name || '-'}</TableCell>
                     <TableCell>
