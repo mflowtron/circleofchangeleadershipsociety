@@ -1,138 +1,91 @@
 
-# Announcements Feature
+
+# Add Announcement Edit Mode
 
 ## Overview
 
-This feature will allow admins to create announcements that are displayed prominently to all users. Announcements will appear in a dedicated banner at the top of the Feed page, providing high visibility for important messages.
+This feature adds the ability for admins to edit existing announcements via a modal dialog. The backend already supports updating all announcement fields through the `updateAnnouncement` function - this change adds the missing frontend UI.
 
 ## User Experience
 
-### For All Users
-- A prominent announcement banner appears at the top of the Feed, above all posts
-- Active announcements display with a distinctive golden/primary color scheme matching the app's premium aesthetic
-- Users can dismiss announcements individually (the dismissal is remembered)
-- Multiple active announcements will be shown in a carousel/stack format
+- An **Edit button** (pencil icon) appears next to each announcement in the admin list
+- Clicking it opens a **modal dialog** pre-filled with the announcement's current data
+- Admins can modify the title, content, expiration date, and active status
+- Saving updates the announcement and closes the modal with a success toast
 
-### For Admins
-- A new "Announcements" navigation item in the sidebar
-- A dedicated management page to create, edit, and delete announcements
-- Options to set an expiration date for time-limited announcements
-- Ability to mark announcements as active/inactive
+## Implementation
 
-## Visual Design
+### New Component
 
-The announcement banner will feature:
-- A distinctive card with golden accent border and subtle gradient background
-- A megaphone icon to draw attention
-- The announcement title in bold with content below
-- A dismiss button for users
-- Smooth slide-in animation when appearing
+**`src/components/announcements/EditAnnouncementDialog.tsx`**
 
-## Technical Implementation
+A modal dialog component containing:
+- Title input field (pre-filled)
+- Content textarea (pre-filled)
+- Expiration date picker (pre-filled if set)
+- Active status toggle (pre-filled)
+- Cancel and Save buttons
 
-### 1. Database Schema
+### Modified Files
 
-Create an `announcements` table:
+**`src/pages/Announcements.tsx`**
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| title | text | Announcement title |
-| content | text | Main announcement content |
-| is_active | boolean | Whether the announcement is currently displayed |
-| expires_at | timestamp | Optional expiration date |
-| created_at | timestamp | Creation timestamp |
-| created_by | uuid | Admin user who created it |
+| Change | Description |
+|--------|-------------|
+| Import EditAnnouncementDialog | Add the new component import |
+| Add edit state | Track which announcement is being edited (`editingAnnouncement`) |
+| Add Edit button | Pencil icon button next to the active toggle |
+| Render dialog | Show EditAnnouncementDialog when an announcement is selected |
 
-Create a `dismissed_announcements` table to track user dismissals:
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| user_id | uuid | User who dismissed |
-| announcement_id | uuid | The dismissed announcement |
-| dismissed_at | timestamp | When it was dismissed |
-
-### 2. Row-Level Security Policies
-
-**announcements table:**
-- SELECT: All authenticated users can view active announcements
-- INSERT/UPDATE/DELETE: Only admins
-
-**dismissed_announcements table:**
-- SELECT: Users can view their own dismissals
-- INSERT: Users can dismiss announcements for themselves
-- DELETE: Users can un-dismiss if needed
-
-### 3. New Files
-
-| File | Purpose |
-|------|---------|
-| `src/components/announcements/AnnouncementBanner.tsx` | Displays announcements at top of Feed |
-| `src/components/announcements/AnnouncementCard.tsx` | Individual announcement card component |
-| `src/components/announcements/CreateAnnouncementForm.tsx` | Form for admins to create announcements |
-| `src/hooks/useAnnouncements.ts` | Hook for fetching and managing announcements |
-| `src/pages/Announcements.tsx` | Admin page for managing announcements |
-
-### 4. File Modifications
-
-| File | Changes |
-|------|---------|
-| `src/components/layout/Sidebar.tsx` | Add "Announcements" nav item for admins |
-| `src/pages/Feed.tsx` | Add AnnouncementBanner component above posts |
-| `src/App.tsx` | Add route for /announcements (admin only) |
-
-### 5. Implementation Flow
+## Component Architecture
 
 ```text
-+------------------+      +-------------------+      +------------------+
-| Admin creates    | ---> | Announcement      | ---> | Users see        |
-| announcement     |      | saved to database |      | banner in Feed   |
-+------------------+      +-------------------+      +------------------+
-                                                            |
-                                                            v
-                                                     +------------------+
-                                                     | User dismisses   |
-                                                     | (saved in DB)    |
-                                                     +------------------+
+Announcements Page
+       |
+       +-- CreateAnnouncementForm (existing)
+       |
+       +-- Announcement List
+       |       |
+       |       +-- [For each announcement]
+       |               +-- Edit Button (new) --> Opens EditAnnouncementDialog
+       |               +-- Active Toggle (existing)
+       |               +-- Delete Button (existing)
+       |
+       +-- EditAnnouncementDialog (new, rendered conditionally)
+               |
+               +-- Title Input
+               +-- Content Textarea  
+               +-- Expiration Date Picker
+               +-- Active Toggle
+               +-- Cancel / Save Buttons
 ```
 
-### 6. Component Architecture
+## Technical Details
 
-**AnnouncementBanner** (Container):
-- Fetches active, non-dismissed announcements
-- Renders AnnouncementCard for each
-- Handles dismiss action
+### EditAnnouncementDialog Props
 
-**AnnouncementCard** (Presentational):
-- Displays individual announcement with premium styling
-- Golden border, glassmorphism effect
-- Megaphone icon, title, content, dismiss button
+| Prop | Type | Description |
+|------|------|-------------|
+| `announcement` | `Announcement \| null` | The announcement to edit, or null to close |
+| `onClose` | `() => void` | Callback to close the dialog |
+| `onSave` | `(id: string, data: UpdateData) => Promise<void>` | Callback to save changes |
 
-**CreateAnnouncementForm**:
-- Title input (required)
-- Content textarea (required)
-- Optional expiration date picker
-- Active toggle switch
+### State Management
 
-### 7. Hook: useAnnouncements
+The dialog manages local form state initialized from the announcement prop:
+- `title` - string
+- `content` - string  
+- `expiresAt` - string (datetime-local format)
+- `isActive` - boolean
+- `isSubmitting` - boolean (for loading state)
 
-```text
-Returns:
-- announcements: Active announcements not dismissed by user
-- allAnnouncements: All announcements (for admin view)
-- loading: Loading state
-- createAnnouncement(data): Create new announcement
-- updateAnnouncement(id, data): Update existing
-- deleteAnnouncement(id): Delete announcement
-- dismissAnnouncement(id): Dismiss for current user
-```
+When the announcement prop changes (new announcement selected), the form fields reset to the new values using a `useEffect`.
 
-## Summary
+### UI Patterns
 
-This implementation provides a complete announcements system with:
-- Prominent display in the Feed for maximum visibility
-- Per-user dismissal tracking so announcements don't become annoying
-- Optional expiration for time-sensitive content
-- Full admin CRUD capabilities
-- Premium design matching the app's golden aesthetic
+Following existing patterns in the codebase:
+- Uses the existing `Dialog` component from `@/components/ui/dialog`
+- Same form field styling as `CreateAnnouncementForm`
+- Consistent button placement (Cancel left, Save right in footer)
+- Loading state on Save button during submission
+
