@@ -10,6 +10,7 @@ import { lazy, Suspense } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
+import { CircleLoader, FullPageLoader } from "@/components/ui/circle-loader";
 
 // Lazy load pages for better initial bundle size
 const Feed = lazy(() => import("@/pages/Feed"));
@@ -54,9 +55,7 @@ const DASHBOARD_PREFERENCE_KEY = 'preferred_dashboard';
 function PageLoader() {
   return (
     <div className="min-h-[200px] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-8 h-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-      </div>
+      <CircleLoader size="md" />
     </div>
   );
 }
@@ -89,11 +88,7 @@ function AppRoutes() {
   const { user, loading, role, hasLMSAccess, hasEventsAccess, hasDualAccess } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-primary text-lg">Loading...</div>
-      </div>
-    );
+    return <FullPageLoader />;
   }
 
   // Determine default route based on user role and saved preference
