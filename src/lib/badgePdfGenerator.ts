@@ -57,6 +57,7 @@ function getBadgePosition(
 }
 
 interface LoadedImage {
+  element: HTMLImageElement;
   dataUrl: string;
   width: number;
   height: number;
@@ -77,6 +78,7 @@ async function loadImage(url: string): Promise<LoadedImage> {
       }
       ctx.drawImage(img, 0, 0);
       resolve({
+        element: img,
         dataUrl: canvas.toDataURL('image/jpeg', 0.9),
         width: img.width,
         height: img.height,
@@ -87,34 +89,48 @@ async function loadImage(url: string): Promise<LoadedImage> {
   });
 }
 
-// Calculate dimensions to "cover" the target area (like CSS object-fit: cover)
-function calculateCoverDimensions(
-  imgWidth: number,
-  imgHeight: number,
-  targetWidth: number,
-  targetHeight: number
-): { width: number; height: number; x: number; y: number } {
-  const imgAspect = imgWidth / imgHeight;
-  const targetAspect = targetWidth / targetHeight;
+// Render a background image to an exact badge-size JPEG using "cover" (crop, no distortion).
+// This avoids relying on PDF clipping (which can be inconsistent across viewers).
+function renderCoverImageToDataUrl(
+  img: HTMLImageElement,
+  badgeWidthPt: number,
+  badgeHeightPt: number,
+  exportPxPerInch = 300
+): string {
+  const widthIn = badgeWidthPt / POINTS_PER_INCH;
+  const heightIn = badgeHeightPt / POINTS_PER_INCH;
+  const targetW = Math.round(widthIn * exportPxPerInch);
+  const targetH = Math.round(heightIn * exportPxPerInch);
 
-  let width: number;
-  let height: number;
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get canvas context');
+
+  const imgAspect = img.width / img.height;
+  const targetAspect = targetW / targetH;
+
+  // Compute source crop rect (sx, sy, sw, sh) to cover the target
+  let sx = 0;
+  let sy = 0;
+  let sw = img.width;
+  let sh = img.height;
 
   if (imgAspect > targetAspect) {
-    // Image is wider than target - fit by height, crop width
-    height = targetHeight;
-    width = targetHeight * imgAspect;
+    // Wider than target: crop left/right
+    sh = img.height;
+    sw = Math.round(img.height * targetAspect);
+    sx = Math.round((img.width - sw) / 2);
   } else {
-    // Image is taller than target - fit by width, crop height
-    width = targetWidth;
-    height = targetWidth / imgAspect;
+    // Taller than target: crop top/bottom
+    sw = img.width;
+    sh = Math.round(img.width / targetAspect);
+    sy = Math.round((img.height - sh) / 2);
   }
 
-  // Center the image
-  const x = (targetWidth - width) / 2;
-  const y = (targetHeight - height) / 2;
-
-  return { width, height, x, y };
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+  return canvas.toDataURL('image/jpeg', 0.92);
 }
 
 export async function generateBadgePdf(
@@ -142,6 +158,20 @@ export async function generateBadgePdf(
     }
   }
 
+  // Pre-render cropped background once (badge dimensions are constant per template)
+  let backgroundCoverDataUrl: string | null = null;
+  if (backgroundImage) {
+    try {
+      backgroundCoverDataUrl = renderCoverImageToDataUrl(
+        backgroundImage.element,
+        badgeWidth,
+        badgeHeight
+      );
+    } catch (e) {
+      console.warn('Failed to render background cover image:', e);
+    }
+  }
+
   const totalPages = Math.ceil(attendees.length / badgesPerPage);
 
   for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
@@ -157,36 +187,9 @@ export async function generateBadgePdf(
       const badgeIndex = i - startIdx;
       const { x, y } = getBadgePosition(badgeIndex, orientation);
 
-      // Draw background image if available (using cover/crop behavior)
-      if (backgroundImage) {
-        // Save graphics state and create clipping region for the badge
-        doc.saveGraphicsState();
-        
-        // Create clipping rectangle for the badge area
-        doc.rect(x, y, badgeWidth, badgeHeight);
-        // @ts-ignore - clip() exists in jsPDF but types may be incomplete
-        doc.clip();
-        
-        // Calculate cover dimensions to fill badge while maintaining aspect ratio
-        const cover = calculateCoverDimensions(
-          backgroundImage.width,
-          backgroundImage.height,
-          badgeWidth,
-          badgeHeight
-        );
-        
-        // Draw the image with calculated dimensions (will be clipped to badge area)
-        doc.addImage(
-          backgroundImage.dataUrl,
-          'JPEG',
-          x + cover.x,
-          y + cover.y,
-          cover.width,
-          cover.height
-        );
-        
-        // Restore graphics state
-        doc.restoreGraphicsState();
+      // Draw background image if available (pre-cropped to badge bounds)
+      if (backgroundCoverDataUrl) {
+        doc.addImage(backgroundCoverDataUrl, 'JPEG', x, y, badgeWidth, badgeHeight);
       } else {
         // Draw a light border if no background
         doc.setDrawColor(200, 200, 200);
