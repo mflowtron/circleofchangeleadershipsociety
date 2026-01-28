@@ -53,8 +53,6 @@ const queryClient = new QueryClient({
   },
 });
 
-const DASHBOARD_PREFERENCE_KEY = 'preferred_dashboard';
-
 // Loading fallback component
 function PageLoader() {
   return (
@@ -95,16 +93,12 @@ function AppRoutes() {
     return <FullPageLoader />;
   }
 
-  // Determine default route based on user role and saved preference
+  // Determine default route based on user role
   const getDefaultRoute = () => {
     if (!user) return '/auth';
     
-    const savedPreference = localStorage.getItem(DASHBOARD_PREFERENCE_KEY);
-    
-    // Users with dual access: check preference or go to selector
+    // Users with dual access: always go to selector
     if (hasDualAccess) {
-      if (savedPreference === 'lms') return '/';
-      if (savedPreference === 'events') return '/events/manage';
       return '/select-dashboard';
     }
     
