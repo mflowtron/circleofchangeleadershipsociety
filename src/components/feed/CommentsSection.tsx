@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useCallback, useMemo } from 'react';
 import { useComments } from '@/hooks/useComments';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,23 +11,30 @@ interface CommentsSectionProps {
   postId: string;
 }
 
-export default function CommentsSection({ postId }: CommentsSectionProps) {
+const CommentsSection = memo(function CommentsSection({ postId }: CommentsSectionProps) {
   const [newComment, setNewComment] = useState('');
   const { comments, loading, addComment, deleteComment } = useComments(postId);
   const { user, role, profile } = useAuth();
 
-  const userInitials = profile?.full_name
-    ?.split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase() || '?';
+  const userInitials = useMemo(() => 
+    profile?.full_name
+      ?.split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase() || '?',
+    [profile?.full_name]
+  );
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
     await addComment(newComment);
     setNewComment('');
-  };
+  }, [newComment, addComment]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewComment(e.target.value);
+  }, []);
 
   return (
     <div className="border-t border-border/50 pt-4 space-y-4 animate-fade-in">
@@ -41,7 +48,7 @@ export default function CommentsSection({ postId }: CommentsSectionProps) {
         <Input
           placeholder="Write a comment..."
           value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
+          onChange={handleInputChange}
           className="flex-1 bg-muted/30 border-border/50 rounded-full h-10"
         />
         <Button 
@@ -117,4 +124,6 @@ export default function CommentsSection({ postId }: CommentsSectionProps) {
       )}
     </div>
   );
-}
+});
+
+export default CommentsSection;

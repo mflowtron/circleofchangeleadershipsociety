@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +20,7 @@ export function useComments(postId: string) {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('comments')
@@ -30,21 +30,32 @@ export function useComments(postId: string) {
 
       if (error) throw error;
 
-      // Fetch author info for each comment
-      const enrichedComments = await Promise.all(
-        (data || []).map(async (comment) => {
-          const { data: authorData } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url')
-            .eq('user_id', comment.user_id)
-            .single();
+      if (!data || data.length === 0) {
+        setComments([]);
+        setLoading(false);
+        return;
+      }
 
-          return {
-            ...comment,
-            author: authorData || { full_name: 'Unknown', avatar_url: null },
-          };
-        })
-      );
+      // Get unique user IDs and batch fetch profiles
+      const userIds = [...new Set(data.map(c => c.user_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, avatar_url')
+        .in('user_id', userIds);
+
+      // Create lookup map for O(1) access
+      const profilesMap = new Map<string, { full_name: string; avatar_url: string | null }>();
+      profilesData?.forEach(profile => {
+        profilesMap.set(profile.user_id, { full_name: profile.full_name, avatar_url: profile.avatar_url });
+      });
+
+      const enrichedComments: Comment[] = data.map((comment) => ({
+        id: comment.id,
+        content: comment.content,
+        created_at: comment.created_at,
+        user_id: comment.user_id,
+        author: profilesMap.get(comment.user_id) || { full_name: 'Unknown', avatar_url: null },
+      }));
 
       setComments(enrichedComments);
     } catch (error: any) {
@@ -56,13 +67,13 @@ export function useComments(postId: string) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [postId, toast]);
 
   useEffect(() => {
     fetchComments();
-  }, [postId]);
+  }, [fetchComments]);
 
-  const addComment = async (content: string) => {
+  const addComment = useCallback(async (content: string) => {
     if (!user) return;
 
     try {
@@ -81,9 +92,9 @@ export function useComments(postId: string) {
         description: error.message,
       });
     }
-  };
+  }, [user, postId, fetchComments, toast]);
 
-  const deleteComment = async (commentId: string) => {
+  const deleteComment = useCallback(async (commentId: string) => {
     try {
       const { error } = await supabase.from('comments').delete().eq('id', commentId);
       if (error) throw error;
@@ -95,7 +106,7 @@ export function useComments(postId: string) {
         description: error.message,
       });
     }
-  };
+  }, [fetchComments, toast]);
 
   return { comments, loading, addComment, deleteComment, refetch: fetchComments };
 }
