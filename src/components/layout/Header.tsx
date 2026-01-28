@@ -12,6 +12,7 @@ import {
 import { Menu, LogOut, User, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSidebar } from '@/contexts/SidebarContext';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import logo from '@/assets/coclc-logo.png';
 
 export default function Header() {
@@ -50,8 +51,11 @@ export default function Header() {
           </div>
         </div>
       </div>
-      
-      <DropdownMenu>
+
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        
+        <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button 
             variant="ghost" 
@@ -94,6 +98,7 @@ export default function Header() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      </div>
     </header>
   );
 }
