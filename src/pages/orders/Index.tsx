@@ -52,7 +52,19 @@ export default function OrderPortalIndex() {
 
     const result = await verifyCode(email.trim(), code);
     if (!result.success) {
-      setLocalError(result.message);
+      // Check if code is expired/invalid and auto-request new one
+      if (result.message?.toLowerCase().includes('invalid') || 
+          result.message?.toLowerCase().includes('expired')) {
+        setCode('');
+        const resendResult = await sendCode(email.trim());
+        if (resendResult.success) {
+          setLocalError('That code has expired. A new code has been sent to your email.');
+        } else {
+          setLocalError(resendResult.message || 'Failed to send new code');
+        }
+      } else {
+        setLocalError(result.message);
+      }
     }
   };
 
