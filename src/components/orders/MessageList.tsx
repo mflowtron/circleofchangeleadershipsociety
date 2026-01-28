@@ -18,10 +18,11 @@ interface Message {
 interface MessageListProps {
   messages: Message[];
   orderId: string;
+  onSendMessage: (orderId: string, message: string) => Promise<{ success: boolean; message?: string }>;
 }
 
-export function MessageList({ messages, orderId }: MessageListProps) {
-  const { markMessageRead, sendMessage } = useOrderPortal();
+export function MessageList({ messages, orderId, onSendMessage }: MessageListProps) {
+  const { markMessageRead } = useOrderPortal();
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -43,7 +44,7 @@ export function MessageList({ messages, orderId }: MessageListProps) {
     if (!replyText.trim()) return;
 
     setSending(true);
-    const result = await sendMessage(orderId, replyText.trim());
+    const result = await onSendMessage(orderId, replyText.trim());
     setSending(false);
 
     if (result.success) {

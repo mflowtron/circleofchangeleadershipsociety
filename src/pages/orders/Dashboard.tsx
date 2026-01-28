@@ -12,7 +12,7 @@ import { LogOut, RefreshCw, Package } from 'lucide-react';
 
 export default function OrderPortalDashboard() {
   const navigate = useNavigate();
-  const { isAuthenticated, email, orders, loading, error, fetchOrders, logout } = useOrderPortal();
+  const { isAuthenticated, email, orders, loading, error, fetchOrders, sendMessage, logout } = useOrderPortal();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -97,7 +97,7 @@ export default function OrderPortalDashboard() {
             {/* Orders List */}
             <div className="space-y-4">
               {orders.map((order) => (
-                <OrderCard key={order.id} order={order} />
+                <OrderCard key={order.id} order={order} onSendMessage={sendMessage} />
               ))}
             </div>
           </div>
