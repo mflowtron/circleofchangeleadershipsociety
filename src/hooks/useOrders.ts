@@ -83,3 +83,31 @@ export function useEventOrderStats(eventId: string) {
     enabled: !!eventId,
   });
 }
+
+export function useMultiEventOrders(eventIds: string[] | null) {
+  return useQuery({
+    queryKey: ['orders', 'multi', eventIds],
+    queryFn: async () => {
+      let query = supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            *,
+            ticket_type:ticket_types (name)
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      // If eventIds is provided and not empty, filter by those events
+      if (eventIds && eventIds.length > 0) {
+        query = query.in('event_id', eventIds);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data as OrderWithItems[];
+    },
+  });
+}

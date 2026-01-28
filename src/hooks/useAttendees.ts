@@ -18,6 +18,7 @@ export interface Attendee {
     order_number: string;
     full_name: string;
     email: string;
+    event_id?: string;
   };
 }
 
@@ -164,5 +165,31 @@ export function useAttendeeStats(eventId: string | undefined) {
       return { total, complete, incomplete };
     },
     enabled: !!eventId,
+  });
+}
+
+export function useMultiEventAttendees(eventIds: string[] | null) {
+  return useQuery({
+    queryKey: ['attendees', 'multi', eventIds],
+    queryFn: async () => {
+      let query = supabase
+        .from('attendees')
+        .select(`
+          *,
+          ticket_type:ticket_types(name),
+          order:orders!inner(order_number, full_name, email, event_id)
+        `)
+        .order('created_at', { ascending: true });
+
+      // If eventIds is provided and not empty, filter by those events
+      if (eventIds && eventIds.length > 0) {
+        query = query.in('order.event_id', eventIds);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data as Attendee[];
+    },
   });
 }
