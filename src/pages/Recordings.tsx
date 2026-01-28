@@ -17,7 +17,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Play, Calendar, Plus, Upload, Loader2, X } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Play, Calendar, Plus, Upload, Loader2, X, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Recording {
@@ -49,8 +60,35 @@ export default function Recordings() {
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
   const canUpload = role === 'admin' || role === 'advisor';
+  const canDelete = role === 'admin';
 
-  // Reset video selection when navigating to this page
+  const deleteRecording = async (recordingId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    try {
+      const { error } = await supabase
+        .from('recordings')
+        .delete()
+        .eq('id', recordingId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Recording deleted',
+        description: 'The recording has been removed.',
+      });
+
+      // Clear selection if deleted recording was selected
+      if (selectedRecording?.id === recordingId) {
+        setSelectedRecording(null);
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error deleting recording',
+        description: error.message,
+      });
+    }
+  };
   useEffect(() => {
     setSelectedRecording(null);
   }, [location.key]);
@@ -385,9 +423,42 @@ export default function Recordings() {
                 )}
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>{formatDistanceToNow(new Date(recording.created_at), { addSuffix: true })}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>{formatDistanceToNow(new Date(recording.created_at), { addSuffix: true })}</span>
+                  </div>
+                  {canDelete && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Recording</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{recording.title}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={(e) => deleteRecording(recording.id, e)}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </div>
               </CardContent>
             </Card>
