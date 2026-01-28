@@ -25,6 +25,7 @@ import ManageEventsIndex from "@/pages/events/manage/Index";
 import NewEvent from "@/pages/events/manage/NewEvent";
 import EditEvent from "@/pages/events/manage/EditEvent";
 import ManageTickets from "@/pages/events/manage/ManageTickets";
+import EventOrders from "@/pages/events/manage/EventOrders";
 
 const queryClient = new QueryClient();
 
@@ -141,6 +142,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
             <ManageTickets />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/events/manage/:id/orders" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+            <EventOrders />
           </ProtectedRoute>
         } 
       />

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Plus, Calendar, Edit, Trash2, Eye, EyeOff, Ticket } from 'lucide-react';
+import { Plus, Calendar, Edit, Trash2, Eye, EyeOff, Ticket, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -105,13 +105,18 @@ export default function ManageEventsIndex() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon" asChild>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" asChild title="Orders">
+                          <Link to={`/events/manage/${event.id}/orders`}>
+                            <ShoppingCart className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="icon" asChild title="Tickets">
                           <Link to={`/events/manage/${event.id}/tickets`}>
                             <Ticket className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="icon" asChild>
+                        <Button variant="ghost" size="icon" asChild title="Edit">
                           <Link to={`/events/manage/${event.id}`}>
                             <Edit className="h-4 w-4" />
                           </Link>
