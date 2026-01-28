@@ -8,8 +8,8 @@ import {
   Users, 
   BookOpen, 
   Shield,
-  Settings,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import logo from '@/assets/coclc-logo.png';
 import { Button } from '@/components/ui/button';
@@ -49,29 +49,35 @@ export default function Sidebar() {
       {/* Mobile overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-foreground/50 z-40 md:hidden"
+          className="fixed inset-0 bg-foreground/60 backdrop-blur-sm z-40 md:hidden animate-fade-in"
           onClick={() => setIsOpen(false)}
         />
       )}
       
       <aside className={cn(
-        "fixed top-0 left-0 z-50 h-full w-64 bg-secondary text-secondary-foreground transition-transform duration-300 md:translate-x-0",
+        "fixed top-0 left-0 z-50 h-full w-72 bg-sidebar text-sidebar-foreground transition-transform duration-300 ease-out md:translate-x-0 flex flex-col",
         isOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="p-4 flex items-center justify-between border-b border-secondary-foreground/10">
-          <img src={logo} alt="Circle of Change" className="h-10" />
+      )}
+      style={{ background: 'var(--gradient-dark)' }}
+      >
+        {/* Header */}
+        <div className="p-5 flex items-center justify-between border-b border-sidebar-border/50">
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="Circle of Change" className="h-10" />
+          </div>
           <Button 
             variant="ghost" 
             size="icon" 
-            className="md:hidden text-secondary-foreground"
+            className="md:hidden text-sidebar-foreground hover:bg-sidebar-accent"
             onClick={() => setIsOpen(false)}
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
         
-        <nav className="p-4 space-y-2">
-          {items.map((item) => {
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+          {items.map((item, index) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             
@@ -81,18 +87,37 @@ export default function Sidebar() {
                 to={item.path}
                 onClick={() => setIsOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                  isActive 
-                    ? "bg-primary text-primary-foreground" 
-                    : "hover:bg-secondary-foreground/10"
+                  "nav-item group",
+                  isActive && "nav-item-active"
                 )}
+                style={{ animationDelay: `${index * 0.05}s` }}
               >
-                <Icon className="h-5 w-5" />
+                <div className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  isActive ? "bg-primary-foreground/20" : "bg-sidebar-accent group-hover:bg-sidebar-primary/20"
+                )}>
+                  <Icon className="h-5 w-5" />
+                </div>
                 <span className="font-medium">{item.label}</span>
+                {isActive && (
+                  <Sparkles className="h-4 w-4 ml-auto opacity-60" />
+                )}
               </Link>
             );
           })}
         </nav>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-sidebar-border/50">
+          <div className="px-4 py-3 rounded-xl bg-sidebar-accent/50 text-center">
+            <p className="text-xs text-sidebar-foreground/60">
+              Circle of Change
+            </p>
+            <p className="text-xs font-medium text-sidebar-primary mt-0.5">
+              Leadership Society
+            </p>
+          </div>
+        </div>
       </aside>
     </>
   );

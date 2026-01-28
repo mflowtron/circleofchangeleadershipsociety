@@ -4,11 +4,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, Trash2, Globe, Users } from 'lucide-react';
+import { Heart, MessageCircle, Trash2, Globe, Users, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import CommentsSection from './CommentsSection';
 import ImageLightbox from '@/components/ui/image-lightbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface PostCardProps {
   post: Post;
@@ -28,78 +34,96 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
     .toUpperCase();
 
   return (
-    <Card>
+    <Card className="shadow-soft border-border/50 overflow-hidden hover:shadow-medium transition-shadow duration-300">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <Avatar>
+            <Avatar className="h-11 w-11 ring-2 ring-primary/10">
               <AvatarImage src={post.author.avatar_url || undefined} />
-              <AvatarFallback className="bg-primary text-primary-foreground">
+              <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium text-foreground">{post.author.full_name}</p>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <p className="font-semibold text-foreground">{post.author.full_name}</p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
-                <span>•</span>
+                <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
                 {post.is_global ? (
                   <span className="flex items-center gap-1">
                     <Globe className="h-3 w-3" /> Everyone
                   </span>
                 ) : (
                   <span className="flex items-center gap-1">
-                    <Users className="h-3 w-3" /> Chapter Only
+                    <Users className="h-3 w-3" /> Chapter
                   </span>
                 )}
               </div>
             </div>
           </div>
           {canDelete && (
-            <Button variant="ghost" size="icon" onClick={onDelete} className="text-muted-foreground hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem 
+                  onClick={onDelete} 
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Post
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </CardHeader>
       <CardContent className="pb-3">
-        <p className="text-foreground whitespace-pre-wrap">{post.content}</p>
+        <p className="text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
         {post.image_url && (
-          <ImageLightbox src={post.image_url} className="mt-3 rounded-lg max-h-96 object-cover" />
+          <div className="mt-4 -mx-6">
+            <ImageLightbox 
+              src={post.image_url} 
+              className="w-full max-h-[500px] object-cover" 
+            />
+          </div>
         )}
         {post.link_url && (
           <a
             href={post.link_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 block text-primary hover:underline"
+            className="mt-4 block text-primary hover:underline text-sm"
           >
             {post.link_url}
           </a>
         )}
       </CardContent>
       <CardFooter className="flex-col items-stretch gap-3 pt-0">
-        <div className="flex items-center gap-4 border-t border-border pt-3">
+        <div className="flex items-center gap-1 border-t border-border/50 pt-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={onLike}
             className={cn(
-              "gap-2",
+              "flex-1 gap-2 rounded-xl h-10 hover:bg-destructive/10",
               post.user_has_liked && "text-destructive"
             )}
           >
-            <Heart className={cn("h-4 w-4", post.user_has_liked && "fill-current")} />
-            {post.likes_count}
+            <Heart className={cn("h-5 w-5", post.user_has_liked && "fill-current")} />
+            <span className="font-medium">{post.likes_count}</span>
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowComments(!showComments)}
-            className="gap-2"
+            className="flex-1 gap-2 rounded-xl h-10 hover:bg-primary/10"
           >
-            <MessageCircle className="h-4 w-4" />
-            {post.comments_count}
+            <MessageCircle className={cn("h-5 w-5", showComments && "text-primary")} />
+            <span className="font-medium">{post.comments_count}</span>
           </Button>
         </div>
         {showComments && <CommentsSection postId={post.id} />}
