@@ -1,19 +1,13 @@
-import { Menu, LogOut, ArrowLeftRight } from 'lucide-react';
+import { Menu, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface EventsDashboardHeaderProps {
   onMenuClick: () => void;
-  onSwitchDashboard?: () => void;
-  showSwitchOption?: boolean;
 }
 
-export function EventsDashboardHeader({ 
-  onMenuClick, 
-  onSwitchDashboard,
-  showSwitchOption = false 
-}: EventsDashboardHeaderProps) {
+export function EventsDashboardHeader({ onMenuClick }: EventsDashboardHeaderProps) {
   const { signOut, profile } = useAuth();
 
   return (
@@ -33,17 +27,6 @@ export function EventsDashboardHeader({
         </div>
 
         <div className="flex items-center gap-2">
-          {showSwitchOption && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onSwitchDashboard}
-              className="hidden sm:flex gap-2"
-            >
-              <ArrowLeftRight className="h-4 w-4" />
-              Switch to LMS
-            </Button>
-          )}
           <ThemeToggle />
           <div className="hidden sm:block text-sm text-muted-foreground">
             {profile?.full_name}
