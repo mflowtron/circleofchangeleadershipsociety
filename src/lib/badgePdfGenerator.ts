@@ -56,7 +56,13 @@ function getBadgePosition(
   return { x, y };
 }
 
-async function loadImage(url: string): Promise<string> {
+interface LoadedImage {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+async function loadImage(url: string): Promise<LoadedImage> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -70,11 +76,45 @@ async function loadImage(url: string): Promise<string> {
         return;
       }
       ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/jpeg', 0.9));
+      resolve({
+        dataUrl: canvas.toDataURL('image/jpeg', 0.9),
+        width: img.width,
+        height: img.height,
+      });
     };
     img.onerror = () => reject(new Error('Failed to load image'));
     img.src = url;
   });
+}
+
+// Calculate dimensions to "cover" the target area (like CSS object-fit: cover)
+function calculateCoverDimensions(
+  imgWidth: number,
+  imgHeight: number,
+  targetWidth: number,
+  targetHeight: number
+): { width: number; height: number; x: number; y: number } {
+  const imgAspect = imgWidth / imgHeight;
+  const targetAspect = targetWidth / targetHeight;
+
+  let width: number;
+  let height: number;
+
+  if (imgAspect > targetAspect) {
+    // Image is wider than target - fit by height, crop width
+    height = targetHeight;
+    width = targetHeight * imgAspect;
+  } else {
+    // Image is taller than target - fit by width, crop height
+    width = targetWidth;
+    height = targetWidth / imgAspect;
+  }
+
+  // Center the image
+  const x = (targetWidth - width) / 2;
+  const y = (targetHeight - height) / 2;
+
+  return { width, height, x, y };
 }
 
 export async function generateBadgePdf(
@@ -93,10 +133,10 @@ export async function generateBadgePdf(
     format: 'letter',
   });
 
-  let backgroundDataUrl: string | null = null;
+  let backgroundImage: LoadedImage | null = null;
   if (backgroundImageUrl) {
     try {
-      backgroundDataUrl = await loadImage(backgroundImageUrl);
+      backgroundImage = await loadImage(backgroundImageUrl);
     } catch (e) {
       console.warn('Failed to load background image:', e);
     }
@@ -117,9 +157,36 @@ export async function generateBadgePdf(
       const badgeIndex = i - startIdx;
       const { x, y } = getBadgePosition(badgeIndex, orientation);
 
-      // Draw background image if available
-      if (backgroundDataUrl) {
-        doc.addImage(backgroundDataUrl, 'JPEG', x, y, badgeWidth, badgeHeight);
+      // Draw background image if available (using cover/crop behavior)
+      if (backgroundImage) {
+        // Save graphics state and create clipping region for the badge
+        doc.saveGraphicsState();
+        
+        // Create clipping rectangle for the badge area
+        doc.rect(x, y, badgeWidth, badgeHeight);
+        // @ts-ignore - clip() exists in jsPDF but types may be incomplete
+        doc.clip();
+        
+        // Calculate cover dimensions to fill badge while maintaining aspect ratio
+        const cover = calculateCoverDimensions(
+          backgroundImage.width,
+          backgroundImage.height,
+          badgeWidth,
+          badgeHeight
+        );
+        
+        // Draw the image with calculated dimensions (will be clipped to badge area)
+        doc.addImage(
+          backgroundImage.dataUrl,
+          'JPEG',
+          x + cover.x,
+          y + cover.y,
+          cover.width,
+          cover.height
+        );
+        
+        // Restore graphics state
+        doc.restoreGraphicsState();
       } else {
         // Draw a light border if no background
         doc.setDrawColor(200, 200, 200);
