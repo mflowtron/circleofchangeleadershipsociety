@@ -138,6 +138,7 @@ export type Database = {
           event_id: string
           fields: Json
           id: string
+          orientation: string
           updated_at: string
         }
         Insert: {
@@ -146,6 +147,7 @@ export type Database = {
           event_id: string
           fields?: Json
           id?: string
+          orientation?: string
           updated_at?: string
         }
         Update: {
@@ -154,6 +156,7 @@ export type Database = {
           event_id?: string
           fields?: Json
           id?: string
+          orientation?: string
           updated_at?: string
         }
         Relationships: [
