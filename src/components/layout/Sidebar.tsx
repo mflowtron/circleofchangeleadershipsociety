@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { 
@@ -11,7 +11,7 @@ import {
   X,
   Sparkles,
   Megaphone,
-  Calendar
+  Ticket
 } from 'lucide-react';
 import logo from '@/assets/coclc-logo.png';
 import { Button } from '@/components/ui/button';
@@ -33,24 +33,26 @@ const navItems = {
     { path: '/', label: 'Feed', icon: Home },
     { path: '/recordings', label: 'Recordings', icon: Video },
     { path: '/announcements', label: 'Announcements', icon: Megaphone },
-    { path: '/events/manage', label: 'Events', icon: Calendar },
     { path: '/users', label: 'Users', icon: Users },
     { path: '/chapters', label: 'Chapters', icon: BookOpen },
     { path: '/moderation', label: 'Moderation', icon: Shield },
-    { path: '/profile', label: 'Profile', icon: User },
-  ],
-  event_organizer: [
-    { path: '/events/manage', label: 'Events', icon: Calendar },
     { path: '/profile', label: 'Profile', icon: User },
   ],
 };
 
 export default function Sidebar() {
   const location = useLocation();
-  const { role } = useAuth();
+  const navigate = useNavigate();
+  const { role, hasEventsAccess } = useAuth();
   const { isOpen, setIsOpen } = useSidebar();
   
-  const items = navItems[role || 'student'] || navItems.student;
+  const items = navItems[role as keyof typeof navItems] || navItems.student;
+
+  const handleSwitchToEvents = () => {
+    localStorage.setItem('preferred_dashboard', 'events');
+    setIsOpen(false);
+    navigate('/events/manage');
+  };
 
   return (
     <>
@@ -119,7 +121,18 @@ export default function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border/50">
+        <div className="p-4 border-t border-sidebar-border/50 space-y-3">
+          {/* Switch to Events Dashboard button for users with events access */}
+          {hasEventsAccess && (
+            <Button 
+              variant="outline" 
+              className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border/50 text-sidebar-foreground hover:bg-sidebar-accent"
+              onClick={handleSwitchToEvents}
+            >
+              <Ticket className="h-4 w-4" />
+              Events Dashboard
+            </Button>
+          )}
           <div className="px-4 py-3 rounded-xl bg-sidebar-accent/50 text-center">
             <p className="text-xs text-sidebar-foreground/60">
               Circle of Change

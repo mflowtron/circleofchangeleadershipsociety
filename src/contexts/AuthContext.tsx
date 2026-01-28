@@ -18,6 +18,10 @@ interface AuthContextType {
   } | null;
   role: AppRole | null;
   signOut: () => Promise<void>;
+  // Access helpers
+  hasLMSAccess: boolean;
+  hasEventsAccess: boolean;
+  hasDualAccess: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,11 +78,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    // Clear dashboard preference on sign out
+    localStorage.removeItem('preferred_dashboard');
     await supabase.auth.signOut();
   };
 
+  // Access helpers
+  const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
+  const hasEventsAccess = role === 'admin' || role === 'event_organizer';
+  const hasDualAccess = hasLMSAccess && hasEventsAccess;
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, profile, role, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      loading, 
+      profile, 
+      role, 
+      signOut,
+      hasLMSAccess,
+      hasEventsAccess,
+      hasDualAccess
+    }}>
       {children}
     </AuthContext.Provider>
   );
