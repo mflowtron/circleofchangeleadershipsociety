@@ -45,6 +45,8 @@ interface OrderMessage {
   is_important: boolean;
   read_at: string | null;
   created_at: string;
+  sender_type: string;
+  sender_email: string | null;
 }
 
 export interface PortalOrder {
