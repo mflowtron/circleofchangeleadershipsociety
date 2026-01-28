@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useAnnouncements, type Announcement } from '@/hooks/useAnnouncements';
 import CreateAnnouncementForm from '@/components/announcements/CreateAnnouncementForm';
+import EditAnnouncementDialog from '@/components/announcements/EditAnnouncementDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Megaphone, Trash2, Calendar, Clock } from 'lucide-react';
+import { Megaphone, Trash2, Calendar, Clock, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   AlertDialog,
@@ -21,6 +22,7 @@ import {
 
 export default function Announcements() {
   const { allAnnouncements, loading, createAnnouncement, updateAnnouncement, deleteAnnouncement } = useAnnouncements();
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
 
   const isExpired = (announcement: Announcement) => {
     if (!announcement.expires_at) return false;
@@ -105,6 +107,14 @@ export default function Announcements() {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditingAnnouncement(announcement)}
+                          aria-label="Edit announcement"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         <Switch
                           checked={announcement.is_active}
                           onCheckedChange={(checked) =>
@@ -146,6 +156,12 @@ export default function Announcements() {
           )}
         </CardContent>
       </Card>
+
+      <EditAnnouncementDialog
+        announcement={editingAnnouncement}
+        onClose={() => setEditingAnnouncement(null)}
+        onSave={updateAnnouncement}
+      />
     </div>
   );
 }
