@@ -23,6 +23,7 @@ const MyChapter = lazy(() => import("@/pages/MyChapter"));
 const Announcements = lazy(() => import("@/pages/Announcements"));
 const DashboardSelector = lazy(() => import("@/pages/DashboardSelector"));
 const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
+const LMSEvents = lazy(() => import("@/pages/LMSEvents"));
 
 
 // Event pages - lazy loaded
@@ -213,8 +214,17 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/lms-events" 
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <LMSEvents />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
       
-      {/* Public Event Routes */}
       <Route path="/events" element={
         <Suspense fallback={<PageLoader />}>
           <EventsIndex />
