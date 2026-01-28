@@ -14,7 +14,7 @@ import {
   Ticket,
   CalendarDays
 } from 'lucide-react';
-import logo from '@/assets/coclc-logo.png';
+import logoDark from '@/assets/coclc-logo-dark.png';
 import { Button } from '@/components/ui/button';
 import { useSidebar } from '@/contexts/SidebarContext';
 
@@ -77,7 +77,7 @@ export default function Sidebar() {
         {/* Header */}
         <div className="p-5 flex items-center justify-between border-b border-sidebar-border/50" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-3">
-            <img src={logo} alt="Circle of Change" className="h-10" />
+            <img src={logoDark} alt="Circle of Change" className="h-10" />
           </div>
           <Button 
             variant="ghost" 

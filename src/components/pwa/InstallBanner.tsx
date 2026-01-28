@@ -1,6 +1,7 @@
 import { X, Download, Share } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
+import logoEmblem from '@/assets/coclc-logo-emblem.png';
 
 export default function InstallBanner() {
   const { canInstall, isIOS, promptInstall, dismiss } = usePWAInstall();
@@ -13,7 +14,7 @@ export default function InstallBanner() {
         <div className="flex items-start gap-3">
           <div className="shrink-0 w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
             <img 
-              src="/favicon.png" 
+              src={logoEmblem} 
               alt="App icon" 
               className="w-8 h-8 rounded-lg"
             />

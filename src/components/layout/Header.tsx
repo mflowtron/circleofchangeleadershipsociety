@@ -13,7 +13,7 @@ import { Menu, LogOut, User, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import logo from '@/assets/coclc-logo.png';
+import logoEmblem from '@/assets/coclc-logo-emblem.png';
 
 export default function Header() {
   const { profile, role, signOut } = useAuth();
@@ -41,7 +41,7 @@ export default function Header() {
         
         <div className="hidden md:flex items-center gap-3">
           <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <img src={logo} alt="" className="h-6 w-6 object-contain" />
+            <img src={logoEmblem} alt="" className="h-6 w-6 object-contain" />
           </div>
           <div>
             <h1 className="text-sm font-semibold text-foreground">

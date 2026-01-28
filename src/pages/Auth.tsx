@@ -10,7 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, ArrowRight } from 'lucide-react';
-import logo from '@/assets/coclc-logo.png';
+import logoLight from '@/assets/coclc-logo-light.png';
+import logoDark from '@/assets/coclc-logo-dark.png';
+import { useTheme } from 'next-themes';
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
@@ -20,6 +22,8 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { resolvedTheme } = useTheme();
+  const logo = resolvedTheme === 'dark' ? logoDark : logoLight;
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);

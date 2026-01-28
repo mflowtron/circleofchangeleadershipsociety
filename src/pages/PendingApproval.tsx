@@ -2,16 +2,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, LogOut } from 'lucide-react';
-import logo from '@/assets/coclc-logo.png';
+import logoLight from '@/assets/coclc-logo-light.png';
+import logoDark from '@/assets/coclc-logo-dark.png';
+import { useTheme } from 'next-themes';
 
 export default function PendingApproval() {
   const { signOut, profile } = useAuth();
+  const { resolvedTheme } = useTheme();
+  const logo = resolvedTheme === 'dark' ? logoDark : logoLight;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md text-center">
         <CardHeader className="space-y-4">
-          <div className="flex justify-center">
+          <div className="flex justify-center mb-4">
             <img src={logo} alt="Circle of Change" className="h-16" />
           </div>
           <div className="flex justify-center">
