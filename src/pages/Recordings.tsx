@@ -55,9 +55,20 @@ export default function Recordings() {
     setSelectedRecording(null);
   }, [location.key]);
 
+  // Start polling for any preparing videos on mount
   useEffect(() => {
     fetchRecordings();
+    
+    // Poll for preparing videos every 5 seconds
+    const pollInterval = setInterval(() => {
+      const hasPreparing = recordings.some(r => r.status === 'preparing');
+      if (hasPreparing) {
+        fetchRecordings();
+      }
+    }, 5000);
+    
     return () => {
+      clearInterval(pollInterval);
       if (statusCheckInterval.current) {
         clearInterval(statusCheckInterval.current);
       }
