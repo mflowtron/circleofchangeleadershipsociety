@@ -146,14 +146,14 @@ export function BadgeGeneratorDialog({
               <>
                 {/* Preview */}
                 <div className="flex justify-center">
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-w-full overflow-auto">
                     <p className="text-sm font-medium text-center">
-                      Template Preview ({template.orientation === 'portrait' ? '3" × 4"' : '4" × 3"'})
+                      Template Preview (100%) ({template.orientation === 'portrait' ? '3" × 4"' : '4" × 3"'})
                     </p>
                     <BadgePreview
                       fields={template.fields}
                       backgroundImageUrl={template.background_image_url}
-                      scale={0.75}
+                      scale={1}
                       orientation={template.orientation || 'landscape'}
                     />
                   </div>
