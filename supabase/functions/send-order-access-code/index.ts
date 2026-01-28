@@ -110,7 +110,7 @@ serve(async (req: Request) => {
     const resend = new Resend(resendApiKey);
 
     const { error: emailError } = await resend.emails.send({
-      from: 'Circle of Change <onboarding@resend.dev>',  // Update to your verified domain
+      from: 'Circle of Change <noreply@coclc.org>',
       to: [normalizedEmail],
       subject: 'Your Order Access Code',
       html: `
