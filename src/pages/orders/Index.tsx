@@ -51,7 +51,10 @@ export default function OrderPortalIndex() {
     }
 
     const result = await verifyCode(email.trim(), code);
-    if (!result.success) {
+    if (result.success) {
+      // Explicitly navigate on success
+      navigate('/my-orders/dashboard');
+    } else {
       // Check if code is expired/invalid and auto-request new one
       if (result.message?.toLowerCase().includes('invalid') || 
           result.message?.toLowerCase().includes('expired')) {
