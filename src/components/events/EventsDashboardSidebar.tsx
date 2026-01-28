@@ -7,10 +7,12 @@ import {
   ArrowLeftRight,
   Ticket,
   ShoppingCart,
-  Users
+  Users,
+  BadgeCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EventSelector } from './EventSelector';
+import { useEventSelection } from '@/contexts/EventSelectionContext';
 
 interface EventsDashboardSidebarProps {
   isOpen: boolean;
@@ -32,11 +34,20 @@ export function EventsDashboardSidebar({
   showSwitchOption = false
 }: EventsDashboardSidebarProps) {
   const location = useLocation();
+  const { selectedEventId, hasSelection } = useEventSelection();
 
   const isActive = (path: string, exact?: boolean) => {
     if (exact) return location.pathname === path;
     return location.pathname.startsWith(path);
   };
+
+  // Build nav items dynamically to include badge designer when event is selected
+  const dynamicNavItems = hasSelection 
+    ? [
+        ...navItems,
+        { path: `/events/manage/${selectedEventId}/badges`, label: 'Badge Designer', icon: BadgeCheck },
+      ]
+    : navItems;
 
   return (
     <>
@@ -82,7 +93,7 @@ export function EventsDashboardSidebar({
         
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {dynamicNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path, item.exact);
             
