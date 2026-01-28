@@ -41,7 +41,7 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
         />
         <div className="flex-1 flex flex-col md:ml-64">
           <EventsDashboardHeader onMenuClick={() => setSidebarOpen(true)} />
-          <main className="flex-1 p-4 md:p-6 overflow-auto">
+          <main className="flex-1 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
             <div className="animate-fade-up">
               {children}
             </div>
