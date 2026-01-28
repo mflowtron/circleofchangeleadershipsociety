@@ -151,24 +151,35 @@ serve(async (req) => {
         // Update recording with asset info
         const playbackId = asset.playback_ids?.[0]?.id;
         
+        // Determine the correct status - if playback_id exists, it's ready
+        const recordingStatus = playbackId ? "ready" : asset.status;
+        
         await supabase
           .from("recordings")
           .update({
             mux_asset_id: asset.id,
             mux_playback_id: playbackId,
-            status: asset.status,
+            status: recordingStatus,
             video_url: playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : null,
           })
           .eq("id", recording_id);
 
         return new Response(
           JSON.stringify({
-            status: asset.status,
+            status: recordingStatus,
             playback_id: playbackId,
             asset_id: asset.id,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+      
+      // Update status to preparing if upload is in progress
+      if (upload.status === "waiting" || upload.status === "uploading") {
+        await supabase
+          .from("recordings")
+          .update({ status: "preparing" })
+          .eq("id", recording_id);
       }
 
       return new Response(
