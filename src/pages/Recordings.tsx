@@ -55,20 +55,29 @@ export default function Recordings() {
     setSelectedRecording(null);
   }, [location.key]);
 
-  // Start polling for any preparing videos on mount
+  // Fetch recordings and subscribe to realtime updates
   useEffect(() => {
     fetchRecordings();
     
-    // Poll for preparing videos every 5 seconds
-    const pollInterval = setInterval(() => {
-      const hasPreparing = recordings.some(r => r.status === 'preparing');
-      if (hasPreparing) {
-        fetchRecordings();
-      }
-    }, 5000);
+    // Subscribe to realtime updates for recordings
+    const channel = supabase
+      .channel('recordings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'recordings',
+        },
+        (payload) => {
+          console.log('Recording update received:', payload);
+          fetchRecordings(); // Refresh when any recording changes
+        }
+      )
+      .subscribe();
     
     return () => {
-      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
       if (statusCheckInterval.current) {
         clearInterval(statusCheckInterval.current);
       }
