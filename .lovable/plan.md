@@ -1,70 +1,57 @@
 
-# Circle of Change Learning Management System
 
-A modern, feature-rich learning platform inspired by Google Classroom, tailored for the Circle of Change Leadership Society.
+## Overview
 
----
+This change will improve user engagement with comments by:
+1. Automatically showing comments when they exist
+2. Making the "no comments" state more inviting when comments are absent
 
-## Design & Branding
-- **Modern & bold** visual design using the gold and black color scheme from your logo
-- Your Circle of Change logo prominently displayed in the navigation
-- Clean, content-focused layouts with rich visual elements
-- Responsive design for desktop and mobile access
+## Implementation Details
 
----
+### 1. Auto-expand comments when present
 
-## Core Features
+**File: `src/components/feed/PostCard.tsx`**
 
-### 1. Authentication & User Profiles
-- Secure login/signup system
-- Profile pages with name, photo, role, and chapter assignment
-- Role-based access: Admin, Advisor, and Student
+Change the initial state of `showComments` to be based on whether the post has comments:
 
-### 2. Chronological Feed (Main Hub)
-- Central dashboard showing posts in reverse chronological order
-- Create posts with text, photos, videos, and links
-- Share to **entire group** or **your chapter only**
-- Like and comment on posts
-- Filter options: All posts, Chapter only, My posts
+```typescript
+// Before
+const [showComments, setShowComments] = useState(false);
 
-### 3. Lecture Recordings Library
-- Dedicated page to browse past learning lectures
-- Organized by date or topic
-- Video playback with descriptions
-- Admins and Advisors can upload new recordings
+// After
+const [showComments, setShowComments] = useState(post.comments_count > 0);
+```
 
----
+This ensures that posts with existing comments will have their comments section expanded by default.
 
-## Role-Based Navigation & Permissions
+### 2. Enhance the "no comments" encouragement
 
-### Students
-- **Feed** - View, create posts, comment, and interact
-- **Recordings** - Access lecture video library
-- **Profile** - View and edit their own profile
+**File: `src/components/feed/CommentsSection.tsx`**
 
-### Advisors
-- Everything students have, plus:
-- **My Chapter** - View and moderate their assigned chapter's content
-- **Moderate** - Approve, edit, or delete posts in their chapter
+Update the empty state to be more visually engaging and action-oriented:
 
-### Admins
-- Full access to all features, plus:
-- **User Management** - Add, edit, remove users; assign roles
-- **Chapter Management** - Create/edit chapters (cohorts); assign users
-- **Content Moderation** - Moderate any post across all chapters
-- **Upload Recordings** - Add new lecture videos to the library
+- Add a MessageCircle icon to draw attention
+- Make the text more inviting with a friendly message
+- Keep the input field prominently visible (already there)
 
----
+The updated empty state will feature:
+- A subtle icon
+- Encouraging text like "Be the first to comment!"
+- The comment input remains visible and ready for input
 
-## Chapter System
-- Chapters represent cohorts/class years
-- Users are assigned to one chapter
-- Posts can be scoped to a specific chapter
-- Advisors are assigned to specific chapters they oversee
+## Technical Approach
 
----
+| Change | File | Lines Affected |
+|--------|------|----------------|
+| Initialize `showComments` based on `comments_count` | `PostCard.tsx` | Line 41 |
+| Enhanced empty state UI | `CommentsSection.tsx` | Lines 66-69 |
 
-## Technical Implementation
-- **Lovable Cloud** for authentication, database, and file storage
-- Secure role-based permissions (roles stored in a separate table for security)
-- File uploads for profile photos, post images/videos, and lecture recordings
+## User Experience Flow
+
+- **Post with comments**: Comments section is visible immediately, showing existing conversation
+- **Post without comments**: Comments section stays collapsed, but clicking the comment button reveals an inviting prompt to start the conversation
+
+## Alternative Consideration
+
+The comments section will remain collapsed for posts without comments (since there's nothing to show by default). This keeps the feed clean while still making it easy to add a comment by clicking the button.
+
