@@ -17,6 +17,7 @@ import Moderation from "@/pages/Moderation";
 import MyChapter from "@/pages/MyChapter";
 import Announcements from "@/pages/Announcements";
 import NotFound from "@/pages/NotFound";
+import DashboardSelector from "@/pages/DashboardSelector";
 
 // Event pages
 import EventsIndex from "@/pages/events/Index";
@@ -28,11 +29,18 @@ import ManageTickets from "@/pages/events/manage/ManageTickets";
 import EventOrders from "@/pages/events/manage/EventOrders";
 import Checkout from "@/pages/events/Checkout";
 import CheckoutSuccess from "@/pages/events/CheckoutSuccess";
+import EventsDashboardLayout from "@/layouts/EventsDashboardLayout";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, allowedRoles, noLayout }: { children: React.ReactNode; allowedRoles?: string[]; noLayout?: boolean }) {
-  const { role, loading } = useAuth();
+const DASHBOARD_PREFERENCE_KEY = 'preferred_dashboard';
+
+function ProtectedRoute({ children, allowedRoles, useEventsLayout }: { 
+  children: React.ReactNode; 
+  allowedRoles?: string[]; 
+  useEventsLayout?: boolean;
+}) {
+  const { role, loading, hasLMSAccess, hasEventsAccess } = useAuth();
   
   if (loading) return null;
   
@@ -40,15 +48,15 @@ function ProtectedRoute({ children, allowedRoles, noLayout }: { children: React.
     return <Navigate to="/" replace />;
   }
   
-  if (noLayout) {
-    return <>{children}</>;
+  if (useEventsLayout) {
+    return <EventsDashboardLayout>{children}</EventsDashboardLayout>;
   }
   
   return <AppLayout>{children}</AppLayout>;
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, loading, role, hasLMSAccess, hasEventsAccess, hasDualAccess } = useAuth();
 
   if (loading) {
     return (
@@ -58,9 +66,32 @@ function AppRoutes() {
     );
   }
 
+  // Determine default route based on user role and saved preference
+  const getDefaultRoute = () => {
+    if (!user) return '/auth';
+    
+    const savedPreference = localStorage.getItem(DASHBOARD_PREFERENCE_KEY);
+    
+    // Users with dual access: check preference or go to selector
+    if (hasDualAccess) {
+      if (savedPreference === 'lms') return '/';
+      if (savedPreference === 'events') return '/events/manage';
+      return '/select-dashboard';
+    }
+    
+    // Event organizer only: go to events dashboard
+    if (hasEventsAccess && !hasLMSAccess) {
+      return '/events/manage';
+    }
+    
+    // LMS users: go to feed
+    return '/';
+  };
+
   return (
     <Routes>
-      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
+      <Route path="/auth" element={user ? <Navigate to={getDefaultRoute()} replace /> : <Auth />} />
+      <Route path="/select-dashboard" element={<DashboardSelector />} />
       
       <Route path="/" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
       <Route path="/recordings" element={<ProtectedRoute><Recordings /></ProtectedRoute>} />
@@ -116,11 +147,11 @@ function AppRoutes() {
       <Route path="/events/:slug/checkout" element={<Checkout />} />
       <Route path="/events/:slug/checkout/success" element={<CheckoutSuccess />} />
       
-      {/* Event Management Routes (Protected) */}
+      {/* Event Management Routes (Protected with Events Dashboard Layout) */}
       <Route 
         path="/events/manage" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
             <ManageEventsIndex />
           </ProtectedRoute>
         } 
@@ -128,7 +159,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/new" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
             <NewEvent />
           </ProtectedRoute>
         } 
@@ -136,7 +167,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/:id" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
             <EditEvent />
           </ProtectedRoute>
         } 
@@ -144,7 +175,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/:id/tickets" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
             <ManageTickets />
           </ProtectedRoute>
         } 
@@ -152,7 +183,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/:id/orders" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
             <EventOrders />
           </ProtectedRoute>
         } 
