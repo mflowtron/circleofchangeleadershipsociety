@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ["favicon.ico", "robots.txt", "apple-touch-icon.png"],
       manifest: {
         name: "Circle of Change",
-        short_name: "CoC",
+        short_name: "Circle of Change",
         description: "Circle of Change Leadership Society",
         theme_color: "#D4A842",
         background_color: "#1A1A1A",
