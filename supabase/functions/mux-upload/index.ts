@@ -41,18 +41,26 @@ serve(async (req) => {
 
     const userId = userData.user.id;
 
-    // Check if user is admin or advisor
+    const { action, ...body } = await req.json();
+
+    // Check if user is admin or advisor (required for upload/delete actions)
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
       .single();
 
-    if (!roleData || (roleData.role !== "admin" && roleData.role !== "advisor")) {
-      throw new Error("Only admins and advisors can upload recordings");
-    }
+    const isAdmin = roleData?.role === "admin";
+    const isAdvisor = roleData?.role === "advisor";
 
-    const { action, ...body } = await req.json();
+    // Delete action requires admin only
+    if (action === "delete-asset") {
+      if (!isAdmin) {
+        throw new Error("Only admins can delete recordings");
+      }
+    } else if (!isAdmin && !isAdvisor) {
+      throw new Error("Only admins and advisors can manage recordings");
+    }
 
     const muxAuth = btoa(`${MUX_TOKEN_ID}:${MUX_TOKEN_SECRET}`);
 
@@ -186,6 +194,66 @@ serve(async (req) => {
         JSON.stringify({
           status: upload.status,
         }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "delete-asset") {
+      const { asset_id, recording_id } = body;
+
+      if (!asset_id && !recording_id) {
+        throw new Error("asset_id or recording_id is required");
+      }
+
+      let muxAssetId = asset_id;
+
+      // If no asset_id provided, look it up from the recording
+      if (!muxAssetId && recording_id) {
+        const { data: recording } = await supabase
+          .from("recordings")
+          .select("mux_asset_id")
+          .eq("id", recording_id)
+          .single();
+
+        muxAssetId = recording?.mux_asset_id;
+      }
+
+      // Delete from Mux if asset exists
+      if (muxAssetId) {
+        const deleteResponse = await fetch(
+          `https://api.mux.com/video/v1/assets/${muxAssetId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Basic ${muxAuth}`,
+            },
+          }
+        );
+
+        if (!deleteResponse.ok && deleteResponse.status !== 404) {
+          const errorText = await deleteResponse.text();
+          console.error("Mux delete error:", errorText);
+          throw new Error(`Failed to delete Mux asset: ${deleteResponse.status}`);
+        }
+
+        console.log(`Deleted Mux asset: ${muxAssetId}`);
+      }
+
+      // Delete the recording from database
+      if (recording_id) {
+        const { error: deleteError } = await supabase
+          .from("recordings")
+          .delete()
+          .eq("id", recording_id);
+
+        if (deleteError) {
+          console.error("Database delete error:", deleteError);
+          throw new Error("Failed to delete recording from database");
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, deleted_asset: muxAssetId }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

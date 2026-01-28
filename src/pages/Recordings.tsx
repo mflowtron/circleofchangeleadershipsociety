@@ -65,16 +65,19 @@ export default function Recordings() {
   const deleteRecording = async (recordingId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
     try {
-      const { error } = await supabase
-        .from('recordings')
-        .delete()
-        .eq('id', recordingId);
+      // Call edge function to delete from both Mux and database
+      const response = await supabase.functions.invoke('mux-upload', {
+        body: {
+          action: 'delete-asset',
+          recording_id: recordingId,
+        },
+      });
 
-      if (error) throw error;
+      if (response.error) throw new Error(response.error.message);
 
       toast({
         title: 'Recording deleted',
-        description: 'The recording has been removed.',
+        description: 'The recording and video asset have been removed.',
       });
 
       // Clear selection if deleted recording was selected
