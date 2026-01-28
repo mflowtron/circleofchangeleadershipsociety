@@ -43,10 +43,10 @@ export default function Orders() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Orders</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground truncate">
             {hasSelection
               ? `Showing orders for ${selectedEventName}`
               : 'Showing orders from all events'}
