@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -35,8 +35,13 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
     
-    if (userError || !userData.user) {
-      throw new Error("Unauthorized");
+    if (userError) {
+      console.error("Auth error:", userError);
+      throw new Error("Unauthorized: " + userError.message);
+    }
+    
+    if (!userData.user) {
+      throw new Error("Unauthorized: No user found");
     }
 
     const userId = userData.user.id;
