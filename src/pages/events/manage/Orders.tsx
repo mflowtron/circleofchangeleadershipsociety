@@ -6,14 +6,16 @@ import { useEventSelection } from '@/contexts/EventSelectionContext';
 import { useEvents } from '@/hooks/useEvents';
 
 export default function Orders() {
-  const { selectedEventIds, hasSelection } = useEventSelection();
+  const { selectedEventId, hasSelection } = useEventSelection();
   const { events = [] } = useEvents();
   const { data: orders = [], isLoading } = useMultiEventOrders(
-    hasSelection ? selectedEventIds : null
+    hasSelection ? [selectedEventId!] : null
   );
 
   // Create event lookup map
   const eventMap = new Map<string, string>(events.map((e) => [e.id, e.title]));
+
+  const selectedEventName = selectedEventId ? eventMap.get(selectedEventId) : null;
 
   const handleExport = () => {
     const csvContent = [
@@ -46,7 +48,7 @@ export default function Orders() {
           <h1 className="text-2xl font-bold">Orders</h1>
           <p className="text-muted-foreground">
             {hasSelection
-              ? `Showing orders from ${selectedEventIds.length} selected event${selectedEventIds.length > 1 ? 's' : ''}`
+              ? `Showing orders for ${selectedEventName}`
               : 'Showing orders from all events'}
           </p>
         </div>
@@ -60,7 +62,7 @@ export default function Orders() {
         orders={orders} 
         isLoading={isLoading} 
         eventMap={eventMap}
-        showEventColumn
+        showEventColumn={!hasSelection}
       />
     </div>
   );

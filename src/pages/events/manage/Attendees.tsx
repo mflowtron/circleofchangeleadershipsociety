@@ -6,14 +6,16 @@ import { useEventSelection } from '@/contexts/EventSelectionContext';
 import { useEvents } from '@/hooks/useEvents';
 
 export default function Attendees() {
-  const { selectedEventIds, hasSelection } = useEventSelection();
+  const { selectedEventId, hasSelection } = useEventSelection();
   const { events = [] } = useEvents();
   const { data: attendees = [], isLoading } = useMultiEventAttendees(
-    hasSelection ? selectedEventIds : null
+    hasSelection ? [selectedEventId!] : null
   );
 
   // Create event lookup map
   const eventMap = new Map<string, string>(events.map((e) => [e.id, e.title]));
+
+  const selectedEventName = selectedEventId ? eventMap.get(selectedEventId) : null;
 
   // Get unique ticket types from attendees
   const ticketTypes = Array.from(
@@ -54,7 +56,7 @@ export default function Attendees() {
           <h1 className="text-2xl font-bold">Attendees</h1>
           <p className="text-muted-foreground">
             {hasSelection
-              ? `Showing attendees from ${selectedEventIds.length} selected event${selectedEventIds.length > 1 ? 's' : ''}`
+              ? `Showing attendees for ${selectedEventName}`
               : 'Showing attendees from all events'}
           </p>
         </div>
@@ -70,7 +72,7 @@ export default function Attendees() {
         ticketTypes={ticketTypes}
         onExport={handleExport}
         eventMap={eventMap}
-        showEventColumn
+        showEventColumn={!hasSelection}
       />
     </div>
   );

@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
 interface EventSelectionContextType {
-  selectedEventIds: string[];
-  setSelectedEventIds: (ids: string[]) => void;
+  selectedEventId: string | null;
+  setSelectedEventId: (id: string | null) => void;
   clearSelection: () => void;
   hasSelection: boolean;
 }
@@ -10,16 +10,16 @@ interface EventSelectionContextType {
 const EventSelectionContext = createContext<EventSelectionContextType | undefined>(undefined);
 
 export function EventSelectionProvider({ children }: { children: ReactNode }) {
-  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-  const clearSelection = () => setSelectedEventIds([]);
-  const hasSelection = selectedEventIds.length > 0;
+  const clearSelection = () => setSelectedEventId(null);
+  const hasSelection = selectedEventId !== null;
 
   return (
     <EventSelectionContext.Provider
       value={{
-        selectedEventIds,
-        setSelectedEventIds,
+        selectedEventId,
+        setSelectedEventId,
         clearSelection,
         hasSelection,
       }}
