@@ -21,10 +21,10 @@ interface EventsDashboardSidebarProps {
   showSwitchOption?: boolean;
 }
 
-const navItems = [
+// These items only show when an event is selected
+const eventNavItems = [
   { path: '/events/manage/orders', label: 'Orders', icon: ShoppingCart },
   { path: '/events/manage/attendees', label: 'Attendees', icon: Users },
-  { path: '/events/manage', label: 'Events', icon: Calendar, exact: true },
 ];
 
 export function EventsDashboardSidebar({ 
@@ -41,13 +41,13 @@ export function EventsDashboardSidebar({
     return location.pathname.startsWith(path);
   };
 
-  // Build nav items dynamically to include badge designer when event is selected
+  // Build nav items dynamically - only show event-specific items when an event is selected
   const dynamicNavItems = hasSelection 
     ? [
-        ...navItems,
+        ...eventNavItems,
         { path: `/events/manage/${selectedEventId}/badges`, label: 'Badge Designer', icon: BadgeCheck },
       ]
-    : navItems;
+    : [];
 
   return (
     <>
@@ -86,8 +86,21 @@ export function EventsDashboardSidebar({
           </Button>
         </div>
         
-        {/* Event Selector */}
+        {/* Events link - always visible */}
         <div className="p-3 border-b">
+          <Link
+            to="/events/manage"
+            onClick={onClose}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors mb-3",
+              isActive('/events/manage', true)
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Calendar className="h-4 w-4" />
+            <span className="text-sm font-medium">Events</span>
+          </Link>
           <EventSelector />
         </div>
         
@@ -95,7 +108,7 @@ export function EventsDashboardSidebar({
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {dynamicNavItems.map((item) => {
             const Icon = item.icon;
-            const active = isActive(item.path, item.exact);
+            const active = isActive(item.path);
             
             return (
               <Link
