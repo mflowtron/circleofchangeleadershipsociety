@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MessageSquare } from 'lucide-react';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from '@/components/ui/pull-to-refresh';
+import AnnouncementBanner from '@/components/announcements/AnnouncementBanner';
 
 type FilterType = 'all' | 'chapter' | 'mine';
 
@@ -31,6 +32,8 @@ export default function Feed() {
         isRefreshing={isRefreshing}
         progress={progress}
       />
+      
+      <AnnouncementBanner />
       
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
