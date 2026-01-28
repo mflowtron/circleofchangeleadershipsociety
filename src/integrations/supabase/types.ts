@@ -572,6 +572,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          is_approved: boolean
           updated_at: string
           user_id: string
         }
@@ -581,6 +582,7 @@ export type Database = {
           created_at?: string
           full_name: string
           id?: string
+          is_approved?: boolean
           updated_at?: string
           user_id: string
         }
@@ -590,6 +592,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          is_approved?: boolean
           updated_at?: string
           user_id?: string
         }
@@ -812,6 +815,7 @@ export type Database = {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
       }
+      is_user_approved: { Args: { _user_id: string }; Returns: boolean }
       verify_order_edit_token: {
         Args: { _order_id: string; _token: string }
         Returns: boolean
