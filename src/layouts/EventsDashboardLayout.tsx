@@ -32,7 +32,7 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
 
   return (
     <EventSelectionProvider>
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-background flex overflow-x-hidden">
         <EventsDashboardSidebar 
           isOpen={sidebarOpen} 
           onClose={() => setSidebarOpen(false)}
