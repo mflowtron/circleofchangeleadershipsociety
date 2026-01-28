@@ -1,95 +1,108 @@
 
-# Track Individual Attendees for Event Registrations
+# Reorganize Events Dashboard Navigation
 
 ## Overview
-Enable tracking of individual attendees separate from registrations/orders. This allows advisors or group leaders to purchase multiple tickets at once and later provide details (names, emails) for each individual attendee, making it easy to contact each person for follow-up registration forms.
+Restructure the Events Dashboard sidebar to have Orders and Attendees as top-level menu items, with an event multi-select dropdown to filter data across events rather than navigating to individual event pages.
 
-## Current Situation
-- **Orders table**: Stores buyer/registrant info (the advisor making the purchase)
-- **Order_items table**: Stores ticket line items with a `quantity` field
-- **Problem**: When quantity > 1, there's no way to track individual attendees - only one `attendee_name`/`attendee_email` per line item
-
-## What You'll Get
-- New **Attendees** tab in the Event Orders page showing all individual attendees
-- Ability for purchasers to add/edit attendee details after checkout via a unique link
-- Admin ability to view and edit attendee information
-- Export attendees to CSV for mail merges or further outreach
-- Track which attendees have completed their information
-
-## Data Model Changes
-
-### New `attendees` Table
+## Current Structure
 ```text
-attendees
-├── id (uuid, primary key)
-├── order_id (uuid, references orders)
-├── order_item_id (uuid, references order_items)
-├── ticket_type_id (uuid, references ticket_types)
-├── attendee_name (text, nullable)
-├── attendee_email (text, nullable)
-├── additional_info (jsonb, nullable) - for future custom fields
-├── created_at (timestamp)
-├── updated_at (timestamp)
+Sidebar:
+├── Events (list page)
+└── Create Event
+
+To view Orders/Attendees:
+└── Events list → Click event → Orders/Attendees tabs
 ```
 
-When an order is completed, the system will create one `attendee` row for each ticket purchased. For example:
-- Order for 20 "General Admission" tickets → 20 attendee rows created
-- Purchaser or admin can then fill in names/emails for each
+## New Structure
+```text
+Sidebar:
+├── [Event Selector Dropdown - multi-select]
+├── Orders (filtered by selected events)
+├── Attendees (filtered by selected events)  
+├── Events (manage events list)
+└── Create Event
+```
+
+## What You'll Get
+- Quick access to Orders and Attendees from the sidebar
+- Multi-select event filter that persists across pages
+- View all orders/attendees at once or filter by specific events
+- Cleaner navigation with important data front-and-center
 
 ## Implementation Steps
 
-### Step 1: Create Database Table
-- Create `attendees` table with RLS policies
-- RLS: Order owners (by user_id) can edit their attendees; event organizers/admins can view/edit all
-- Create a secure token column on orders for allowing guest editing without login
+### Step 1: Create Multi-Select Event Dropdown Component
+Create `src/components/events/EventSelector.tsx`:
+- Popover with checkbox list of all events
+- Shows selected event count or "All Events" badge
+- Stores selection in React context for sharing across pages
+- Clear selection option
 
-### Step 2: Update Checkout Flow
-- After successful checkout, create attendee rows for each ticket purchased
-- Update `create-event-checkout` edge function to generate attendee records
+### Step 2: Create Event Selection Context
+Create `src/contexts/EventSelectionContext.tsx`:
+- Holds array of selected event IDs
+- Provides `selectedEventIds`, `setSelectedEventIds`, `clearSelection`
+- Wraps Events Dashboard layout
 
-### Step 3: Create Attendee Management Page
-- New page: `/events/:slug/order/:orderId/attendees`
-- Allows the purchaser to fill in attendee details
-- Accessible via email link sent after purchase (token-based access for guests)
-- Mobile-friendly form with name/email for each attendee
+### Step 3: Create Top-Level Orders Page
+Create `src/pages/events/manage/Orders.tsx`:
+- Displays orders from all or selected events
+- Reuses existing `OrdersTable` component
+- Adds event name column to table
+- Export filtered orders to CSV
 
-### Step 4: Update Event Orders Dashboard
-- Add "Attendees" tab to EventOrders page
-- Show all attendees across all orders with their status (info complete/incomplete)
-- Filter by ticket type, completion status
-- Inline editing for admins
-- Enhanced CSV export with all attendee details
+### Step 4: Create Top-Level Attendees Page
+Create `src/pages/events/manage/Attendees.tsx`:
+- Displays attendees from all or selected events
+- Reuses existing `AttendeesTable` component
+- Adds event name column
+- Export filtered attendees to CSV
 
-### Step 5: Add Order Success Page Link
-- Update CheckoutSuccess page to show "Add Attendee Details" button
-- Link purchasers to the attendee management page
+### Step 5: Update Data Hooks
+Modify `src/hooks/useOrders.ts`:
+- Add `useMultiEventOrders(eventIds: string[] | null)` hook
+- Fetch orders for multiple events or all events if null
 
-## New Pages/Components
-- `src/pages/events/OrderAttendees.tsx` - Public page for purchasers to add attendee info
-- `src/components/events/AttendeeForm.tsx` - Form for individual attendee details
-- `src/components/events/AttendeesTable.tsx` - Admin table showing all attendees
-- `src/hooks/useAttendees.ts` - Data hooks for attendee operations
+Modify `src/hooks/useAttendees.ts`:
+- Add `useMultiEventAttendees(eventIds: string[] | null)` hook
+- Fetch attendees for multiple events or all events if null
+
+### Step 6: Update Sidebar Navigation
+Modify `src/components/events/EventsDashboardSidebar.tsx`:
+- Add EventSelector dropdown at top
+- Add Orders nav item
+- Add Attendees nav item
+- Keep Events and Create Event items
+
+### Step 7: Add Routes
+Update `src/App.tsx`:
+- Add `/events/manage/orders` route
+- Add `/events/manage/attendees` route
+
+### Step 8: Update EventsDashboardLayout
+Wrap with EventSelectionProvider context
+
+## New Files
+- `src/components/events/EventSelector.tsx` - Multi-select dropdown
+- `src/contexts/EventSelectionContext.tsx` - Selection state management
+- `src/pages/events/manage/Orders.tsx` - Top-level orders page
+- `src/pages/events/manage/Attendees.tsx` - Top-level attendees page
 
 ## Files to Modify
-- `supabase/functions/create-event-checkout/index.ts` - Create attendee records after order
-- `supabase/functions/verify-event-payment/index.ts` - Create attendees on payment verification
-- `src/pages/events/CheckoutSuccess.tsx` - Add link to attendee form
-- `src/pages/events/manage/EventOrders.tsx` - Add Attendees tab
-- `src/App.tsx` - Add new route
+- `src/hooks/useOrders.ts` - Add multi-event query
+- `src/hooks/useAttendees.ts` - Add multi-event query
+- `src/components/events/EventsDashboardSidebar.tsx` - New nav structure
+- `src/components/events/OrdersTable.tsx` - Add event name column
+- `src/components/events/AttendeesTable.tsx` - Add event name column
+- `src/layouts/EventsDashboardLayout.tsx` - Wrap with context
+- `src/App.tsx` - Add new routes
 
-## User Flows
-
-### Purchaser Flow (Advisor registering students)
-1. Advisor goes to checkout, selects 20 "Student" tickets
-2. Enters their own name/email as the buyer
-3. Completes payment
-4. On success page, sees "Add Attendee Details" button
-5. Opens attendee form, enters names/emails for each student
-6. Can save partial progress and return later via email link
-
-### Admin Flow
-1. Go to Event → Orders & Attendees
-2. New "Attendees" tab shows all individual attendees
-3. Can see which attendees have incomplete information
-4. Can filter, search, and inline edit attendee details
-5. Export complete attendee list to CSV
+## Navigation Flow
+```text
+User logs in → Events Dashboard →
+  - Sees Event Selector showing "All Events"
+  - Clicks Orders → Sees all orders across events
+  - Selects specific events from dropdown → Orders/Attendees filter automatically
+  - Can still go to Events page to edit individual event settings
+```
