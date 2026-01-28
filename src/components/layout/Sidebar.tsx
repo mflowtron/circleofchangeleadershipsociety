@@ -11,7 +11,8 @@ import {
   X,
   Sparkles,
   Megaphone,
-  Ticket
+  Ticket,
+  CalendarDays
 } from 'lucide-react';
 import logo from '@/assets/coclc-logo.png';
 import { Button } from '@/components/ui/button';
@@ -21,17 +22,20 @@ const navItems = {
   student: [
     { path: '/', label: 'Feed', icon: Home },
     { path: '/recordings', label: 'Recordings', icon: Video },
+    { path: '/lms-events', label: 'Events', icon: CalendarDays },
     { path: '/profile', label: 'Profile', icon: User },
   ],
   advisor: [
     { path: '/', label: 'Feed', icon: Home },
     { path: '/recordings', label: 'Recordings', icon: Video },
+    { path: '/lms-events', label: 'Events', icon: CalendarDays },
     { path: '/my-chapter', label: 'My Chapter', icon: BookOpen },
     { path: '/profile', label: 'Profile', icon: User },
   ],
   admin: [
     { path: '/', label: 'Feed', icon: Home },
     { path: '/recordings', label: 'Recordings', icon: Video },
+    { path: '/lms-events', label: 'Events', icon: CalendarDays },
     { path: '/announcements', label: 'Announcements', icon: Megaphone },
     { path: '/users', label: 'Users', icon: Users },
     { path: '/chapters', label: 'Chapters', icon: BookOpen },

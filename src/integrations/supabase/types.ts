@@ -334,6 +334,45 @@ export type Database = {
           },
         ]
       }
+      lms_events: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          ends_at: string | null
+          id: string
+          is_active: boolean
+          meeting_link: string | null
+          starts_at: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          meeting_link?: string | null
+          starts_at: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          meeting_link?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       order_access_codes: {
         Row: {
           code: string
