@@ -130,9 +130,9 @@ export function OrderCard({ order }: OrderCardProps) {
               <div>
                 <h3 className="font-medium mb-3 flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
-                  Messages from Organizer
+                  Messages
                 </h3>
-                <MessageList messages={order.order_messages} />
+                <MessageList messages={order.order_messages} orderId={order.id} />
               </div>
             )}
 
