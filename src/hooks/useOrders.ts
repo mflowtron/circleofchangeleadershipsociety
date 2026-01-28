@@ -84,6 +84,31 @@ export function useEventOrderStats(eventId: string) {
   });
 }
 
+export function useOrder(orderId: string | undefined) {
+  return useQuery({
+    queryKey: ['order', orderId],
+    queryFn: async () => {
+      if (!orderId) return null;
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            *,
+            ticket_type:ticket_types (name)
+          )
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (error) throw error;
+      return data as OrderWithItems;
+    },
+    enabled: !!orderId,
+  });
+}
+
 export function useMultiEventOrders(eventIds: string[] | null) {
   return useQuery({
     queryKey: ['orders', 'multi', eventIds],

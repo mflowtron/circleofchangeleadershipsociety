@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Search, ChevronDown, ChevronUp, Mail, Phone } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, Mail, Phone, ExternalLink } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -265,6 +266,16 @@ export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: Or
                                   <span>{formatCurrency(order.total_cents)}</span>
                                 </div>
                               </div>
+                            </div>
+
+                            {/* View Details Link */}
+                            <div className="flex justify-end pt-2">
+                              <Link to={`/events/manage/orders/${order.id}`}>
+                                <Button variant="outline" size="sm">
+                                  <ExternalLink className="h-4 w-4 mr-2" />
+                                  View Details
+                                </Button>
+                              </Link>
                             </div>
                           </div>
                         </TableCell>
