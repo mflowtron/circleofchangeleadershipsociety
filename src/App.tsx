@@ -18,15 +18,27 @@ import MyChapter from "@/pages/MyChapter";
 import Announcements from "@/pages/Announcements";
 import NotFound from "@/pages/NotFound";
 
+// Event pages
+import EventsIndex from "@/pages/events/Index";
+import EventDetail from "@/pages/events/EventDetail";
+import ManageEventsIndex from "@/pages/events/manage/Index";
+import NewEvent from "@/pages/events/manage/NewEvent";
+import EditEvent from "@/pages/events/manage/EditEvent";
+import ManageTickets from "@/pages/events/manage/ManageTickets";
+
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
+function ProtectedRoute({ children, allowedRoles, noLayout }: { children: React.ReactNode; allowedRoles?: string[]; noLayout?: boolean }) {
   const { role, loading } = useAuth();
   
   if (loading) return null;
   
   if (allowedRoles && role && !allowedRoles.includes(role)) {
     return <Navigate to="/" replace />;
+  }
+  
+  if (noLayout) {
+    return <>{children}</>;
   }
   
   return <AppLayout>{children}</AppLayout>;
@@ -91,6 +103,44 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <Announcements />
+          </ProtectedRoute>
+        } 
+        />
+      
+      {/* Public Event Routes */}
+      <Route path="/events" element={<EventsIndex />} />
+      <Route path="/events/:slug" element={<EventDetail />} />
+      
+      {/* Event Management Routes (Protected) */}
+      <Route 
+        path="/events/manage" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+            <ManageEventsIndex />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/events/manage/new" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+            <NewEvent />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/events/manage/:id" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+            <EditEvent />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/events/manage/:id/tickets" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} noLayout>
+            <ManageTickets />
           </ProtectedRoute>
         } 
       />

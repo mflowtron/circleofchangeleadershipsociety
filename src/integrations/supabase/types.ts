@@ -158,6 +158,57 @@ export type Database = {
           },
         ]
       }
+      events: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          ends_at: string | null
+          id: string
+          is_published: boolean
+          short_description: string | null
+          slug: string
+          starts_at: string
+          title: string
+          updated_at: string
+          venue_address: string | null
+          venue_name: string | null
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_published?: boolean
+          short_description?: string | null
+          slug: string
+          starts_at: string
+          title: string
+          updated_at?: string
+          venue_address?: string | null
+          venue_name?: string | null
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_published?: boolean
+          short_description?: string | null
+          slug?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+          venue_address?: string | null
+          venue_name?: string | null
+        }
+        Relationships: []
+      }
       likes: {
         Row: {
           created_at: string
@@ -183,6 +234,113 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          attendee_email: string | null
+          attendee_name: string | null
+          created_at: string
+          id: string
+          order_id: string
+          quantity: number
+          ticket_type_id: string
+          unit_price_cents: number
+        }
+        Insert: {
+          attendee_email?: string | null
+          attendee_name?: string | null
+          created_at?: string
+          id?: string
+          order_id: string
+          quantity?: number
+          ticket_type_id: string
+          unit_price_cents: number
+        }
+        Update: {
+          attendee_email?: string | null
+          attendee_name?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string
+          quantity?: number
+          ticket_type_id?: string
+          unit_price_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          email: string
+          event_id: string
+          fees_cents: number
+          full_name: string
+          id: string
+          order_number: string
+          phone: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          stripe_payment_intent_id: string | null
+          subtotal_cents: number
+          total_cents: number
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          email: string
+          event_id: string
+          fees_cents?: number
+          full_name: string
+          id?: string
+          order_number: string
+          phone?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          stripe_payment_intent_id?: string | null
+          subtotal_cents?: number
+          total_cents?: number
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          email?: string
+          event_id?: string
+          fees_cents?: number
+          full_name?: string
+          id?: string
+          order_number?: string
+          phone?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          stripe_payment_intent_id?: string | null
+          subtotal_cents?: number
+          total_cents?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
@@ -344,6 +502,62 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_id: string
+          id: string
+          max_per_order: number
+          name: string
+          price_cents: number
+          quantity_available: number | null
+          quantity_sold: number
+          sales_end_at: string | null
+          sales_start_at: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_id: string
+          id?: string
+          max_per_order?: number
+          name: string
+          price_cents?: number
+          quantity_available?: number | null
+          quantity_sold?: number
+          sales_end_at?: string | null
+          sales_start_at?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_id?: string
+          id?: string
+          max_per_order?: number
+          name?: string
+          price_cents?: number
+          quantity_available?: number | null
+          quantity_sold?: number
+          sales_end_at?: string | null
+          sales_start_at?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_types_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -367,6 +581,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_events: { Args: { _user_id: string }; Returns: boolean }
+      generate_order_number: { Args: never; Returns: string }
       get_post_like_count: { Args: { post_uuid: string }; Returns: number }
       get_user_chapter: { Args: { _user_id: string }; Returns: string }
       has_role: {
@@ -381,9 +597,14 @@ export type Database = {
         Args: { _chapter_id: string; _user_id: string }
         Returns: boolean
       }
+      is_event_owner: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "advisor" | "student" | "event_organizer"
+      order_status: "pending" | "completed" | "cancelled" | "refunded"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -512,6 +733,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "advisor", "student", "event_organizer"],
+      order_status: ["pending", "completed", "cancelled", "refunded"],
     },
   },
 } as const
