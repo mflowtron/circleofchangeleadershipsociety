@@ -230,6 +230,37 @@ serve(async (req) => {
         }
       }
 
+      // Create attendee records for free orders
+      const { data: orderItemsData } = await supabaseAdmin
+        .from('order_items')
+        .select('id, ticket_type_id, quantity')
+        .eq('order_id', order.id);
+
+      if (orderItemsData) {
+        const attendeeRecords = [];
+        for (const item of orderItemsData) {
+          for (let i = 0; i < item.quantity; i++) {
+            attendeeRecords.push({
+              order_id: order.id,
+              order_item_id: item.id,
+              ticket_type_id: item.ticket_type_id,
+            });
+          }
+        }
+
+        if (attendeeRecords.length > 0) {
+          const { error: attendeeError } = await supabaseAdmin
+            .from('attendees')
+            .insert(attendeeRecords);
+
+          if (attendeeError) {
+            logStep("Failed to create attendees for free order", { error: attendeeError });
+          } else {
+            logStep("Attendee records created for free order", { count: attendeeRecords.length });
+          }
+        }
+      }
+
       logStep("Free order completed");
 
       const origin = req.headers.get("origin") || "";

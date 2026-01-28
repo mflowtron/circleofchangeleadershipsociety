@@ -29,6 +29,7 @@ import ManageTickets from "@/pages/events/manage/ManageTickets";
 import EventOrders from "@/pages/events/manage/EventOrders";
 import Checkout from "@/pages/events/Checkout";
 import CheckoutSuccess from "@/pages/events/CheckoutSuccess";
+import OrderAttendees from "@/pages/events/OrderAttendees";
 import EventsDashboardLayout from "@/layouts/EventsDashboardLayout";
 
 const queryClient = new QueryClient();
@@ -146,6 +147,7 @@ function AppRoutes() {
       <Route path="/events/:slug" element={<EventDetail />} />
       <Route path="/events/:slug/checkout" element={<Checkout />} />
       <Route path="/events/:slug/checkout/success" element={<CheckoutSuccess />} />
+      <Route path="/events/:slug/order/:orderId/attendees" element={<OrderAttendees />} />
       
       {/* Event Management Routes (Protected with Events Dashboard Layout) */}
       <Route 

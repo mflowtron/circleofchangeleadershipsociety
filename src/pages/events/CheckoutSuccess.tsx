@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { CheckCircle, Loader2, Calendar, MapPin, Ticket, Mail, XCircle } from 'lucide-react';
+import { CheckCircle, Loader2, Calendar, MapPin, Ticket, Mail, XCircle, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -30,6 +30,7 @@ interface Order {
   created_at: string;
   completed_at: string | null;
   order_items: OrderItem[];
+  edit_token?: string;
 }
 
 export default function CheckoutSuccess() {
@@ -239,6 +240,29 @@ export default function CheckoutSuccess() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Add Attendee Details CTA */}
+        {isCompleted && getTotalTickets() > 0 && (
+          <Card className="mb-6 border-blue-500/20 bg-blue-500/5">
+            <CardContent className="pt-6">
+              <div className="flex gap-3">
+                <Users className="h-5 w-5 text-blue-500 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-medium mb-1">Add Attendee Details</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Purchased tickets for others? Add their names and emails so they can receive 
+                    event updates and registration forms.
+                  </p>
+                  <Button asChild>
+                    <Link to={`/events/${slug}/order/${order.id}/attendees${order.edit_token ? `?token=${order.edit_token}` : ''}`}>
+                      Add Attendee Information
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4">
