@@ -1,24 +1,36 @@
 import { jsPDF } from 'jspdf';
 import type { BadgeField, BadgeOrientation } from '@/hooks/useBadgeTemplates';
 
-// AVERY 5392 dimensions in points (72 points per inch)
+// AVERY 5392 specifications (official measurements)
+// Sheet: 8.5" × 11" (Letter)
+// Labels: 6 per sheet (2 columns × 3 rows)
+// Each label: 4" wide × 3" tall
+
 const POINTS_PER_INCH = 72;
-const PREVIEW_PX_PER_INCH = 100; // Must match BadgePreview.tsx
 
-// Portrait: 3" wide x 4" tall
-const PORTRAIT_WIDTH = 3 * POINTS_PER_INCH;  // 216pt
-const PORTRAIT_HEIGHT = 4 * POINTS_PER_INCH; // 288pt
+// Badge dimensions in points
+const BADGE_WIDTH_INCHES = 4;
+const BADGE_HEIGHT_INCHES = 3;
+const PORTRAIT_WIDTH = BADGE_HEIGHT_INCHES * POINTS_PER_INCH;   // 3" = 216pt
+const PORTRAIT_HEIGHT = BADGE_WIDTH_INCHES * POINTS_PER_INCH;   // 4" = 288pt
+const LANDSCAPE_WIDTH = BADGE_WIDTH_INCHES * POINTS_PER_INCH;   // 4" = 288pt
+const LANDSCAPE_HEIGHT = BADGE_HEIGHT_INCHES * POINTS_PER_INCH; // 3" = 216pt
 
-// Landscape: 4" wide x 3" tall
-const LANDSCAPE_WIDTH = 4 * POINTS_PER_INCH;  // 288pt
-const LANDSCAPE_HEIGHT = 3 * POINTS_PER_INCH; // 216pt
+// AVERY 5392 precise margins (derived from official template)
+// Sheet: 8.5" wide, 2 badges at 4" each = 8", leaves 0.5" total
+// Gap between columns: 0.125", margins: (0.5" - 0.125") / 2 = 0.1875" each side
+const LEFT_MARGIN_INCHES = 0.25;  // ~0.25" left margin
+const TOP_MARGIN_INCHES = 1.0;    // ~1" top margin
+const H_GAP_INCHES = 0;           // No horizontal gap (badges adjacent)
 
-const TOP_MARGIN = 50;   // ~0.69"
-const LEFT_MARGIN = 54;  // ~0.75"
-const H_GAP = 14;        // ~0.19" between columns
+const LEFT_MARGIN = LEFT_MARGIN_INCHES * POINTS_PER_INCH;  // 18pt
+const TOP_MARGIN = TOP_MARGIN_INCHES * POINTS_PER_INCH;    // 72pt
+const H_GAP = H_GAP_INCHES * POINTS_PER_INCH;              // 0pt
 
-// Scale factor to convert preview pixels to PDF points
-// Preview uses 100px per inch, PDF uses 72pt per inch
+// Preview uses 100px per inch for display
+const PREVIEW_PX_PER_INCH = 100;
+
+// Scale factor to convert preview measurements to PDF points
 const PREVIEW_TO_PDF_SCALE = POINTS_PER_INCH / PREVIEW_PX_PER_INCH;
 
 export interface AttendeeData {
@@ -202,13 +214,18 @@ export async function generateBadgePdf(
         const text = getFieldValue(attendee, field.source);
         if (!text) continue;
 
-        // Convert field position (in inches from preview) to PDF points
+        // Convert field position from inches to PDF points
+        // field.x and field.y are stored in inches
         const textX = x + field.x * POINTS_PER_INCH;
         const textY = y + field.y * POINTS_PER_INCH;
 
-        // Scale font size from preview pixels to PDF points
-        // Preview uses pixels for fontSize, PDF needs points
+        // Font size scaling:
+        // In the preview, fontSize is in CSS pixels displayed on a badge that is
+        // PREVIEW_PX_PER_INCH pixels per inch (400px for 4" badge).
+        // In the PDF, we need the same proportional size.
+        // PDF uses points (72 per inch), so we scale: fontSize * (72/100)
         const scaledFontSize = field.fontSize * PREVIEW_TO_PDF_SCALE;
+        
         doc.setFontSize(scaledFontSize);
         doc.setTextColor(field.color);
         
@@ -218,12 +235,15 @@ export async function generateBadgePdf(
           doc.setFont('helvetica', 'normal');
         }
 
+        // Handle text alignment
         let alignX = textX;
-        let align: 'left' | 'center' | 'right' = field.align;
+        const align: 'left' | 'center' | 'right' = field.align;
         
         if (field.align === 'center') {
+          // For center alignment, position at badge center
           alignX = x + badgeWidth / 2;
         } else if (field.align === 'right') {
+          // For right alignment, position at badge right edge minus X offset
           alignX = x + badgeWidth - (field.x * POINTS_PER_INCH);
         }
 
