@@ -38,7 +38,7 @@ const heartAnimationStyles = `
 `;
 
 export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(post.comments_count > 0);
   const [isAnimating, setIsAnimating] = useState(false);
   const { user, role } = useAuth();
 

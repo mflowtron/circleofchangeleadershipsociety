@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Trash2, Send } from 'lucide-react';
+import { Trash2, Send, MessageCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface CommentsSectionProps {
@@ -64,9 +64,13 @@ export default function CommentsSection({ postId }: CommentsSectionProps) {
           ))}
         </div>
       ) : comments.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-4">
-          No comments yet. Start the conversation!
-        </p>
+        <div className="flex flex-col items-center py-6 text-center">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+            <MessageCircle className="h-5 w-5 text-primary" />
+          </div>
+          <p className="text-sm font-medium text-foreground">Be the first to comment!</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Share your thoughts above</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {comments.map((comment) => {
