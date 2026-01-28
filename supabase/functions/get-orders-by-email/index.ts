@@ -85,7 +85,9 @@ serve(async (req: Request) => {
           message,
           is_important,
           read_at,
-          created_at
+          created_at,
+          sender_type,
+          sender_email
         )
       `)
       .ilike('email', normalizedEmail)
@@ -103,7 +105,8 @@ serve(async (req: Request) => {
     const ordersWithStats = orders?.map(order => {
       const totalTickets = order.order_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
       const registeredAttendees = order.attendees?.filter((a: any) => a.attendee_name && a.attendee_email).length || 0;
-      const unreadMessages = order.order_messages?.filter((m: any) => !m.read_at).length || 0;
+      // Only count organizer messages as unread (customer doesn't need to mark their own as read)
+      const unreadMessages = order.order_messages?.filter((m: any) => !m.read_at && m.sender_type === 'organizer').length || 0;
 
       return {
         ...order,

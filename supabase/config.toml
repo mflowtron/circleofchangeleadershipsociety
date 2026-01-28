@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.mark-message-read]
 verify_jwt = false
+
+[functions.send-customer-message]
+verify_jwt = false
