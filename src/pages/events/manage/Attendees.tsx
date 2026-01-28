@@ -1,9 +1,12 @@
-import { Download } from 'lucide-react';
+import { useState } from 'react';
+import { Download, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AttendeesTable } from '@/components/events/AttendeesTable';
+import { BadgeGeneratorDialog } from '@/components/events/badges/BadgeGeneratorDialog';
 import { useMultiEventAttendees } from '@/hooks/useAttendees';
 import { useEventSelection } from '@/contexts/EventSelectionContext';
 import { useEvents } from '@/hooks/useEvents';
+import { format } from 'date-fns';
 
 export default function Attendees() {
   const { selectedEventId, hasSelection } = useEventSelection();
@@ -11,11 +14,13 @@ export default function Attendees() {
   const { data: attendees = [], isLoading } = useMultiEventAttendees(
     hasSelection ? [selectedEventId!] : null
   );
+  const [badgeDialogOpen, setBadgeDialogOpen] = useState(false);
 
   // Create event lookup map
   const eventMap = new Map<string, string>(events.map((e) => [e.id, e.title]));
 
-  const selectedEventName = selectedEventId ? eventMap.get(selectedEventId) : null;
+  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  const selectedEventName = selectedEvent?.title || null;
 
   // Get unique ticket types from attendees
   const ticketTypes = Array.from(
@@ -60,10 +65,18 @@ export default function Attendees() {
               : 'Showing attendees from all events'}
           </p>
         </div>
-        <Button variant="outline" onClick={handleExport} disabled={attendees.length === 0}>
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
+        <div className="flex gap-2">
+          {hasSelection && selectedEvent && (
+            <Button variant="outline" onClick={() => setBadgeDialogOpen(true)}>
+              <Printer className="h-4 w-4 mr-2" />
+              Print Badges
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleExport} disabled={attendees.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       <AttendeesTable
@@ -74,6 +87,18 @@ export default function Attendees() {
         eventMap={eventMap}
         showEventColumn={!hasSelection}
       />
+
+      {hasSelection && selectedEvent && (
+        <BadgeGeneratorDialog
+          open={badgeDialogOpen}
+          onOpenChange={setBadgeDialogOpen}
+          eventId={selectedEventId!}
+          eventName={selectedEvent.title}
+          eventDate={format(new Date(selectedEvent.starts_at), 'MMMM d, yyyy')}
+          attendees={attendees}
+          ticketTypes={ticketTypes}
+        />
+      )}
     </div>
   );
 }

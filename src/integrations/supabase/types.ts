@@ -131,6 +131,41 @@ export type Database = {
           },
         ]
       }
+      badge_templates: {
+        Row: {
+          background_image_url: string | null
+          created_at: string
+          event_id: string
+          fields: Json
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          background_image_url?: string | null
+          created_at?: string
+          event_id: string
+          fields?: Json
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          background_image_url?: string | null
+          created_at?: string
+          event_id?: string
+          fields?: Json
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "badge_templates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chapters: {
         Row: {
           created_at: string
