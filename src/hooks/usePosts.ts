@@ -115,15 +115,44 @@ export function usePosts(filter: FilterType = 'all') {
     fetchPosts();
   }, [user, filter, profile?.chapter_id]);
 
-  const createPost = async (content: string, isGlobal: boolean) => {
+  const uploadImage = async (file: File): Promise<string | null> => {
+    if (!user) return null;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+    const { data, error } = await supabase.storage
+      .from('post-images')
+      .upload(fileName, file);
+
+    if (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('post-images')
+      .getPublicUrl(data.path);
+
+    return urlData.publicUrl;
+  };
+
+  const createPost = async (content: string, isGlobal: boolean, imageFile?: File) => {
     if (!user) return;
 
     try {
+      let imageUrl: string | null = null;
+
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      }
+
       const { error } = await supabase.from('posts').insert({
         user_id: user.id,
         content,
         is_global: isGlobal,
         chapter_id: isGlobal ? null : profile?.chapter_id,
+        image_url: imageUrl,
       });
 
       if (error) throw error;
