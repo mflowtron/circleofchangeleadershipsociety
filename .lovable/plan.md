@@ -1,163 +1,97 @@
 
-# Recording Player Revamp Plan
+
+# Test Data Seeding Plan
 
 ## Overview
-Transform the current recordings page into a rich, focused video player experience with enhanced content, dedicated "play mode" view, and file attachments for admins.
+Create 10 test user profiles and 5 posts for each user (50 posts total) with a mix of text-only posts and posts with media attachments.
 
-## Current State
-- Simple grid view with inline player card when a video is selected
-- Basic title and description display
-- Grid of other recordings remains visible during playback
-- No file attachment capability
-- Minimal metadata display
+## Data to Create
 
-## Proposed Changes
+### 10 Test Users
+Diverse names representing different backgrounds:
+1. Sarah Chen - Student
+2. Marcus Johnson - Student  
+3. Emily Rodriguez - Student
+4. David Kim - Student
+5. Aisha Patel - Student
+6. James Wilson - Student
+7. Olivia Thompson - Student
+8. Carlos Martinez - Student
+9. Mia Williams - Student
+10. Alex Nguyen - Student
 
-### 1. Dedicated Full-Screen Player Mode
-When a user clicks on a recording, the entire page transforms into a focused player view:
-- Full-width video player at the top
-- No distracting grid of other videos
-- Clear "Back to Recordings" navigation
-- Clean, theater-like experience
+Each user will have:
+- A unique UUID for `user_id`
+- A profile entry with full name
+- A student role in `user_roles`
+- All assigned to the existing chapter (September 2025)
 
-### 2. Rich Recording Details Panel
-Below the player, show comprehensive recording information:
-- Large title with formatted upload date
-- Full multi-paragraph description with proper formatting
-- "Uploaded by" with uploader name (pulled from profiles)
-- Duration indicator (when available from Mux)
+### 50 Posts (5 per user)
+Mix of content types per user:
+- 3 text-only posts (thoughtful content about leadership, community, learning)
+- 1 post with an image (using placeholder image URLs)
+- 1 post with a link (educational resources, articles)
 
-### 3. File Attachments System (Admin Feature)
-Allow admins to attach downloadable resources to recordings:
-- PDF handouts, slides, worksheets, etc.
-- Display as a clean list with file icons
-- Download buttons for each attachment
-- Upload interface in admin mode
-
-### 4. Browse View Improvements
-When not in player mode:
-- Cleaner card layout with better thumbnails
-- Video duration badges on thumbnails
-- Search/filter functionality
-- Improved hover states
+Post distribution:
+- ~60% global posts (`is_global = true`)
+- ~40% chapter-specific posts (for users with chapters assigned)
 
 ---
 
 ## Technical Implementation
 
-### Database Changes
-Create a new `recording_resources` table to store file attachments:
+### Database Migration
+A single SQL migration will insert all test data:
 
-```text
-Table: recording_resources
-------------------------------
-id              UUID (PK)
-recording_id    UUID (FK -> recordings)
-name            TEXT (display name)
-file_url        TEXT (storage URL)
-file_type       TEXT (pdf, docx, etc.)
-file_size       INTEGER (bytes)
-uploaded_by     UUID
-created_at      TIMESTAMP
+```sql
+-- 1. Generate 10 user UUIDs
+-- 2. Insert 10 profiles with names
+-- 3. Insert 10 user_roles (all as 'student')
+-- 4. Insert 50 posts with varied content
+
+-- Sample post content will include:
+-- - Leadership reflections
+-- - Community building thoughts
+-- - Learning experiences
+-- - Event announcements
+-- - Resource sharing
 ```
 
-Create a new storage bucket `recording-resources` for file uploads.
+### Sample Data Content
 
-### Component Structure
-Split the page into clear modes:
+**Text Posts Examples:**
+- "Just finished our chapter meeting and I'm inspired by everyone's commitment to positive change!"
+- "Leadership isn't about being in charge - it's about taking care of those in your charge."
+- "Grateful for the mentorship I've received. Paying it forward to the next generation."
 
-```text
-Recordings.tsx (container)
-├── RecordingsBrowseView (grid of videos)
-│   └── RecordingCard (individual video card)
-└── RecordingPlayerView (full player mode)
-    ├── MuxPlayer (video)
-    ├── RecordingDetails (title, description, metadata)
-    ├── RecordingResources (file attachments list)
-    └── ResourceUploadDialog (admin only)
-```
+**Image Posts:**
+- Will use Unsplash placeholder URLs (e.g., leadership, teamwork, community themes)
 
-### Key Features by Role
-
-**All Users:**
-- Browse recordings grid
-- Full-screen player mode
-- Download attached resources
-- View rich descriptions
-
-**Admins/Advisors:**
-- Upload new recordings (existing)
-- Attach file resources
-- Delete resources
-- Edit recording details
-
-**Admin Only:**
-- Delete recordings (existing)
-
----
-
-## User Experience Flow
-
-```text
-┌─────────────────────────────────────────────┐
-│  Lecture Recordings     [Upload Recording]  │
-├─────────────────────────────────────────────┤
-│  ┌─────┐  ┌─────┐  ┌─────┐                  │
-│  │ ▶   │  │ ▶   │  │ ▶   │   Grid of        │
-│  │thumb│  │thumb│  │thumb│   Recording      │
-│  ├─────┤  ├─────┤  ├─────┤   Cards          │
-│  │Title│  │Title│  │Title│                  │
-│  └─────┘  └─────┘  └─────┘                  │
-└─────────────────────────────────────────────┘
-                    │
-                    │ Click recording
-                    ▼
-┌─────────────────────────────────────────────┐
-│  ← Back to Recordings                       │
-├─────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────┐    │
-│  │                                     │    │
-│  │         VIDEO PLAYER                │    │
-│  │                                     │    │
-│  └─────────────────────────────────────┘    │
-│                                             │
-│  Recording Title Here                       │
-│  Uploaded Jan 15, 2026 by John Smith        │
-│                                             │
-│  Full description text here with proper     │
-│  formatting and multiple paragraphs...      │
-│                                             │
-│  ─────────────────────────────────────────  │
-│  Resources                                  │
-│  📄 Lecture Slides.pdf        [Download]    │
-│  📄 Worksheet.docx            [Download]    │
-│  [+ Add Resource] (admin only)              │
-└─────────────────────────────────────────────┘
-```
+**Link Posts:**
+- Educational articles and resources with relevant URLs
 
 ---
 
 ## Files to Create/Modify
 
-### New Files
-1. `src/components/recordings/RecordingsBrowseView.tsx` - Grid view component
-2. `src/components/recordings/RecordingCard.tsx` - Individual card component
-3. `src/components/recordings/RecordingPlayerView.tsx` - Full player mode
-4. `src/components/recordings/RecordingDetails.tsx` - Title, description, metadata
-5. `src/components/recordings/RecordingResources.tsx` - File attachments list
-6. `src/components/recordings/ResourceUploadDialog.tsx` - Admin upload dialog
-7. `src/hooks/useRecordingResources.ts` - Hook for managing resources
-
-### Modified Files
-1. `src/pages/Recordings.tsx` - Refactor to use new components
-
 ### Database Migration
-1. Create `recording_resources` table
-2. Create `recording-resources` storage bucket
-3. RLS policies for resources table and bucket
-4. Realtime enabled for resources
+- Create SQL migration to insert:
+  - 10 profiles
+  - 10 user_roles  
+  - 50 posts with varied timestamps (spread over last 30 days)
+
+### No Code Changes Required
+This is purely a data seeding operation via SQL migration.
 
 ---
 
-## Summary
-This revamp transforms the recordings page from a simple video list into a rich learning resource center. The dedicated player mode eliminates distractions, the enhanced details provide better context, and file attachments enable comprehensive lesson materials.
+## Important Notes
+
+1. **User IDs**: Generated UUIDs won't have corresponding `auth.users` entries, so these test users cannot log in - they exist only for display purposes in the feed
+
+2. **Media URLs**: Will use publicly accessible placeholder images from Unsplash or similar services
+
+3. **Timestamps**: Posts will have staggered `created_at` dates over the past month for realistic feed appearance
+
+4. **Chapter Assignment**: 5 users will be assigned to the existing "September 2025" chapter, 5 will have no chapter
+
