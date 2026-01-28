@@ -123,15 +123,13 @@ export default function Users() {
     if (!editingUser) return;
 
     try {
-      // Update role - first delete existing, then insert new
-      await supabase
+      // Update role using upsert to avoid delete-then-insert race condition
+      const { error: roleError } = await supabase
         .from('user_roles')
-        .delete()
+        .update({ role: editRole })
         .eq('user_id', editingUser.user_id);
 
-      await supabase
-        .from('user_roles')
-        .insert({ user_id: editingUser.user_id, role: editRole });
+      if (roleError) throw roleError;
 
       // Update chapter
       await supabase
