@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { BadgeField, BadgeTemplate } from '@/hooks/useBadgeTemplates';
+import type { BadgeField, BadgeOrientation } from '@/hooks/useBadgeTemplates';
 import type { AttendeeData } from '@/lib/badgePdfGenerator';
 
 interface BadgePreviewProps {
@@ -10,11 +10,14 @@ interface BadgePreviewProps {
   className?: string;
   onFieldClick?: (fieldId: string) => void;
   selectedFieldId?: string | null;
+  orientation?: BadgeOrientation;
 }
 
-// Badge dimensions: 3" x 4" - we'll render at a base of 300px x 400px (100px per inch)
-const BASE_WIDTH = 300;
-const BASE_HEIGHT = 400;
+// Badge dimensions at 100px per inch
+const PORTRAIT_WIDTH = 300;  // 3"
+const PORTRAIT_HEIGHT = 400; // 4"
+const LANDSCAPE_WIDTH = 400; // 4"
+const LANDSCAPE_HEIGHT = 300; // 3"
 const PX_PER_INCH = 100;
 
 const defaultSampleData: AttendeeData = {
@@ -35,9 +38,12 @@ export function BadgePreview({
   className,
   onFieldClick,
   selectedFieldId,
+  orientation = 'landscape',
 }: BadgePreviewProps) {
-  const width = BASE_WIDTH * scale;
-  const height = BASE_HEIGHT * scale;
+  const baseWidth = orientation === 'landscape' ? LANDSCAPE_WIDTH : PORTRAIT_WIDTH;
+  const baseHeight = orientation === 'landscape' ? LANDSCAPE_HEIGHT : PORTRAIT_HEIGHT;
+  const width = baseWidth * scale;
+  const height = baseHeight * scale;
 
   const getFieldValue = (source: BadgeField['source']): string => {
     return sampleData[source] || '';

@@ -13,11 +13,14 @@ export interface BadgeField {
   source: 'attendee_name' | 'attendee_email' | 'ticket_type' | 'order_number' | 'purchaser_name' | 'event_name' | 'event_date';
 }
 
+export type BadgeOrientation = 'portrait' | 'landscape';
+
 export interface BadgeTemplate {
   id: string;
   event_id: string;
   background_image_url: string | null;
   fields: BadgeField[];
+  orientation: BadgeOrientation;
   created_at: string;
   updated_at: string;
 }
@@ -39,7 +42,8 @@ export function useBadgeTemplate(eventId: string | null) {
       if (data) {
         return {
           ...data,
-          fields: (data.fields as unknown as BadgeField[]) || []
+          fields: (data.fields as unknown as BadgeField[]) || [],
+          orientation: ((data as any).orientation as BadgeOrientation) || 'landscape',
         } as BadgeTemplate;
       }
       
@@ -53,15 +57,17 @@ export function useCreateBadgeTemplate() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ eventId, fields, backgroundImageUrl }: {
+    mutationFn: async ({ eventId, fields, backgroundImageUrl, orientation = 'landscape' }: {
       eventId: string;
       fields: BadgeField[];
       backgroundImageUrl?: string | null;
+      orientation?: BadgeOrientation;
     }) => {
       const insertData = {
         event_id: eventId,
         fields: JSON.parse(JSON.stringify(fields)),
         background_image_url: backgroundImageUrl || null,
+        orientation,
       };
       
       const { data, error } = await supabase
@@ -83,15 +89,17 @@ export function useUpdateBadgeTemplate() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, eventId, fields, backgroundImageUrl }: {
+    mutationFn: async ({ id, eventId, fields, backgroundImageUrl, orientation }: {
       id: string;
       eventId: string;
       fields?: BadgeField[];
       backgroundImageUrl?: string | null;
+      orientation?: BadgeOrientation;
     }) => {
       const updates: Record<string, unknown> = {};
       if (fields !== undefined) updates.fields = JSON.parse(JSON.stringify(fields));
       if (backgroundImageUrl !== undefined) updates.background_image_url = backgroundImageUrl;
+      if (orientation !== undefined) updates.orientation = orientation;
       
       const { data, error } = await supabase
         .from('badge_templates')
