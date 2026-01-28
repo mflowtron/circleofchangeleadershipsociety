@@ -216,7 +216,7 @@ export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: Or
                             {/* Order Items */}
                             <div>
                               <h4 className="font-medium mb-2">Tickets</h4>
-                              <div className="rounded-lg border bg-card">
+                              <div className="rounded-lg border bg-card overflow-hidden">
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
