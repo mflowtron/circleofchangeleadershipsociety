@@ -228,63 +228,56 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
               </div>
             )}
 
-            <div className="flex flex-col gap-3 pt-2 border-t border-border/50">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    ref={fileInputRef}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={!!videoPlaybackId || videoStatus === 'processing'}
-                    className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
-                  >
-                    <ImagePlus className="h-4 w-4 mr-1.5" />
-                    <span className="hidden sm:inline">Photo</span>
-                  </Button>
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+              <div className="flex items-center gap-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  ref={fileInputRef}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!!videoPlaybackId || videoStatus === 'processing'}
+                  className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg px-2"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  <span className="hidden sm:inline ml-1.5">Photo</span>
+                </Button>
 
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={openVideoUpload}
-                    disabled={!!imageFile || !!videoPlaybackId || videoStatus === 'processing'}
-                    className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
-                  >
-                    {videoStatus === 'processing' ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                        <span className="hidden sm:inline">Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Video className="h-4 w-4 mr-1.5" />
-                        <span className="hidden sm:inline">Video</span>
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={openVideoUpload}
+                  disabled={!!imageFile || !!videoPlaybackId || videoStatus === 'processing'}
+                  className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg px-2"
+                >
+                  {videoStatus === 'processing' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Video className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline ml-1.5">{videoStatus === 'processing' ? 'Processing...' : 'Video'}</span>
+                </Button>
                 
                 {hasChapter && (
                   <button
                     type="button"
                     onClick={() => setIsGlobal(!isGlobal)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-muted/50 hover:bg-muted transition-colors"
                   >
                     {isGlobal ? (
-                      <Globe className="h-4 w-4 text-primary shrink-0" />
+                      <Globe className="h-3.5 w-3.5 text-primary" />
                     ) : (
-                      <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
-                    <span className="text-xs font-medium text-foreground whitespace-nowrap">
-                      {isGlobal ? 'Everyone' : 'My Chapter'}
+                    <span className="text-xs font-medium text-foreground">
+                      {isGlobal ? 'Everyone' : 'Chapter'}
                     </span>
                   </button>
                 )}
@@ -292,15 +285,16 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
               
               <Button 
                 type="submit" 
+                size="sm"
                 disabled={!content.trim() || loading || videoStatus === 'processing'}
-                className="btn-gold-glow rounded-xl w-full sm:w-auto sm:self-end px-6"
+                className="btn-gold-glow rounded-xl px-4"
               >
                 {loading ? (
                   <div className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
                 ) : (
                   <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Post
+                    <Send className="h-4 w-4" />
+                    <span className="hidden sm:inline ml-1.5">Post</span>
                   </>
                 )}
               </Button>
