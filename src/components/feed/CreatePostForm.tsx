@@ -228,72 +228,72 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
               </div>
             )}
 
-            <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t border-border/50">
-              <div className="flex items-center gap-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  ref={fileInputRef}
-                  className="hidden"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={!!videoPlaybackId || videoStatus === 'processing'}
-                  className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
-                >
-                  <ImagePlus className="h-4 w-4 mr-2" />
-                  Photo
-                </Button>
+            <div className="flex flex-col gap-3 pt-2 border-t border-border/50">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    ref={fileInputRef}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={!!videoPlaybackId || videoStatus === 'processing'}
+                    className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
+                  >
+                    <ImagePlus className="h-4 w-4 mr-1.5" />
+                    <span className="hidden sm:inline">Photo</span>
+                  </Button>
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={openVideoUpload}
-                  disabled={!!imageFile || !!videoPlaybackId || videoStatus === 'processing'}
-                  className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
-                >
-                  {videoStatus === 'processing' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Video className="h-4 w-4 mr-2" />
-                      Video
-                    </>
-                  )}
-                </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={openVideoUpload}
+                    disabled={!!imageFile || !!videoPlaybackId || videoStatus === 'processing'}
+                    className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg"
+                  >
+                    {videoStatus === 'processing' ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                        <span className="hidden sm:inline">Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Video className="h-4 w-4 mr-1.5" />
+                        <span className="hidden sm:inline">Video</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
                 
                 {hasChapter && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50">
+                  <button
+                    type="button"
+                    onClick={() => setIsGlobal(!isGlobal)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+                  >
                     {isGlobal ? (
-                      <Globe className="h-4 w-4 text-primary" />
+                      <Globe className="h-4 w-4 text-primary shrink-0" />
                     ) : (
-                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <Users className="h-4 w-4 text-muted-foreground shrink-0" />
                     )}
-                    <Switch
-                      id="share-scope"
-                      checked={isGlobal}
-                      onCheckedChange={setIsGlobal}
-                      className="data-[state=checked]:bg-primary"
-                    />
-                    <Label htmlFor="share-scope" className="text-xs text-muted-foreground cursor-pointer">
-                      {isGlobal ? 'Everyone' : 'Chapter only'}
-                    </Label>
-                  </div>
+                    <span className="text-xs font-medium text-foreground whitespace-nowrap">
+                      {isGlobal ? 'Everyone' : 'My Chapter'}
+                    </span>
+                  </button>
                 )}
               </div>
               
               <Button 
                 type="submit" 
                 disabled={!content.trim() || loading || videoStatus === 'processing'}
-                className="btn-gold-glow rounded-xl px-6"
+                className="btn-gold-glow rounded-xl w-full sm:w-auto sm:self-end px-6"
               >
                 {loading ? (
                   <div className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
