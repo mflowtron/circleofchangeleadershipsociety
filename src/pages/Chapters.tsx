@@ -136,12 +136,12 @@ export default function Chapters() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-full overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-foreground">Chapter Management</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => handleOpenDialog()}>
+            <Button onClick={() => handleOpenDialog()} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Chapter
             </Button>
@@ -183,54 +183,64 @@ export default function Chapters() {
         <CardHeader>
           <CardTitle>All Chapters</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 sm:px-6">
           {chapters.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
+            <p className="text-muted-foreground text-center py-8 px-4">
               No chapters yet. Create your first chapter to get started.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {chapters.map((chapter) => (
-                  <TableRow key={chapter.id}>
-                    <TableCell className="font-medium">{chapter.name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {chapter.description || '-'}
-                    </TableCell>
-                    <TableCell>
-                      {formatDistanceToNow(new Date(chapter.created_at), { addSuffix: true })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDialog(chapter)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive"
-                          onClick={() => handleDelete(chapter.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[120px]">Name</TableHead>
+                    <TableHead className="hidden sm:table-cell">Description</TableHead>
+                    <TableHead className="min-w-[100px]">Created</TableHead>
+                    <TableHead className="w-20">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {chapters.map((chapter) => (
+                    <TableRow key={chapter.id}>
+                      <TableCell className="font-medium">
+                        <div>{chapter.name}</div>
+                        {chapter.description && (
+                          <div className="text-xs text-muted-foreground sm:hidden mt-1 line-clamp-1">
+                            {chapter.description}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden sm:table-cell">
+                        {chapter.description || '-'}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {formatDistanceToNow(new Date(chapter.created_at), { addSuffix: true })}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleOpenDialog(chapter)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDelete(chapter.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
