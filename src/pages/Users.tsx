@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -27,18 +27,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Pencil, CheckCircle, Clock, Users as UsersIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
 interface User {
   id: string;
-  email: string;
+  user_id: string;
   full_name: string;
+  avatar_url: string | null;
   role: AppRole;
   chapter_id: string | null;
   chapter_name: string | null;
+  is_approved: boolean;
+  created_at: string;
 }
 
 interface Chapter {
@@ -47,24 +54,22 @@ interface Chapter {
 }
 
 export default function Users() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editRole, setEditRole] = useState<AppRole>('student');
   const [editChapter, setEditChapter] = useState<string>('none');
-  const { toast } = useToast();
+  const [pendingChanges, setPendingChanges] = useState<Record<string, { role?: AppRole; chapter_id?: string }>>({});
+  const { toast: showToast } = useToast();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
+  // Fetch all profiles with approval status
+  const { data: allUsers, isLoading } = useQuery({
+    queryKey: ['all-users-with-approval'],
+    queryFn: async () => {
       // Fetch all profiles
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, user_id, full_name, chapter_id');
+        .select('id, user_id, full_name, avatar_url, chapter_id, is_approved, created_at')
+        .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
 
@@ -82,33 +87,31 @@ export default function Users() {
 
       if (chaptersError) throw chaptersError;
 
-      setChapters(chaptersData || []);
-
       // Combine data
       const combinedUsers: User[] = (profilesData || []).map((profile) => {
         const roleEntry = rolesData?.find((r) => r.user_id === profile.user_id);
         const chapter = chaptersData?.find((c) => c.id === profile.chapter_id);
         return {
-          id: profile.user_id,
-          email: '',
+          id: profile.id,
+          user_id: profile.user_id,
           full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
           role: roleEntry?.role || 'student',
           chapter_id: profile.chapter_id,
           chapter_name: chapter?.name || null,
+          is_approved: profile.is_approved,
+          created_at: profile.created_at,
         };
       });
 
-      setUsers(combinedUsers);
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error loading users',
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      return { users: combinedUsers, chapters: chaptersData || [] };
+    },
+  });
+
+  const users = allUsers?.users || [];
+  const chapters = allUsers?.chapters || [];
+  const approvedUsers = users.filter(u => u.is_approved);
+  const pendingUsers = users.filter(u => !u.is_approved);
 
   const handleEditUser = (user: User) => {
     setEditingUser(user);
@@ -124,27 +127,27 @@ export default function Users() {
       await supabase
         .from('user_roles')
         .delete()
-        .eq('user_id', editingUser.id);
+        .eq('user_id', editingUser.user_id);
 
       await supabase
         .from('user_roles')
-        .insert({ user_id: editingUser.id, role: editRole });
+        .insert({ user_id: editingUser.user_id, role: editRole });
 
       // Update chapter
       await supabase
         .from('profiles')
         .update({ chapter_id: editChapter === 'none' ? null : editChapter })
-        .eq('user_id', editingUser.id);
+        .eq('user_id', editingUser.user_id);
 
-      toast({
+      showToast({
         title: 'User updated',
         description: 'User role and chapter have been updated.',
       });
 
       setEditingUser(null);
-      fetchData();
+      queryClient.invalidateQueries({ queryKey: ['all-users-with-approval'] });
     } catch (error: any) {
-      toast({
+      showToast({
         variant: 'destructive',
         title: 'Error updating user',
         description: error.message,
@@ -152,7 +155,74 @@ export default function Users() {
     }
   };
 
-  if (loading) {
+  // Approve user mutation
+  const approveMutation = useMutation({
+    mutationFn: async ({ userId, chapterId, role }: { userId: string; chapterId?: string; role?: AppRole }) => {
+      const profileUpdate: { is_approved: boolean; chapter_id?: string } = { is_approved: true };
+      if (chapterId) {
+        profileUpdate.chapter_id = chapterId;
+      }
+      
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(profileUpdate)
+        .eq('user_id', userId);
+      
+      if (profileError) throw profileError;
+
+      if (role) {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .update({ role })
+          .eq('user_id', userId);
+        
+        if (roleError) throw roleError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-users-with-approval'] });
+      toast.success('User approved successfully');
+    },
+    onError: (error) => {
+      console.error('Approval error:', error);
+      toast.error('Failed to approve user');
+    },
+  });
+
+  const handlePendingChange = (userId: string, field: 'role' | 'chapter_id', value: string) => {
+    setPendingChanges(prev => ({
+      ...prev,
+      [userId]: {
+        ...prev[userId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleApprove = (userId: string) => {
+    const changes = pendingChanges[userId] || {};
+    approveMutation.mutate({
+      userId,
+      chapterId: changes.chapter_id,
+      role: changes.role,
+    });
+    
+    setPendingChanges(prev => {
+      const newChanges = { ...prev };
+      delete newChanges[userId];
+      return newChanges;
+    });
+  };
+
+  const getSelectedRole = (user: User): AppRole => {
+    return pendingChanges[user.user_id]?.role || user.role || 'student';
+  };
+
+  const getSelectedChapter = (user: User): string => {
+    return pendingChanges[user.user_id]?.chapter_id || user.chapter_id || '';
+  };
+
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-foreground">User Management</h1>
@@ -169,84 +239,214 @@ export default function Users() {
         <h1 className="text-2xl font-bold text-foreground">User Management</h1>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Chapter</TableHead>
-                <TableHead className="w-24">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.full_name}</TableCell>
-                  <TableCell className="capitalize">{user.role}</TableCell>
-                  <TableCell>{user.chapter_name || 'None'}</TableCell>
-                  <TableCell>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditUser(user)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Edit User: {editingUser?.full_name}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label>Role</Label>
-                            <Select value={editRole} onValueChange={(v) => setEditRole(v as AppRole)}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="student">Student</SelectItem>
-                                <SelectItem value="advisor">Advisor</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
+      <Tabs defaultValue="all-users">
+        <TabsList>
+          <TabsTrigger value="all-users">All Users</TabsTrigger>
+          <TabsTrigger value="pending" className="gap-2">
+            Pending Approval
+            {pendingUsers.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                {pendingUsers.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all-users">
+          <Card>
+            <CardHeader>
+              <CardTitle>All Users</CardTitle>
+              <CardDescription>{approvedUsers.length} approved users</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Chapter</TableHead>
+                    <TableHead className="w-24">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {approvedUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.full_name}</TableCell>
+                      <TableCell className="capitalize">{user.role}</TableCell>
+                      <TableCell>{user.chapter_name || 'None'}</TableCell>
+                      <TableCell>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Edit User: {editingUser?.full_name}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              <div className="space-y-2">
+                                <Label>Role</Label>
+                                <Select value={editRole} onValueChange={(v) => setEditRole(v as AppRole)}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="student">Student</SelectItem>
+                                    <SelectItem value="advisor">Advisor</SelectItem>
+                                    <SelectItem value="event_organizer">Event Organizer</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Chapter</Label>
+                                <Select value={editChapter} onValueChange={setEditChapter}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
+                                    {chapters.map((chapter) => (
+                                      <SelectItem key={chapter.id} value={chapter.id}>
+                                        {chapter.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <Button onClick={handleSaveUser} className="w-full">
+                                Save Changes
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pending">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                <CardTitle>Pending Approvals</CardTitle>
+              </div>
+              <CardDescription>
+                {pendingUsers.length} user{pendingUsers.length !== 1 ? 's' : ''} awaiting approval
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!pendingUsers.length ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <UsersIcon className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-lg font-medium">No pending approvals</p>
+                  <p className="text-muted-foreground">All users have been reviewed</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Registered</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Chapter</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              {user.avatar_url ? (
+                                <img 
+                                  src={user.avatar_url} 
+                                  alt={user.full_name} 
+                                  className="h-10 w-10 rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-sm font-medium text-primary">
+                                  {user.full_name.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium">{user.full_name}</p>
+                              <Badge variant="secondary" className="text-xs">
+                                <Clock className="h-3 w-3 mr-1" />
+                                Pending
+                              </Badge>
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label>Chapter</Label>
-                            <Select value={editChapter} onValueChange={setEditChapter}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
-                                {chapters.map((chapter) => (
-                                  <SelectItem key={chapter.id} value={chapter.id}>
-                                    {chapter.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <Button onClick={handleSaveUser} className="w-full">
-                            Save Changes
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {format(new Date(user.created_at), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={getSelectedRole(user)}
+                            onValueChange={(value) => handlePendingChange(user.user_id, 'role', value)}
+                          >
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="student">Student</SelectItem>
+                              <SelectItem value="advisor">Advisor</SelectItem>
+                              <SelectItem value="event_organizer">Event Organizer</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={getSelectedChapter(user)}
+                            onValueChange={(value) => handlePendingChange(user.user_id, 'chapter_id', value)}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Select chapter..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {chapters.map((chapter) => (
+                                <SelectItem key={chapter.id} value={chapter.id}>
+                                  {chapter.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleApprove(user.user_id)}
+                            disabled={approveMutation.isPending}
+                            className="gap-1"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            Approve
                           </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

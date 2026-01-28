@@ -23,7 +23,7 @@ const MyChapter = lazy(() => import("@/pages/MyChapter"));
 const Announcements = lazy(() => import("@/pages/Announcements"));
 const DashboardSelector = lazy(() => import("@/pages/DashboardSelector"));
 const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
-const UserApprovals = lazy(() => import("@/pages/UserApprovals"));
+
 
 // Event pages - lazy loaded
 const EventsIndex = lazy(() => import("@/pages/events/Index"));
@@ -209,16 +209,6 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={['admin']}>
             <Suspense fallback={<PageLoader />}>
               <Announcements />
-            </Suspense>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/user-approvals" 
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <Suspense fallback={<PageLoader />}>
-              <UserApprovals />
             </Suspense>
           </ProtectedRoute>
         } 

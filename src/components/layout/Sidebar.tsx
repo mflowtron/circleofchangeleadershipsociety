@@ -11,8 +11,7 @@ import {
   X,
   Sparkles,
   Megaphone,
-  Ticket,
-  UserCheck
+  Ticket
 } from 'lucide-react';
 import logo from '@/assets/coclc-logo.png';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,6 @@ const navItems = {
     { path: '/', label: 'Feed', icon: Home },
     { path: '/recordings', label: 'Recordings', icon: Video },
     { path: '/announcements', label: 'Announcements', icon: Megaphone },
-    { path: '/user-approvals', label: 'Pending Users', icon: UserCheck },
     { path: '/users', label: 'Users', icon: Users },
     { path: '/chapters', label: 'Chapters', icon: BookOpen },
     { path: '/moderation', label: 'Moderation', icon: Shield },
