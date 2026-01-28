@@ -48,7 +48,8 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     const {
-      error
+      error,
+      data
     } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -59,10 +60,33 @@ export default function Auth() {
         title: 'Login failed',
         description: error.message
       });
-    } else {
-      navigate('/');
+      setLoading(false);
+    } else if (data.user) {
+      // Fetch profile and role to determine correct redirect
+      const [profileResult, roleResult] = await Promise.all([
+        supabase.from('profiles').select('is_approved').eq('user_id', data.user.id).single(),
+        supabase.from('user_roles').select('role').eq('user_id', data.user.id).single()
+      ]);
+      
+      const isApproved = profileResult.data?.is_approved ?? false;
+      const role = roleResult.data?.role;
+      
+      if (!isApproved) {
+        navigate('/pending-approval');
+      } else {
+        const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
+        const hasEventsAccess = role === 'admin' || role === 'event_organizer';
+        
+        if (hasLMSAccess && hasEventsAccess) {
+          navigate('/select-dashboard');
+        } else if (hasEventsAccess && !hasLMSAccess) {
+          navigate('/events/manage');
+        } else {
+          navigate('/');
+        }
+      }
+      setLoading(false);
     }
-    setLoading(false);
   };
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,14 +109,16 @@ export default function Auth() {
         title: 'Signup failed',
         description: error.message
       });
+      setLoading(false);
     } else {
       toast({
         title: 'Account created!',
-        description: 'You are now signed in.'
+        description: 'Your account is pending approval.'
       });
-      navigate('/');
+      // New signups always go to pending approval
+      navigate('/pending-approval');
+      setLoading(false);
     }
-    setLoading(false);
   };
   return <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
       {/* Theme Toggle */}
