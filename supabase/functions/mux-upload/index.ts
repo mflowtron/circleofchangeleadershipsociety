@@ -43,7 +43,7 @@ serve(async (req) => {
 
     const { action, ...body } = await req.json();
 
-    // Check if user is admin or advisor (required for upload/delete actions)
+    // Check if user is admin or advisor (required for recording upload/delete actions)
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -58,11 +58,107 @@ serve(async (req) => {
       if (!isAdmin) {
         throw new Error("Only admins can delete recordings");
       }
-    } else if (!isAdmin && !isAdvisor) {
-      throw new Error("Only admins and advisors can manage recordings");
+    } else if (action === "create-upload" || action === "check-status") {
+      // Recording uploads require admin or advisor
+      if (!isAdmin && !isAdvisor) {
+        throw new Error("Only admins and advisors can manage recordings");
+      }
     }
+    // post-video-upload and check-post-video are allowed for all authenticated users
 
     const muxAuth = btoa(`${MUX_TOKEN_ID}:${MUX_TOKEN_SECRET}`);
+
+    // Create upload URL for post videos (any authenticated user)
+    if (action === "post-video-upload") {
+      const response = await fetch("https://api.mux.com/video/v1/uploads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${muxAuth}`,
+        },
+        body: JSON.stringify({
+          cors_origin: "*",
+          new_asset_settings: {
+            playback_policy: ["public"],
+            encoding_tier: "baseline",
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error("Mux API error:", error);
+        throw new Error(`Mux API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const upload = data.data;
+
+      return new Response(
+        JSON.stringify({
+          upload_url: upload.url,
+          upload_id: upload.id,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check post video upload status and get playback ID
+    if (action === "check-post-video") {
+      const { upload_id } = body;
+
+      const uploadResponse = await fetch(
+        `https://api.mux.com/video/v1/uploads/${upload_id}`,
+        {
+          headers: {
+            Authorization: `Basic ${muxAuth}`,
+          },
+        }
+      );
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to check upload status");
+      }
+
+      const uploadData = await uploadResponse.json();
+      const upload = uploadData.data;
+
+      if (upload.status === "asset_created" && upload.asset_id) {
+        // Get asset details
+        const assetResponse = await fetch(
+          `https://api.mux.com/video/v1/assets/${upload.asset_id}`,
+          {
+            headers: {
+              Authorization: `Basic ${muxAuth}`,
+            },
+          }
+        );
+
+        if (!assetResponse.ok) {
+          throw new Error("Failed to get asset details");
+        }
+
+        const assetData = await assetResponse.json();
+        const asset = assetData.data;
+        const playbackId = asset.playback_ids?.[0]?.id;
+
+        return new Response(
+          JSON.stringify({
+            status: playbackId ? "ready" : asset.status,
+            playback_id: playbackId,
+            asset_id: asset.id,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          status: upload.status,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (action === "create-upload") {
       // Create a direct upload URL

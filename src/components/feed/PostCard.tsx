@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import MuxPlayer from '@mux/mux-player-react';
 import { Post } from '@/hooks/usePosts';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -106,7 +107,19 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
       </CardHeader>
       <CardContent className="pb-3">
         <p className="text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
-        {post.image_url && (
+        {post.video_url && (
+          <div className="mt-4 -mx-6 rounded-lg overflow-hidden">
+            <MuxPlayer
+              playbackId={post.video_url}
+              metadata={{
+                video_title: `Post by ${post.author.full_name}`,
+              }}
+              accentColor="#C9A55C"
+              className="w-full aspect-video"
+            />
+          </div>
+        )}
+        {post.image_url && !post.video_url && (
           <div className="mt-4 -mx-6">
             <ImageLightbox 
               src={post.image_url} 
