@@ -1,11 +1,14 @@
 import { useParams, Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Mail, Phone, Check, X, Pencil } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Check, X, Pencil, MessageSquare, Send, AlertTriangle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -17,6 +20,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOrder } from '@/hooks/useOrders';
 import { useOrderAttendees, useUpdateAttendee, Attendee } from '@/hooks/useAttendees';
+import { useOrderMessages, useCreateOrderMessage } from '@/hooks/useOrderMessages';
 import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
@@ -30,10 +34,16 @@ export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
   const { data: order, isLoading: orderLoading } = useOrder(orderId);
   const { data: attendees = [], isLoading: attendeesLoading } = useOrderAttendees(orderId);
+  const { data: messages = [], isLoading: messagesLoading } = useOrderMessages(orderId);
+  const createMessage = useCreateOrderMessage();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+
+  // Message form state
+  const [newMessage, setNewMessage] = useState('');
+  const [isImportant, setIsImportant] = useState(false);
 
   const updateAttendee = useUpdateAttendee();
 
@@ -69,6 +79,23 @@ export default function OrderDetail() {
       cancelEdit();
     } catch (error) {
       toast.error('Failed to update attendee');
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!orderId || !newMessage.trim()) return;
+    
+    try {
+      await createMessage.mutateAsync({
+        orderId,
+        message: newMessage.trim(),
+        isImportant,
+      });
+      toast.success('Message sent to customer');
+      setNewMessage('');
+      setIsImportant(false);
+    } catch (error) {
+      toast.error('Failed to send message');
     }
   };
 
@@ -193,7 +220,99 @@ export default function OrderDetail() {
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Total:</span>
                 <Badge variant="secondary">{attendees.length}</Badge>
+      </div>
+
+      {/* Messages Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Customer Messages
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Message Composer */}
+          <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+            <Label htmlFor="message">Send a message to the customer</Label>
+            <Textarea
+              id="message"
+              placeholder="Type your message here..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              rows={3}
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="important"
+                  checked={isImportant}
+                  onCheckedChange={(checked) => setIsImportant(checked === true)}
+                />
+                <Label htmlFor="important" className="text-sm cursor-pointer">
+                  Mark as important
+                </Label>
               </div>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || createMessage.isPending}
+              >
+                {createMessage.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                Send Message
+              </Button>
+            </div>
+          </div>
+
+          {/* Message History */}
+          {messagesLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : messages.length === 0 ? (
+            <p className="text-center py-4 text-muted-foreground">
+              No messages sent yet
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-muted-foreground">Message History</h4>
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`p-3 rounded-lg border ${
+                    msg.is_important 
+                      ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' 
+                      : 'bg-background'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      {msg.is_important && (
+                        <div className="flex items-center gap-1 text-yellow-600 text-xs mb-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Important
+                        </div>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground flex-shrink-0">
+                      <p>{format(new Date(msg.created_at), 'MMM d, h:mm a')}</p>
+                      {msg.read_at ? (
+                        <p className="text-green-600 flex items-center gap-1 justify-end">
+                          <Check className="h-3 w-3" />
+                          Read
+                        </p>
+                      ) : (
+                        <p>Unread</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Complete:</span>
                 <Badge variant="default" className="bg-green-600">
