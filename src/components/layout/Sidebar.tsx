@@ -54,11 +54,12 @@ export default function Sidebar() {
         />
       )}
       
-      <aside className={cn(
-        "fixed top-0 left-0 z-50 h-full w-72 bg-sidebar text-sidebar-foreground transition-transform duration-300 ease-out md:translate-x-0 flex flex-col",
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      )}
-      style={{ background: 'var(--gradient-dark)' }}
+      <aside
+        className={cn(
+          "fixed top-0 left-0 z-50 h-full w-72 bg-sidebar text-sidebar-foreground border-r border-sidebar-border/50 transition-transform duration-300 ease-out md:translate-x-0 flex flex-col",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ backgroundImage: "var(--gradient-dark)" }}
       >
         {/* Header */}
         <div className="p-5 flex items-center justify-between border-b border-sidebar-border/50">
@@ -87,8 +88,10 @@ export default function Sidebar() {
                 to={item.path}
                 onClick={() => setIsOpen(false)}
                 className={cn(
-                  "nav-item group",
-                  isActive && "nav-item-active"
+                  "group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
+                  isActive
+                    ? "bg-primary text-primary-foreground font-medium shadow-gold"
+                    : "text-sidebar-foreground/90 hover:bg-sidebar-accent"
                 )}
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
