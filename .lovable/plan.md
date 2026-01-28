@@ -1,147 +1,78 @@
 
-
-# User Approval System Plan
+# Consolidate User Management with Tabs
 
 ## Overview
-Implement an approval workflow where new users who register are placed in a pending queue. An admin can then review, approve, and assign them to a chapter before they gain access to the app.
-
-## How It Works
-
-### User Registration Flow
-1. User registers via email/password or Google OAuth
-2. A new `is_approved` field on their profile is set to `false` by default
-3. User sees a "Pending Approval" screen explaining they need to wait for admin approval
-4. They cannot access the main app features until approved
-
-### Admin Approval Flow
-1. Admin sees a new "Pending Users" section in the sidebar
-2. The page displays all users with `is_approved = false`
-3. For each pending user, admin can:
-   - Assign a role (student, advisor, event_organizer)
-   - Assign a chapter
-   - Approve the user
-4. Once approved, the user can access the app on their next login/refresh
-
----
+Instead of having a separate "Pending Users" menu item, we'll add a tabbed interface to the existing Users page. This will display two tabs:
+- **All Users** - The current user management table
+- **Pending Approval** - The approval queue for new users
 
 ## Changes Summary
 
-### Database Changes
+### Modify `src/pages/Users.tsx`
+Transform the page to use a tabbed layout:
+- Add `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` from the UI components
+- **Tab 1: "All Users"** - Contains the existing user table with role/chapter editing
+- **Tab 2: "Pending Approval"** - Contains the approval queue functionality from `UserApprovals.tsx`
+- Add a badge/count indicator on the Pending tab showing how many users need approval
+- Consolidate data fetching to include `is_approved` field from profiles
 
-**Modify `profiles` table:**
-- Add `is_approved` boolean column (default: `false`)
+### Modify `src/components/layout/Sidebar.tsx`
+- Remove the "Pending Users" navigation item (with `UserCheck` icon)
+- Keep only the "Users" navigation item for admin access
 
-**Update `handle_new_user` trigger:**
-- Ensure new profiles are created with `is_approved = false`
+### Modify `src/App.tsx`
+- Remove the `/user-approvals` route
+- Keep the `/users` route as-is
 
-**RLS Policy Updates:**
-- Allow admins to read all profiles (for the approval queue)
-- Allow admins to update `is_approved` and `chapter_id` on any profile
-
-### Frontend Changes
-
-**New Page: `src/pages/PendingApproval.tsx`**
-- Simple page shown to unapproved users
-- Displays message: "Your account is pending approval"
-- Includes sign out button
-
-**New Page: `src/pages/UserApprovals.tsx`**
-- Admin-only page for managing pending users
-- Lists users where `is_approved = false`
-- Each row shows: name, email (from profile), registration date
-- Actions: assign role, assign chapter, approve button
-
-**Modify `AuthContext.tsx`:**
-- Add `isApproved` field from profile data
-- Expose `isApproved` in context
-
-**Modify `App.tsx` routing:**
-- Check `isApproved` status
-- Redirect unapproved users to `/pending-approval`
-- Block access to all protected routes if not approved
-
-**Modify `Sidebar.tsx`:**
-- Add "Pending Users" link for admin role
+### Delete `src/pages/UserApprovals.tsx`
+- This file will no longer be needed as its functionality moves into `Users.tsx`
 
 ---
 
 ## Technical Details
 
-### Database Migration
+### Users Page Structure
 
-```sql
--- Add is_approved column to profiles
-ALTER TABLE public.profiles 
-ADD COLUMN is_approved boolean NOT NULL DEFAULT false;
-
--- Update existing users to be approved (they were already in the system)
-UPDATE public.profiles SET is_approved = true WHERE is_approved = false;
-
--- Create function to check if user is approved
-CREATE OR REPLACE FUNCTION public.is_user_approved(_user_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT COALESCE(
-    (SELECT is_approved FROM public.profiles WHERE user_id = _user_id),
-    false
-  )
-$$;
-
--- RLS policy for admins to view all pending users
-CREATE POLICY "Admins can view all profiles"
-ON public.profiles FOR SELECT
-TO authenticated
-USING (
-  public.has_role(auth.uid(), 'admin') 
-  OR user_id = auth.uid()
-);
-
--- RLS policy for admins to update any profile
-CREATE POLICY "Admins can update any profile"
-ON public.profiles FOR UPDATE
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'))
-WITH CHECK (public.has_role(auth.uid(), 'admin'));
+```tsx
+<Tabs defaultValue="all-users">
+  <TabsList>
+    <TabsTrigger value="all-users">All Users</TabsTrigger>
+    <TabsTrigger value="pending">
+      Pending Approval
+      {pendingCount > 0 && <Badge>{pendingCount}</Badge>}
+    </TabsTrigger>
+  </TabsList>
+  
+  <TabsContent value="all-users">
+    {/* Existing user table with edit functionality */}
+  </TabsContent>
+  
+  <TabsContent value="pending">
+    {/* Approval queue from UserApprovals.tsx */}
+  </TabsContent>
+</Tabs>
 ```
 
-### AuthContext Updates
+### Data Fetching Updates
+- Fetch `is_approved` field along with other profile data
+- Filter users into two lists:
+  - Approved users for the "All Users" tab
+  - Unapproved users for the "Pending Approval" tab
+- Use React Query for the pending users to enable optimistic updates on approval
 
-```typescript
-// Add to profile fetch
-const { data: profileData } = await supabase
-  .from('profiles')
-  .select('id, full_name, avatar_url, chapter_id, is_approved')
-  .eq('user_id', session.user.id)
-  .single();
-
-// Expose in context
-isApproved: profile?.is_approved ?? false,
-```
-
-### Routing Logic
-
-```typescript
-// In AppRoutes component
-if (user && !isApproved) {
-  // Redirect to pending approval page for unapproved users
-  return <Navigate to="/pending-approval" replace />;
-}
+### Sidebar Update
+Remove this navigation item:
+```tsx
+{ path: '/user-approvals', label: 'Pending Users', icon: UserCheck }
 ```
 
 ---
 
-## Files to Create/Modify
+## Files to Modify
 
 | File | Action |
 |------|--------|
-| Database migration | Create - Add `is_approved` column, RLS policies |
-| `src/contexts/AuthContext.tsx` | Modify - Add `isApproved` to context |
-| `src/pages/PendingApproval.tsx` | Create - Pending approval screen |
-| `src/pages/UserApprovals.tsx` | Create - Admin approval queue |
-| `src/App.tsx` | Modify - Add approval check, new routes |
-| `src/components/layout/Sidebar.tsx` | Modify - Add Pending Users link |
-
+| `src/pages/Users.tsx` | Modify - Add tabbed interface with approval functionality |
+| `src/components/layout/Sidebar.tsx` | Modify - Remove "Pending Users" nav item |
+| `src/App.tsx` | Modify - Remove `/user-approvals` route |
+| `src/pages/UserApprovals.tsx` | Delete - No longer needed |
