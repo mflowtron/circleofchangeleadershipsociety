@@ -43,11 +43,7 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
           showSwitchOption={hasLMSAccess}
         />
         <div className="flex-1 flex flex-col md:ml-64">
-          <EventsDashboardHeader 
-            onMenuClick={() => setSidebarOpen(true)}
-            onSwitchDashboard={handleSwitchDashboard}
-            showSwitchOption={hasLMSAccess}
-          />
+          <EventsDashboardHeader onMenuClick={() => setSidebarOpen(true)} />
           <main className="flex-1 p-4 md:p-6 overflow-auto">
             <div className="animate-fade-up">
               {children}
