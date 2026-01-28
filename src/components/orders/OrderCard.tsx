@@ -132,7 +132,7 @@ export function OrderCard({ order }: OrderCardProps) {
                   <MessageSquare className="h-4 w-4" />
                   Messages from Organizer
                 </h3>
-                <MessageList messages={order.order_messages} orderId={order.id} />
+                <MessageList messages={order.order_messages} />
               </div>
             )}
 

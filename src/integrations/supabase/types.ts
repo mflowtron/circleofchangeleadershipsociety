@@ -412,36 +412,30 @@ export type Database = {
       order_messages: {
         Row: {
           created_at: string
-          created_by: string | null
+          created_by: string
           id: string
           is_important: boolean
           message: string
           order_id: string
           read_at: string | null
-          sender_email: string | null
-          sender_type: string
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
+          created_by: string
           id?: string
           is_important?: boolean
           message: string
           order_id: string
           read_at?: string | null
-          sender_email?: string | null
-          sender_type?: string
         }
         Update: {
           created_at?: string
-          created_by?: string | null
+          created_by?: string
           id?: string
           is_important?: boolean
           message?: string
           order_id?: string
           read_at?: string | null
-          sender_email?: string | null
-          sender_type?: string
         }
         Relationships: [
           {
