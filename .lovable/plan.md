@@ -1,108 +1,73 @@
 
-# Reorganize Events Dashboard Navigation
+# Add Order Detail Page with Attendees & Cross-Linking
 
 ## Overview
-Restructure the Events Dashboard sidebar to have Orders and Attendees as top-level menu items, with an event multi-select dropdown to filter data across events rather than navigating to individual event pages.
+Enable navigation between Orders and Attendees by:
+1. Making Order # clickable in the Attendees table to navigate to an Order detail page
+2. Creating a dedicated Order Detail page that displays the order info along with its associated attendees
 
-## Current Structure
-```text
-Sidebar:
-├── Events (list page)
-└── Create Event
+## Current State
+- Attendees table shows Order # as plain text
+- Orders table has inline expansion but no dedicated detail page
+- No way to see which attendees belong to a specific order from the Orders view
 
-To view Orders/Attendees:
-└── Events list → Click event → Orders/Attendees tabs
-```
+## Proposed Solution
 
-## New Structure
-```text
-Sidebar:
-├── [Event Selector Dropdown - multi-select]
-├── Orders (filtered by selected events)
-├── Attendees (filtered by selected events)  
-├── Events (manage events list)
-└── Create Event
-```
+### New Order Detail Page
+Create `/events/manage/orders/:orderId` route with:
+- Order header (order number, date, status)
+- Customer information (name, email, phone)
+- Order items breakdown (ticket types, quantities, prices)
+- **Attendees section** showing all attendees for this order with their completion status
+- Link back to the event's orders page
 
-## What You'll Get
-- Quick access to Orders and Attendees from the sidebar
-- Multi-select event filter that persists across pages
-- View all orders/attendees at once or filter by specific events
-- Cleaner navigation with important data front-and-center
+### Attendees Table Enhancement
+- Make the "Order #" column a clickable link that navigates to the Order Detail page
+- Add visual indication (underline, color) that it's clickable
+
+### Orders Table Enhancement
+- Add a "View" button/link in the actions area to navigate to Order Detail page
+- Keep the existing expandable row for quick preview
 
 ## Implementation Steps
 
-### Step 1: Create Multi-Select Event Dropdown Component
-Create `src/components/events/EventSelector.tsx`:
-- Popover with checkbox list of all events
-- Shows selected event count or "All Events" badge
-- Stores selection in React context for sharing across pages
-- Clear selection option
+### Step 1: Create Order Detail Page
+Create `src/pages/events/manage/OrderDetail.tsx`:
+- Fetch order by ID with order items
+- Fetch attendees for the order using `useOrderAttendees`
+- Display order summary, items, and attendees in a clean layout
+- Include "Edit Attendees" capability inline
 
-### Step 2: Create Event Selection Context
-Create `src/contexts/EventSelectionContext.tsx`:
-- Holds array of selected event IDs
-- Provides `selectedEventIds`, `setSelectedEventIds`, `clearSelection`
-- Wraps Events Dashboard layout
-
-### Step 3: Create Top-Level Orders Page
-Create `src/pages/events/manage/Orders.tsx`:
-- Displays orders from all or selected events
-- Reuses existing `OrdersTable` component
-- Adds event name column to table
-- Export filtered orders to CSV
-
-### Step 4: Create Top-Level Attendees Page
-Create `src/pages/events/manage/Attendees.tsx`:
-- Displays attendees from all or selected events
-- Reuses existing `AttendeesTable` component
-- Adds event name column
-- Export filtered attendees to CSV
-
-### Step 5: Update Data Hooks
-Modify `src/hooks/useOrders.ts`:
-- Add `useMultiEventOrders(eventIds: string[] | null)` hook
-- Fetch orders for multiple events or all events if null
-
-Modify `src/hooks/useAttendees.ts`:
-- Add `useMultiEventAttendees(eventIds: string[] | null)` hook
-- Fetch attendees for multiple events or all events if null
-
-### Step 6: Update Sidebar Navigation
-Modify `src/components/events/EventsDashboardSidebar.tsx`:
-- Add EventSelector dropdown at top
-- Add Orders nav item
-- Add Attendees nav item
-- Keep Events and Create Event items
-
-### Step 7: Add Routes
+### Step 2: Add Route
 Update `src/App.tsx`:
-- Add `/events/manage/orders` route
-- Add `/events/manage/attendees` route
+- Add route `/events/manage/orders/:orderId` for the Order Detail page
 
-### Step 8: Update EventsDashboardLayout
-Wrap with EventSelectionProvider context
+### Step 3: Update Attendees Table
+Modify `src/components/events/AttendeesTable.tsx`:
+- Wrap Order # in a `Link` component pointing to `/events/manage/orders/{order_id}`
+
+### Step 4: Update Orders Table
+Modify `src/components/events/OrdersTable.tsx`:
+- Add "View Details" button in the expanded row that links to Order Detail page
 
 ## New Files
-- `src/components/events/EventSelector.tsx` - Multi-select dropdown
-- `src/contexts/EventSelectionContext.tsx` - Selection state management
-- `src/pages/events/manage/Orders.tsx` - Top-level orders page
-- `src/pages/events/manage/Attendees.tsx` - Top-level attendees page
+- `src/pages/events/manage/OrderDetail.tsx` - Dedicated order detail page with attendees
 
 ## Files to Modify
-- `src/hooks/useOrders.ts` - Add multi-event query
-- `src/hooks/useAttendees.ts` - Add multi-event query
-- `src/components/events/EventsDashboardSidebar.tsx` - New nav structure
-- `src/components/events/OrdersTable.tsx` - Add event name column
-- `src/components/events/AttendeesTable.tsx` - Add event name column
-- `src/layouts/EventsDashboardLayout.tsx` - Wrap with context
-- `src/App.tsx` - Add new routes
+- `src/App.tsx` - Add new route
+- `src/components/events/AttendeesTable.tsx` - Make Order # clickable
+- `src/components/events/OrdersTable.tsx` - Add View Details link
 
 ## Navigation Flow
 ```text
-User logs in → Events Dashboard →
-  - Sees Event Selector showing "All Events"
-  - Clicks Orders → Sees all orders across events
-  - Selects specific events from dropdown → Orders/Attendees filter automatically
-  - Can still go to Events page to edit individual event settings
+Attendees Table:
+  Order # (clickable) → Order Detail Page
+
+Orders Table:
+  Expand row → View Details button → Order Detail Page
+
+Order Detail Page:
+  ← Back to Orders
+  Shows order info + attendees list
+  Edit attendee details inline
 ```
