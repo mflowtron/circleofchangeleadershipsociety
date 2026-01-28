@@ -416,11 +416,12 @@ export default function OrderDetail() {
                     key={msg.id}
                     className={`
                       rounded-lg p-3 border
+                      ${isCustomer ? 'ml-0 mr-8' : 'ml-8 mr-0'}
                       ${msg.is_important 
                         ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' 
                         : isCustomer
-                          ? 'bg-primary/5 border-primary/20 ml-0 mr-8'
-                          : 'bg-muted border-transparent ml-8 mr-0'
+                          ? 'bg-primary/5 border-primary/20'
+                          : 'bg-muted border-transparent'
                       }
                     `}
                   >
