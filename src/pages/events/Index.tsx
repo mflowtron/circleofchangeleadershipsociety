@@ -1,5 +1,5 @@
 import { Calendar, Search } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { EventsLayout } from '@/layouts/EventsLayout';
 import { EventCard } from '@/components/events/EventCard';
@@ -9,11 +9,17 @@ export default function EventsIndex() {
   const { publishedEvents, isLoadingPublished } = useEvents();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredEvents = publishedEvents.filter((event) =>
-    event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.short_description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.venue_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Memoize filtered events to avoid recalculation on every render
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery.trim()) return publishedEvents;
+    
+    const query = searchQuery.toLowerCase();
+    return publishedEvents.filter((event) =>
+      event.title.toLowerCase().includes(query) ||
+      event.short_description?.toLowerCase().includes(query) ||
+      event.venue_name?.toLowerCase().includes(query)
+    );
+  }, [publishedEvents, searchQuery]);
 
   return (
     <EventsLayout>

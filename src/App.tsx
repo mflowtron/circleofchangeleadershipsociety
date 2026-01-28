@@ -6,39 +6,60 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { lazy, Suspense } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import Auth from "@/pages/Auth";
-import Feed from "@/pages/Feed";
-import Recordings from "@/pages/Recordings";
-import Profile from "@/pages/Profile";
-import Users from "@/pages/Users";
-import Chapters from "@/pages/Chapters";
-import Moderation from "@/pages/Moderation";
-import MyChapter from "@/pages/MyChapter";
-import Announcements from "@/pages/Announcements";
 import NotFound from "@/pages/NotFound";
-import DashboardSelector from "@/pages/DashboardSelector";
 
-// Event pages
-import EventsIndex from "@/pages/events/Index";
-import EventDetail from "@/pages/events/EventDetail";
-import ManageEventsIndex from "@/pages/events/manage/Index";
-import NewEvent from "@/pages/events/manage/NewEvent";
-import EditEvent from "@/pages/events/manage/EditEvent";
-import ManageTickets from "@/pages/events/manage/ManageTickets";
-import EventOrders from "@/pages/events/manage/EventOrders";
-import ManageOrders from "@/pages/events/manage/Orders";
-import ManageAttendees from "@/pages/events/manage/Attendees";
-import OrderDetail from "@/pages/events/manage/OrderDetail";
-import BadgeDesigner from "@/pages/events/manage/BadgeDesigner";
-import Checkout from "@/pages/events/Checkout";
-import CheckoutSuccess from "@/pages/events/CheckoutSuccess";
-import OrderAttendees from "@/pages/events/OrderAttendees";
-import EventsDashboardLayout from "@/layouts/EventsDashboardLayout";
+// Lazy load pages for better initial bundle size
+const Feed = lazy(() => import("@/pages/Feed"));
+const Recordings = lazy(() => import("@/pages/Recordings"));
+const Profile = lazy(() => import("@/pages/Profile"));
+const Users = lazy(() => import("@/pages/Users"));
+const Chapters = lazy(() => import("@/pages/Chapters"));
+const Moderation = lazy(() => import("@/pages/Moderation"));
+const MyChapter = lazy(() => import("@/pages/MyChapter"));
+const Announcements = lazy(() => import("@/pages/Announcements"));
+const DashboardSelector = lazy(() => import("@/pages/DashboardSelector"));
 
-const queryClient = new QueryClient();
+// Event pages - lazy loaded
+const EventsIndex = lazy(() => import("@/pages/events/Index"));
+const EventDetail = lazy(() => import("@/pages/events/EventDetail"));
+const ManageEventsIndex = lazy(() => import("@/pages/events/manage/Index"));
+const NewEvent = lazy(() => import("@/pages/events/manage/NewEvent"));
+const EditEvent = lazy(() => import("@/pages/events/manage/EditEvent"));
+const ManageTickets = lazy(() => import("@/pages/events/manage/ManageTickets"));
+const EventOrders = lazy(() => import("@/pages/events/manage/EventOrders"));
+const ManageOrders = lazy(() => import("@/pages/events/manage/Orders"));
+const ManageAttendees = lazy(() => import("@/pages/events/manage/Attendees"));
+const OrderDetail = lazy(() => import("@/pages/events/manage/OrderDetail"));
+const BadgeDesigner = lazy(() => import("@/pages/events/manage/BadgeDesigner"));
+const Checkout = lazy(() => import("@/pages/events/Checkout"));
+const CheckoutSuccess = lazy(() => import("@/pages/events/CheckoutSuccess"));
+const OrderAttendees = lazy(() => import("@/pages/events/OrderAttendees"));
+const EventsDashboardLayout = lazy(() => import("@/layouts/EventsDashboardLayout"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60, // 1 minute
+      gcTime: 1000 * 60 * 5, // 5 minutes (previously cacheTime)
+    },
+  },
+});
 
 const DASHBOARD_PREFERENCE_KEY = 'preferred_dashboard';
+
+// Loading fallback component
+function PageLoader() {
+  return (
+    <div className="min-h-[200px] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-8 h-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+      </div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children, allowedRoles, useEventsLayout }: { 
   children: React.ReactNode; 
@@ -54,7 +75,11 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout }: {
   }
   
   if (useEventsLayout) {
-    return <EventsDashboardLayout>{children}</EventsDashboardLayout>;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <EventsDashboardLayout>{children}</EventsDashboardLayout>
+      </Suspense>
+    );
   }
   
   return <AppLayout>{children}</AppLayout>;
@@ -96,18 +121,42 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth" element={user ? <Navigate to={getDefaultRoute()} replace /> : <Auth />} />
-      <Route path="/select-dashboard" element={<DashboardSelector />} />
+      <Route path="/select-dashboard" element={
+        <Suspense fallback={<PageLoader />}>
+          <DashboardSelector />
+        </Suspense>
+      } />
       
-      <Route path="/" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
-      <Route path="/recordings" element={<ProtectedRoute><Recordings /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Suspense fallback={<PageLoader />}>
+            <Feed />
+          </Suspense>
+        </ProtectedRoute>
+      } />
+      <Route path="/recordings" element={
+        <ProtectedRoute>
+          <Suspense fallback={<PageLoader />}>
+            <Recordings />
+          </Suspense>
+        </ProtectedRoute>
+      } />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <Suspense fallback={<PageLoader />}>
+            <Profile />
+          </Suspense>
+        </ProtectedRoute>
+      } />
       
       {/* Advisor routes */}
       <Route 
         path="/my-chapter" 
         element={
           <ProtectedRoute allowedRoles={['advisor', 'admin']}>
-            <MyChapter />
+            <Suspense fallback={<PageLoader />}>
+              <MyChapter />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -117,7 +166,9 @@ function AppRoutes() {
         path="/users" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
-            <Users />
+            <Suspense fallback={<PageLoader />}>
+              <Users />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -125,7 +176,9 @@ function AppRoutes() {
         path="/chapters" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
-            <Chapters />
+            <Suspense fallback={<PageLoader />}>
+              <Chapters />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -133,7 +186,9 @@ function AppRoutes() {
         path="/moderation" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
-            <Moderation />
+            <Suspense fallback={<PageLoader />}>
+              <Moderation />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -141,24 +196,48 @@ function AppRoutes() {
         path="/announcements" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
-            <Announcements />
+            <Suspense fallback={<PageLoader />}>
+              <Announcements />
+            </Suspense>
           </ProtectedRoute>
         } 
-        />
+      />
       
       {/* Public Event Routes */}
-      <Route path="/events" element={<EventsIndex />} />
-      <Route path="/events/:slug" element={<EventDetail />} />
-      <Route path="/events/:slug/checkout" element={<Checkout />} />
-      <Route path="/events/:slug/checkout/success" element={<CheckoutSuccess />} />
-      <Route path="/events/:slug/order/:orderId/attendees" element={<OrderAttendees />} />
+      <Route path="/events" element={
+        <Suspense fallback={<PageLoader />}>
+          <EventsIndex />
+        </Suspense>
+      } />
+      <Route path="/events/:slug" element={
+        <Suspense fallback={<PageLoader />}>
+          <EventDetail />
+        </Suspense>
+      } />
+      <Route path="/events/:slug/checkout" element={
+        <Suspense fallback={<PageLoader />}>
+          <Checkout />
+        </Suspense>
+      } />
+      <Route path="/events/:slug/checkout/success" element={
+        <Suspense fallback={<PageLoader />}>
+          <CheckoutSuccess />
+        </Suspense>
+      } />
+      <Route path="/events/:slug/order/:orderId/attendees" element={
+        <Suspense fallback={<PageLoader />}>
+          <OrderAttendees />
+        </Suspense>
+      } />
       
       {/* Event Management Routes (Protected with Events Dashboard Layout) */}
       <Route 
         path="/events/manage" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-            <ManageEventsIndex />
+            <Suspense fallback={<PageLoader />}>
+              <ManageEventsIndex />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -166,7 +245,9 @@ function AppRoutes() {
         path="/events/manage/orders" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-            <ManageOrders />
+            <Suspense fallback={<PageLoader />}>
+              <ManageOrders />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -174,7 +255,9 @@ function AppRoutes() {
         path="/events/manage/orders/:orderId" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-            <OrderDetail />
+            <Suspense fallback={<PageLoader />}>
+              <OrderDetail />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -182,7 +265,9 @@ function AppRoutes() {
         path="/events/manage/attendees" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-            <ManageAttendees />
+            <Suspense fallback={<PageLoader />}>
+              <ManageAttendees />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -190,7 +275,9 @@ function AppRoutes() {
         path="/events/manage/new" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-            <NewEvent />
+            <Suspense fallback={<PageLoader />}>
+              <NewEvent />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -198,7 +285,9 @@ function AppRoutes() {
         path="/events/manage/:id" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-            <EditEvent />
+            <Suspense fallback={<PageLoader />}>
+              <EditEvent />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -206,7 +295,9 @@ function AppRoutes() {
         path="/events/manage/:id/tickets" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-            <ManageTickets />
+            <Suspense fallback={<PageLoader />}>
+              <ManageTickets />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -214,15 +305,19 @@ function AppRoutes() {
         path="/events/manage/:id/orders" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-            <EventOrders />
+            <Suspense fallback={<PageLoader />}>
+              <EventOrders />
+            </Suspense>
           </ProtectedRoute>
         } 
-        />
+      />
       <Route 
         path="/events/manage/:id/badges" 
         element={
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-            <BadgeDesigner />
+            <Suspense fallback={<PageLoader />}>
+              <BadgeDesigner />
+            </Suspense>
           </ProtectedRoute>
         } 
       />

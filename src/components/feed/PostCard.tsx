@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import MuxPlayer from '@mux/mux-player-react';
+import { useState, memo, useCallback, lazy, Suspense } from 'react';
 import { Post } from '@/hooks/usePosts';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -17,13 +16,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+// Lazy load MuxPlayer since it's a heavy component
+const MuxPlayer = lazy(() => import('@mux/mux-player-react'));
+
 interface PostCardProps {
   post: Post;
   onLike: () => void;
   onDelete: () => void;
 }
 
-// CSS for heart animation
+// Move styles outside component to avoid recreation
 const heartAnimationStyles = `
   @keyframes heart-pop {
     0% { transform: scale(1); }
@@ -37,7 +39,18 @@ const heartAnimationStyles = `
   }
 `;
 
-export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
+// Inject styles once at module load
+if (typeof document !== 'undefined') {
+  const styleId = 'heart-animation-styles';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = heartAnimationStyles;
+    document.head.appendChild(style);
+  }
+}
+
+const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProps) {
   const [showComments, setShowComments] = useState(post.comments_count > 0);
   const [isAnimating, setIsAnimating] = useState(false);
   const { user, role } = useAuth();
@@ -49,17 +62,21 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
     .join('')
     .toUpperCase();
 
-  const handleLike = () => {
+  const handleLike = useCallback(() => {
     setIsAnimating(true);
     onLike();
     setTimeout(() => setIsAnimating(false), 400);
-  };
+  }, [onLike]);
+
+  const toggleComments = useCallback(() => {
+    setShowComments(prev => !prev);
+  }, []);
+
+  const isVerticalVideo = post.video_aspect_ratio?.startsWith('9:') || post.video_aspect_ratio === '3:4';
 
   return (
-    <>
-      <style>{heartAnimationStyles}</style>
-      <Card className="shadow-soft border-border/50 overflow-hidden hover:shadow-medium transition-shadow duration-300">
-        <CardHeader className="pb-3">
+    <Card className="shadow-soft border-border/50 overflow-hidden hover:shadow-medium transition-shadow duration-300">
+      <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="h-11 w-11 ring-2 ring-primary/10">
@@ -110,23 +127,26 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
         {post.video_url && (
           <div className={cn(
             "mt-4 -mx-6 overflow-hidden",
-            post.video_aspect_ratio?.startsWith('9:') || post.video_aspect_ratio === '3:4' 
-              ? "flex justify-center bg-muted/30" 
-              : ""
+            isVerticalVideo ? "flex justify-center bg-muted/30" : ""
           )}>
-            <MuxPlayer
-              playbackId={post.video_url}
-              metadata={{
-                video_title: `Post by ${post.author.full_name}`,
-              }}
-              accentColor="#C9A55C"
-              className={cn(
-                "w-full",
-                post.video_aspect_ratio?.startsWith('9:') || post.video_aspect_ratio === '3:4'
-                  ? "max-w-[320px] aspect-[9/16]"
-                  : "aspect-video"
-              )}
-            />
+            <Suspense fallback={
+              <div className={cn(
+                "bg-muted animate-pulse",
+                isVerticalVideo ? "max-w-[320px] aspect-[9/16]" : "w-full aspect-video"
+              )} />
+            }>
+              <MuxPlayer
+                playbackId={post.video_url}
+                metadata={{
+                  video_title: `Post by ${post.author.full_name}`,
+                }}
+                accentColor="#C9A55C"
+                className={cn(
+                  "w-full",
+                  isVerticalVideo ? "max-w-[320px] aspect-[9/16]" : "aspect-video"
+                )}
+              />
+            </Suspense>
           </div>
         )}
         {post.image_url && !post.video_url && (
@@ -169,7 +189,7 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowComments(!showComments)}
+            onClick={toggleComments}
             className="flex-1 gap-2 rounded-xl h-10 hover:bg-primary/10"
           >
             <MessageCircle className={cn("h-5 w-5", showComments && "text-primary")} />
@@ -178,7 +198,8 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
         </div>
         {showComments && <CommentsSection postId={post.id} />}
       </CardFooter>
-      </Card>
-    </>
+    </Card>
   );
-}
+});
+
+export default PostCard;
