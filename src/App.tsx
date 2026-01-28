@@ -129,9 +129,13 @@ function AppRoutes() {
     <Routes>
       <Route path="/auth" element={user ? <Navigate to={getDefaultRoute()} replace /> : <Auth />} />
       <Route path="/pending-approval" element={
-        <Suspense fallback={<PageLoader />}>
-          <PendingApproval />
-        </Suspense>
+        user ? (
+          <Suspense fallback={<PageLoader />}>
+            <PendingApproval />
+          </Suspense>
+        ) : (
+          <Navigate to="/auth" replace />
+        )
       } />
       <Route path="/select-dashboard" element={
         <Suspense fallback={<PageLoader />}>
