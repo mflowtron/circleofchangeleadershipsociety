@@ -98,8 +98,9 @@ serve(async (req) => {
         const asset = event.data;
         const playbackId = asset.playback_ids?.[0]?.id;
         const assetId = asset.id;
+        const aspectRatio = asset.aspect_ratio; // e.g., "16:9", "9:16", "1:1"
 
-        console.log(`Asset ready: ${assetId}, playback_id: ${playbackId}`);
+        console.log(`Asset ready: ${assetId}, playback_id: ${playbackId}, aspect_ratio: ${aspectRatio}`);
 
         // Find recording by mux_asset_id or mux_upload_id
         // First try by asset_id
@@ -136,6 +137,16 @@ serve(async (req) => {
           console.log(`Updated recording ${recording.id} to ready`);
         } else {
           console.log(`No recording found for asset ${assetId}`);
+        }
+
+        // Also update any posts that use this playback ID with the aspect ratio
+        if (playbackId && aspectRatio) {
+          await supabase
+            .from("posts")
+            .update({ video_aspect_ratio: aspectRatio })
+            .eq("video_url", playbackId);
+          
+          console.log(`Updated posts with playbackId ${playbackId} to aspect ratio ${aspectRatio}`);
         }
         break;
       }

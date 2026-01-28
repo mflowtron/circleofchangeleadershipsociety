@@ -108,14 +108,24 @@ export default function PostCard({ post, onLike, onDelete }: PostCardProps) {
       <CardContent className="pb-3">
         <p className="text-foreground whitespace-pre-wrap leading-relaxed">{post.content}</p>
         {post.video_url && (
-          <div className="mt-4 -mx-6 rounded-lg overflow-hidden">
+          <div className={cn(
+            "mt-4 -mx-6 overflow-hidden",
+            post.video_aspect_ratio?.startsWith('9:') || post.video_aspect_ratio === '3:4' 
+              ? "flex justify-center bg-muted/30" 
+              : ""
+          )}>
             <MuxPlayer
               playbackId={post.video_url}
               metadata={{
                 video_title: `Post by ${post.author.full_name}`,
               }}
               accentColor="#C9A55C"
-              className="w-full aspect-video"
+              className={cn(
+                "w-full",
+                post.video_aspect_ratio?.startsWith('9:') || post.video_aspect_ratio === '3:4'
+                  ? "max-w-[320px] aspect-[9/16]"
+                  : "aspect-video"
+              )}
             />
           </div>
         )}

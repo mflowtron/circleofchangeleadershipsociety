@@ -139,6 +139,7 @@ export type Database = {
           link_url: string | null
           updated_at: string
           user_id: string
+          video_aspect_ratio: string | null
           video_url: string | null
         }
         Insert: {
@@ -151,6 +152,7 @@ export type Database = {
           link_url?: string | null
           updated_at?: string
           user_id: string
+          video_aspect_ratio?: string | null
           video_url?: string | null
         }
         Update: {
@@ -163,6 +165,7 @@ export type Database = {
           link_url?: string | null
           updated_at?: string
           user_id?: string
+          video_aspect_ratio?: string | null
           video_url?: string | null
         }
         Relationships: [

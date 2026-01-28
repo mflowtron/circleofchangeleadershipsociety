@@ -8,6 +8,7 @@ export interface Post {
   content: string;
   image_url: string | null;
   video_url: string | null;
+  video_aspect_ratio: string | null;
   link_url: string | null;
   is_global: boolean;
   chapter_id: string | null;
@@ -43,6 +44,7 @@ export function usePosts(filter: FilterType = 'all') {
           content,
           image_url,
           video_url,
+          video_aspect_ratio,
           link_url,
           is_global,
           chapter_id,
