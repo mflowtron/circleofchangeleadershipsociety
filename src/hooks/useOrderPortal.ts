@@ -235,6 +235,41 @@ export function useOrderPortal() {
     }
   }, [session]);
 
+  const sendMessage = useCallback(async (orderId: string, message: string) => {
+    if (!session) return { success: false, message: 'Not authenticated' };
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('send-customer-message', {
+        body: {
+          email: session.email,
+          session_token: session.session_token,
+          order_id: orderId,
+          message,
+        },
+      });
+
+      if (fnError) throw fnError;
+      if (data.error) throw new Error(data.error);
+
+      // Add the new message to local state
+      if (data.message) {
+        setOrders(prev => prev.map(order => 
+          order.id === orderId
+            ? {
+                ...order,
+                order_messages: [data.message, ...order.order_messages],
+              }
+            : order
+        ));
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to send message';
+      return { success: false, message: errorMessage };
+    }
+  }, [session]);
+
   const logout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setSession(null);
@@ -252,6 +287,7 @@ export function useOrderPortal() {
     fetchOrders,
     updateAttendee,
     markMessageRead,
+    sendMessage,
     logout,
   };
 }
