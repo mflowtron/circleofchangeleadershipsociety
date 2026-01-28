@@ -2,20 +2,24 @@ import { jsPDF } from 'jspdf';
 import type { BadgeField, BadgeOrientation } from '@/hooks/useBadgeTemplates';
 
 // AVERY 5392 dimensions in points (72 points per inch)
-const PAGE_WIDTH = 612;  // 8.5"
-const PAGE_HEIGHT = 792; // 11"
+const POINTS_PER_INCH = 72;
+const PREVIEW_PX_PER_INCH = 100; // Must match BadgePreview.tsx
 
 // Portrait: 3" wide x 4" tall
-const PORTRAIT_WIDTH = 216;
-const PORTRAIT_HEIGHT = 288;
+const PORTRAIT_WIDTH = 3 * POINTS_PER_INCH;  // 216pt
+const PORTRAIT_HEIGHT = 4 * POINTS_PER_INCH; // 288pt
 
 // Landscape: 4" wide x 3" tall
-const LANDSCAPE_WIDTH = 288;
-const LANDSCAPE_HEIGHT = 216;
+const LANDSCAPE_WIDTH = 4 * POINTS_PER_INCH;  // 288pt
+const LANDSCAPE_HEIGHT = 3 * POINTS_PER_INCH; // 216pt
 
 const TOP_MARGIN = 50;   // ~0.69"
 const LEFT_MARGIN = 54;  // ~0.75"
 const H_GAP = 14;        // ~0.19" between columns
+
+// Scale factor to convert preview pixels to PDF points
+// Preview uses 100px per inch, PDF uses 72pt per inch
+const PREVIEW_TO_PDF_SCALE = POINTS_PER_INCH / PREVIEW_PX_PER_INCH;
 
 export interface AttendeeData {
   attendee_name: string | null;
@@ -128,11 +132,14 @@ export async function generateBadgePdf(
         const text = getFieldValue(attendee, field.source);
         if (!text) continue;
 
-        // Convert inches to points for positioning within badge
-        const textX = x + field.x * 72;
-        const textY = y + field.y * 72;
+        // Convert field position (in inches from preview) to PDF points
+        const textX = x + field.x * POINTS_PER_INCH;
+        const textY = y + field.y * POINTS_PER_INCH;
 
-        doc.setFontSize(field.fontSize);
+        // Scale font size from preview pixels to PDF points
+        // Preview uses pixels for fontSize, PDF needs points
+        const scaledFontSize = field.fontSize * PREVIEW_TO_PDF_SCALE;
+        doc.setFontSize(scaledFontSize);
         doc.setTextColor(field.color);
         
         if (field.fontWeight === 'bold') {
@@ -147,7 +154,7 @@ export async function generateBadgePdf(
         if (field.align === 'center') {
           alignX = x + badgeWidth / 2;
         } else if (field.align === 'right') {
-          alignX = x + badgeWidth - (field.x * 72);
+          alignX = x + badgeWidth - (field.x * POINTS_PER_INCH);
         }
 
         doc.text(text, alignX, textY, { align });
