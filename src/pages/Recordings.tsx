@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import MuxPlayer from '@mux/mux-player-react';
 import MuxUploader from '@mux/mux-uploader-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Play, Calendar, Plus, Upload, Loader2 } from 'lucide-react';
+import { Play, Calendar, Plus, Upload, Loader2, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Recording {
@@ -44,9 +45,15 @@ export default function Recordings() {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const { role } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
   const canUpload = role === 'admin' || role === 'advisor';
+
+  // Reset video selection when navigating to this page
+  useEffect(() => {
+    setSelectedRecording(null);
+  }, [location.key]);
 
   useEffect(() => {
     fetchRecordings();
@@ -279,7 +286,15 @@ export default function Recordings() {
       </div>
 
       {selectedRecording && selectedRecording.mux_playback_id && (
-        <Card>
+        <Card className="relative">
+          <Button
+            variant="secondary"
+            size="icon"
+            className="absolute top-3 right-3 z-10 rounded-full bg-background/80 backdrop-blur-sm"
+            onClick={() => setSelectedRecording(null)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
           <CardContent className="p-0">
             <MuxPlayer
               playbackId={selectedRecording.mux_playback_id}
@@ -287,20 +302,13 @@ export default function Recordings() {
                 video_title: selectedRecording.title,
               }}
               accentColor="#C9A55C"
-              className="w-full aspect-video"
+              className="w-full aspect-video rounded-t-lg"
             />
             <div className="p-4">
               <h2 className="text-xl font-semibold">{selectedRecording.title}</h2>
               {selectedRecording.description && (
                 <p className="text-muted-foreground mt-2">{selectedRecording.description}</p>
               )}
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setSelectedRecording(null)}
-              >
-                Close Video
-              </Button>
             </div>
           </CardContent>
         </Card>
