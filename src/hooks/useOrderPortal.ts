@@ -45,8 +45,6 @@ interface OrderMessage {
   is_important: boolean;
   read_at: string | null;
   created_at: string;
-  sender_type: 'organizer' | 'customer';
-  sender_email: string | null;
 }
 
 export interface PortalOrder {
@@ -223,59 +221,17 @@ export function useOrderPortal() {
       });
 
       if (!fnError && !data.error) {
-        // Update local state - only count organizer messages as unread
+        // Update local state
         setOrders(prev => prev.map(order => ({
           ...order,
           order_messages: order.order_messages.map(msg =>
             msg.id === messageId ? { ...msg, read_at: new Date().toISOString() } : msg
           ),
-          unread_messages: order.order_messages.filter(m => m.id !== messageId && !m.read_at && m.sender_type === 'organizer').length,
+          unread_messages: order.order_messages.filter(m => m.id !== messageId && !m.read_at).length,
         })));
       }
     } catch (err) {
       console.error('Failed to mark message as read:', err);
-    }
-  }, [session]);
-
-  const sendMessage = useCallback(async (orderId: string, message: string) => {
-    if (!session) return { success: false, message: 'Not authenticated' };
-
-    setLoading(true);
-    setError(null);
-    try {
-      // Create a simple session token for the edge function
-      const sessionToken = btoa(JSON.stringify({
-        email: session.email,
-        exp: new Date(session.expires_at).getTime(),
-      }));
-
-      const { data, error: fnError } = await supabase.functions.invoke('send-customer-message', {
-        body: {
-          orderId,
-          message,
-          sessionToken,
-        },
-      });
-
-      if (fnError) throw fnError;
-      if (data.error) throw new Error(data.error);
-
-      // Add the new message to local state
-      if (data.message) {
-        setOrders(prev => prev.map(order => 
-          order.id === orderId 
-            ? { ...order, order_messages: [...order.order_messages, data.message] }
-            : order
-        ));
-      }
-
-      return { success: true };
-    } catch (err: any) {
-      const message = err.message || 'Failed to send message';
-      setError(message);
-      return { success: false, message };
-    } finally {
-      setLoading(false);
     }
   }, [session]);
 
@@ -296,7 +252,6 @@ export function useOrderPortal() {
     fetchOrders,
     updateAttendee,
     markMessageRead,
-    sendMessage,
     logout,
   };
 }

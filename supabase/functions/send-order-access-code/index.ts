@@ -57,6 +57,25 @@ serve(async (req: Request) => {
       );
     }
 
+    // Rate limiting: Check for recent codes (max 3 per hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: recentCodes, error: rateError } = await supabaseAdmin
+      .from('order_access_codes')
+      .select('id')
+      .ilike('email', normalizedEmail)
+      .gte('created_at', oneHourAgo);
+
+    if (rateError) {
+      console.error('Error checking rate limit:', rateError);
+    }
+
+    if (recentCodes && recentCodes.length >= 3) {
+      return new Response(
+        JSON.stringify({ error: 'Too many code requests. Please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
