@@ -126,7 +126,7 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
         <p className="text-foreground whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">{post.content}</p>
         {post.video_url && (
           <div className={cn(
-            "mt-4 -mx-6 overflow-hidden relative",
+            "mt-4 overflow-hidden relative rounded-lg",
             isVerticalVideo ? "flex justify-center items-center" : ""
           )}>
             {/* Blurred poster background for vertical videos */}
@@ -161,12 +161,10 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
           </div>
         )}
         {post.image_url && !post.video_url && (
-          <div className="mt-4 -mx-6">
-            <ImageLightbox 
-              src={post.image_url} 
-              className="w-full max-h-[500px] object-cover" 
-            />
-          </div>
+          <ImageLightbox 
+            src={post.image_url} 
+            className="mt-4 w-full max-h-[500px] object-cover rounded-lg" 
+          />
         )}
         {post.link_url && (
           <a
