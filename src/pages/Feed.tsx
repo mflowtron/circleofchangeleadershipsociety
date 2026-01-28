@@ -26,7 +26,7 @@ export default function Feed() {
   });
 
   return (
-    <div ref={containerRef} className="max-w-2xl mx-auto">
+    <div ref={containerRef} className="max-w-2xl mx-auto overflow-x-hidden">
       <PullToRefreshIndicator
         pullDistance={pullDistance}
         isRefreshing={isRefreshing}
