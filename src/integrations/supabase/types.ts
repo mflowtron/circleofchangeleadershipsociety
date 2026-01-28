@@ -630,6 +630,47 @@ export type Database = {
         }
         Relationships: []
       }
+      recording_resources: {
+        Row: {
+          created_at: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id: string
+          name: string
+          recording_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_size?: number
+          file_type: string
+          file_url: string
+          id?: string
+          name: string
+          recording_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_size?: number
+          file_type?: string
+          file_url?: string
+          id?: string
+          name?: string
+          recording_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recording_resources_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recordings: {
         Row: {
           created_at: string

@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import MuxPlayer from '@mux/mux-player-react';
 import MuxUploader from '@mux/mux-uploader-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,30 +16,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Play, Calendar, Plus, Upload, Loader2, X, Trash2 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-
-interface Recording {
-  id: string;
-  title: string;
-  description: string | null;
-  video_url: string | null;
-  mux_playback_id: string | null;
-  thumbnail_url: string | null;
-  created_at: string;
-  status: string | null;
-}
+import { Plus, Upload, Loader2 } from 'lucide-react';
+import { RecordingsBrowseView } from '@/components/recordings/RecordingsBrowseView';
+import { RecordingPlayerView } from '@/components/recordings/RecordingPlayerView';
+import { Recording } from '@/components/recordings/RecordingCard';
 
 export default function Recordings() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -61,11 +40,11 @@ export default function Recordings() {
 
   const canUpload = role === 'admin' || role === 'advisor';
   const canDelete = role === 'admin';
+  const canManageResources = role === 'admin' || role === 'advisor';
 
   const deleteRecording = async (recordingId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
+    e.stopPropagation();
     try {
-      // Call edge function to delete from both Mux and database
       const response = await supabase.functions.invoke('mux-upload', {
         body: {
           action: 'delete-asset',
@@ -80,7 +59,6 @@ export default function Recordings() {
         description: 'The recording and video asset have been removed.',
       });
 
-      // Clear selection if deleted recording was selected
       if (selectedRecording?.id === recordingId) {
         setSelectedRecording(null);
       }
@@ -92,15 +70,14 @@ export default function Recordings() {
       });
     }
   };
+
   useEffect(() => {
     setSelectedRecording(null);
   }, [location.key]);
 
-  // Fetch recordings and subscribe to realtime updates
   useEffect(() => {
     fetchRecordings();
     
-    // Subscribe to realtime updates for recordings
     const channel = supabase
       .channel('recordings-changes')
       .on(
@@ -110,9 +87,8 @@ export default function Recordings() {
           schema: 'public',
           table: 'recordings',
         },
-        (payload) => {
-          console.log('Recording update received:', payload);
-          fetchRecordings(); // Refresh when any recording changes
+        () => {
+          fetchRecordings();
         }
       )
       .subscribe();
@@ -158,8 +134,6 @@ export default function Recordings() {
 
     setIsCreatingUpload(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
       const response = await supabase.functions.invoke('mux-upload', {
         body: {
           action: 'create-upload',
@@ -204,7 +178,6 @@ export default function Recordings() {
       setUploadStatus(status);
 
       if (status === 'ready' && playback_id) {
-        // Upload complete and asset ready
         if (statusCheckInterval.current) {
           clearInterval(statusCheckInterval.current);
         }
@@ -227,7 +200,6 @@ export default function Recordings() {
       description: 'Processing your video...',
     });
 
-    // Start polling for asset readiness
     statusCheckInterval.current = setInterval(checkUploadStatus, 3000);
   };
 
@@ -249,12 +221,10 @@ export default function Recordings() {
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
               <div className="aspect-video bg-muted" />
-              <CardHeader>
+              <div className="p-4 space-y-2">
                 <div className="h-5 bg-muted rounded w-3/4" />
-              </CardHeader>
-              <CardContent>
                 <div className="h-4 bg-muted rounded w-1/2" />
-              </CardContent>
+              </div>
             </Card>
           ))}
         </div>
@@ -262,6 +232,18 @@ export default function Recordings() {
     );
   }
 
+  // Player mode: show dedicated player view
+  if (selectedRecording) {
+    return (
+      <RecordingPlayerView
+        recording={selectedRecording}
+        canManageResources={canManageResources}
+        onBack={() => setSelectedRecording(null)}
+      />
+    );
+  }
+
+  // Browse mode: show grid of recordings
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -301,6 +283,7 @@ export default function Recordings() {
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Optional description..."
+                      rows={4}
                     />
                   </div>
                   <Button 
@@ -346,128 +329,12 @@ export default function Recordings() {
         )}
       </div>
 
-      {selectedRecording && selectedRecording.mux_playback_id && (
-        <Card className="relative">
-          <Button
-            variant="secondary"
-            size="icon"
-            className="absolute top-3 right-3 z-10 rounded-full bg-background/80 backdrop-blur-sm"
-            onClick={() => setSelectedRecording(null)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-          <CardContent className="p-0">
-            <MuxPlayer
-              playbackId={selectedRecording.mux_playback_id}
-              metadata={{
-                video_title: selectedRecording.title,
-              }}
-              accentColor="#C9A55C"
-              className="w-full aspect-video rounded-t-lg"
-            />
-            <div className="p-4">
-              <h2 className="text-xl font-semibold">{selectedRecording.title}</h2>
-              {selectedRecording.description && (
-                <p className="text-muted-foreground mt-2">{selectedRecording.description}</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {recordings.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Play className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No recordings available yet.</p>
-            {canUpload && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Click "Upload Recording" to add your first video.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {recordings.map((recording) => (
-            <Card
-              key={recording.id}
-              className="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-              onClick={() => setSelectedRecording(recording)}
-            >
-              <div className="aspect-video bg-secondary relative flex items-center justify-center">
-                {recording.mux_playback_id ? (
-                  <img
-                    src={`https://image.mux.com/${recording.mux_playback_id}/thumbnail.jpg?time=5`}
-                    alt={recording.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Play className="h-12 w-12 text-muted-foreground" />
-                )}
-                {recording.status === 'preparing' && (
-                  <div className="absolute inset-0 bg-foreground/50 flex items-center justify-center">
-                    <div className="flex items-center gap-2 text-background text-sm">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </div>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-foreground/0 hover:bg-foreground/20 flex items-center justify-center transition-colors">
-                  <Play className="h-12 w-12 text-primary-foreground opacity-0 hover:opacity-100" />
-                </div>
-              </div>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base line-clamp-2">{recording.title}</CardTitle>
-                {recording.description && (
-                  <CardDescription className="line-clamp-2">
-                    {recording.description}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>{formatDistanceToNow(new Date(recording.created_at), { addSuffix: true })}</span>
-                  </div>
-                  {canDelete && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Recording</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "{recording.title}"? This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={(e) => deleteRecording(recording.id, e)}
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      <RecordingsBrowseView
+        recordings={recordings}
+        canDelete={canDelete}
+        onSelect={setSelectedRecording}
+        onDelete={deleteRecording}
+      />
     </div>
   );
 }
