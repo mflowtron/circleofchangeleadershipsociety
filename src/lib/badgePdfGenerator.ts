@@ -1,19 +1,21 @@
 import { jsPDF } from 'jspdf';
-import type { BadgeField } from '@/hooks/useBadgeTemplates';
+import type { BadgeField, BadgeOrientation } from '@/hooks/useBadgeTemplates';
 
 // AVERY 5392 dimensions in points (72 points per inch)
 const PAGE_WIDTH = 612;  // 8.5"
 const PAGE_HEIGHT = 792; // 11"
-const BADGE_WIDTH = 216; // 3"
-const BADGE_HEIGHT = 288; // 4"
+
+// Portrait: 3" wide x 4" tall
+const PORTRAIT_WIDTH = 216;
+const PORTRAIT_HEIGHT = 288;
+
+// Landscape: 4" wide x 3" tall
+const LANDSCAPE_WIDTH = 288;
+const LANDSCAPE_HEIGHT = 216;
+
 const TOP_MARGIN = 50;   // ~0.69"
 const LEFT_MARGIN = 54;  // ~0.75"
 const H_GAP = 14;        // ~0.19" between columns
-const V_GAP = 0;         // No vertical gap
-
-const COLS = 2;
-const ROWS = 3;
-const BADGES_PER_PAGE = COLS * ROWS;
 
 export interface AttendeeData {
   attendee_name: string | null;
@@ -30,12 +32,22 @@ function getFieldValue(attendee: AttendeeData, source: BadgeField['source']): st
   return value || '';
 }
 
-function getBadgePosition(index: number): { x: number; y: number } {
-  const col = index % COLS;
-  const row = Math.floor(index / COLS) % ROWS;
+function getBadgePosition(
+  index: number, 
+  orientation: BadgeOrientation
+): { x: number; y: number } {
+  const badgeWidth = orientation === 'landscape' ? LANDSCAPE_WIDTH : PORTRAIT_WIDTH;
+  const badgeHeight = orientation === 'landscape' ? LANDSCAPE_HEIGHT : PORTRAIT_HEIGHT;
   
-  const x = LEFT_MARGIN + col * (BADGE_WIDTH + H_GAP);
-  const y = TOP_MARGIN + row * (BADGE_HEIGHT + V_GAP);
+  // Calculate grid layout based on orientation
+  const cols = orientation === 'landscape' ? 2 : 2;
+  const rows = orientation === 'landscape' ? 3 : 3;
+  
+  const col = index % cols;
+  const row = Math.floor(index / cols) % rows;
+  
+  const x = LEFT_MARGIN + col * (badgeWidth + H_GAP);
+  const y = TOP_MARGIN + row * badgeHeight;
   
   return { x, y };
 }
@@ -64,8 +76,13 @@ async function loadImage(url: string): Promise<string> {
 export async function generateBadgePdf(
   attendees: AttendeeData[],
   fields: BadgeField[],
-  backgroundImageUrl?: string | null
+  backgroundImageUrl?: string | null,
+  orientation: BadgeOrientation = 'landscape'
 ): Promise<Blob> {
+  const badgeWidth = orientation === 'landscape' ? LANDSCAPE_WIDTH : PORTRAIT_WIDTH;
+  const badgeHeight = orientation === 'landscape' ? LANDSCAPE_HEIGHT : PORTRAIT_HEIGHT;
+  const badgesPerPage = 6; // 2 cols x 3 rows for both orientations
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'pt',
@@ -81,29 +98,29 @@ export async function generateBadgePdf(
     }
   }
 
-  const totalPages = Math.ceil(attendees.length / BADGES_PER_PAGE);
+  const totalPages = Math.ceil(attendees.length / badgesPerPage);
 
   for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
     if (pageIndex > 0) {
       doc.addPage();
     }
 
-    const startIdx = pageIndex * BADGES_PER_PAGE;
-    const endIdx = Math.min(startIdx + BADGES_PER_PAGE, attendees.length);
+    const startIdx = pageIndex * badgesPerPage;
+    const endIdx = Math.min(startIdx + badgesPerPage, attendees.length);
 
     for (let i = startIdx; i < endIdx; i++) {
       const attendee = attendees[i];
       const badgeIndex = i - startIdx;
-      const { x, y } = getBadgePosition(badgeIndex);
+      const { x, y } = getBadgePosition(badgeIndex, orientation);
 
       // Draw background image if available
       if (backgroundDataUrl) {
-        doc.addImage(backgroundDataUrl, 'JPEG', x, y, BADGE_WIDTH, BADGE_HEIGHT);
+        doc.addImage(backgroundDataUrl, 'JPEG', x, y, badgeWidth, badgeHeight);
       } else {
         // Draw a light border if no background
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
-        doc.rect(x, y, BADGE_WIDTH, BADGE_HEIGHT);
+        doc.rect(x, y, badgeWidth, badgeHeight);
       }
 
       // Draw text fields
@@ -128,9 +145,9 @@ export async function generateBadgePdf(
         let align: 'left' | 'center' | 'right' = field.align;
         
         if (field.align === 'center') {
-          alignX = x + BADGE_WIDTH / 2;
+          alignX = x + badgeWidth / 2;
         } else if (field.align === 'right') {
-          alignX = x + BADGE_WIDTH - (field.x * 72);
+          alignX = x + badgeWidth - (field.x * 72);
         }
 
         doc.text(text, alignX, textY, { align });

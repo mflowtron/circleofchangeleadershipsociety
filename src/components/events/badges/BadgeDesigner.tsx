@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus, Save } from 'lucide-react';
 import { BadgePreview } from './BadgePreview';
 import { BadgeFieldEditor } from './BadgeFieldEditor';
 import { BadgeTemplateUpload } from './BadgeTemplateUpload';
 import { toast } from 'sonner';
-import type { BadgeField } from '@/hooks/useBadgeTemplates';
+import type { BadgeField, BadgeOrientation } from '@/hooks/useBadgeTemplates';
 import {
   useBadgeTemplate,
   useCreateBadgeTemplate,
@@ -21,12 +23,12 @@ interface BadgeDesignerProps {
   onSaved?: () => void;
 }
 
-const defaultFields: BadgeField[] = [
+const getDefaultFields = (orientation: BadgeOrientation): BadgeField[] => [
   {
     id: 'name',
     label: 'Attendee Name',
-    x: 1.5,
-    y: 2.0,
+    x: orientation === 'landscape' ? 2.0 : 1.5,
+    y: orientation === 'landscape' ? 1.5 : 2.0,
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000000',
@@ -36,8 +38,8 @@ const defaultFields: BadgeField[] = [
   {
     id: 'ticket',
     label: 'Ticket Type',
-    x: 1.5,
-    y: 2.5,
+    x: orientation === 'landscape' ? 2.0 : 1.5,
+    y: orientation === 'landscape' ? 2.0 : 2.5,
     fontSize: 14,
     fontWeight: 'normal',
     color: '#666666',
@@ -52,17 +54,28 @@ export function BadgeDesigner({ eventId, eventName, eventDate, onSaved }: BadgeD
   const updateTemplate = useUpdateBadgeTemplate();
   const uploadBackground = useUploadBadgeBackground();
 
-  const [fields, setFields] = useState<BadgeField[]>(defaultFields);
+  const [orientation, setOrientation] = useState<BadgeOrientation>('landscape');
+  const [fields, setFields] = useState<BadgeField[]>(getDefaultFields('landscape'));
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (existingTemplate) {
-      setFields(existingTemplate.fields.length > 0 ? existingTemplate.fields : defaultFields);
+      setOrientation(existingTemplate.orientation || 'landscape');
+      setFields(existingTemplate.fields.length > 0 ? existingTemplate.fields : getDefaultFields(existingTemplate.orientation || 'landscape'));
       setBackgroundImageUrl(existingTemplate.background_image_url);
     }
   }, [existingTemplate]);
+
+  const handleOrientationChange = (newOrientation: BadgeOrientation) => {
+    setOrientation(newOrientation);
+    // Reset fields to defaults for new orientation if no existing template
+    if (!existingTemplate || existingTemplate.fields.length === 0) {
+      setFields(getDefaultFields(newOrientation));
+    }
+    setHasChanges(true);
+  };
 
   const handleFieldChange = (updatedField: BadgeField) => {
     setFields((prev) =>
@@ -83,7 +96,7 @@ export function BadgeDesigner({ eventId, eventName, eventDate, onSaved }: BadgeD
     const newField: BadgeField = {
       id: `field-${Date.now()}`,
       label: 'New Field',
-      x: 1.5,
+      x: orientation === 'landscape' ? 2.0 : 1.5,
       y: 1.0,
       fontSize: 14,
       fontWeight: 'normal',
@@ -120,12 +133,14 @@ export function BadgeDesigner({ eventId, eventName, eventDate, onSaved }: BadgeD
           eventId,
           fields,
           backgroundImageUrl,
+          orientation,
         });
       } else {
         await createTemplate.mutateAsync({
           eventId,
           fields,
           backgroundImageUrl,
+          orientation,
         });
       }
       setHasChanges(false);
@@ -167,15 +182,42 @@ export function BadgeDesigner({ eventId, eventName, eventDate, onSaved }: BadgeD
             scale={1}
             selectedFieldId={selectedFieldId}
             onFieldClick={setSelectedFieldId}
+            orientation={orientation}
           />
           <p className="text-xs text-muted-foreground text-center">
-            Click on a field to select and edit it. Badge size: 3" × 4"
+            Click on a field to select and edit it. Badge size: {orientation === 'landscape' ? '4" × 3"' : '3" × 4"'}
           </p>
         </CardContent>
       </Card>
 
       {/* Editor Section */}
       <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Badge Orientation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup
+              value={orientation}
+              onValueChange={(v) => handleOrientationChange(v as BadgeOrientation)}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="landscape" id="landscape" />
+                <Label htmlFor="landscape" className="cursor-pointer">
+                  Landscape (4" × 3")
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="portrait" id="portrait" />
+                <Label htmlFor="portrait" className="cursor-pointer">
+                  Portrait (3" × 4")
+                </Label>
+              </div>
+            </RadioGroup>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Background Image</CardTitle>
@@ -187,6 +229,9 @@ export function BadgeDesigner({ eventId, eventName, eventDate, onSaved }: BadgeD
               onRemove={handleBackgroundRemove}
               isUploading={uploadBackground.isPending}
             />
+            <p className="text-xs text-muted-foreground mt-2">
+              Recommended: {orientation === 'landscape' ? '4" × 3" (400 × 300px)' : '3" × 4" (300 × 400px)'}
+            </p>
           </CardContent>
         </Card>
 

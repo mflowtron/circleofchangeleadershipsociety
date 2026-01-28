@@ -93,7 +93,8 @@ export function BadgeGeneratorDialog({
       const pdfBlob = await generateBadgePdf(
         attendeeData,
         template.fields,
-        template.background_image_url
+        template.background_image_url,
+        template.orientation || 'landscape'
       );
 
       const filename = `badges-${eventName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`;
@@ -146,11 +147,14 @@ export function BadgeGeneratorDialog({
                 {/* Preview */}
                 <div className="flex justify-center">
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-center">Template Preview</p>
+                    <p className="text-sm font-medium text-center">
+                      Template Preview ({template.orientation === 'portrait' ? '3" × 4"' : '4" × 3"'})
+                    </p>
                     <BadgePreview
                       fields={template.fields}
                       backgroundImageUrl={template.background_image_url}
                       scale={0.75}
+                      orientation={template.orientation || 'landscape'}
                     />
                   </div>
                 </div>
