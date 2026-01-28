@@ -126,15 +126,18 @@ export function OrderCard({ order }: OrderCardProps) {
             <Separator />
 
             {/* Messages Section */}
-            {order.order_messages.length > 0 && (
-              <div>
-                <h3 className="font-medium mb-3 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
-                  Messages
-                </h3>
-                <MessageList messages={order.order_messages} orderId={order.id} />
-              </div>
-            )}
+            <div>
+              <h3 className="font-medium mb-3 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Messages
+                {order.unread_messages > 0 && (
+                  <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                    {order.unread_messages} new
+                  </span>
+                )}
+              </h3>
+              <MessageList messages={order.order_messages} orderId={order.id} />
+            </div>
 
             {/* Attendees Section */}
             {order.status === 'completed' && (
