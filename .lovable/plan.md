@@ -1,101 +1,95 @@
 
-
-# Separate Events Dashboard from LMS Dashboard
+# Track Individual Attendees for Event Registrations
 
 ## Overview
-Create a completely independent Events Dashboard with its own layout, navigation, and branding - separate from the Circle of Change Society LMS. Users with access to both dashboards will see a selection screen after login to choose which dashboard to enter.
+Enable tracking of individual attendees separate from registrations/orders. This allows advisors or group leaders to purchase multiple tickets at once and later provide details (names, emails) for each individual attendee, making it easy to contact each person for follow-up registration forms.
 
-## Current State
-- The LMS uses `AppLayout` with a sidebar containing navigation
-- Event management pages currently use the same `AppLayout`
-- Public event pages use `EventsLayout` (simpler, no sidebar)
-- Roles: `admin`, `advisor`, `student`, `event_organizer`
-- Admins and event_organizers can manage events
+## Current Situation
+- **Orders table**: Stores buyer/registrant info (the advisor making the purchase)
+- **Order_items table**: Stores ticket line items with a `quantity` field
+- **Problem**: When quantity > 1, there's no way to track individual attendees - only one `attendee_name`/`attendee_email` per line item
 
 ## What You'll Get
-- A dedicated Events Dashboard with its own header, navigation, and styling
-- A dashboard selector page shown after login for users with dual access
-- Clean separation between LMS and Events functionality
-- Persistent dashboard preference (remembered for convenience)
+- New **Attendees** tab in the Event Orders page showing all individual attendees
+- Ability for purchasers to add/edit attendee details after checkout via a unique link
+- Admin ability to view and edit attendee information
+- Export attendees to CSV for mail merges or further outreach
+- Track which attendees have completed their information
+
+## Data Model Changes
+
+### New `attendees` Table
+```text
+attendees
+├── id (uuid, primary key)
+├── order_id (uuid, references orders)
+├── order_item_id (uuid, references order_items)
+├── ticket_type_id (uuid, references ticket_types)
+├── attendee_name (text, nullable)
+├── attendee_email (text, nullable)
+├── additional_info (jsonb, nullable) - for future custom fields
+├── created_at (timestamp)
+├── updated_at (timestamp)
+```
+
+When an order is completed, the system will create one `attendee` row for each ticket purchased. For example:
+- Order for 20 "General Admission" tickets → 20 attendee rows created
+- Purchaser or admin can then fill in names/emails for each
 
 ## Implementation Steps
 
-### Step 1: Create Events Dashboard Layout
-Create `src/layouts/EventsDashboardLayout.tsx`:
-- Header with Events branding and navigation
-- Sidebar with event management menu (Events list, Create Event, Analytics)
-- Different color scheme/branding to distinguish from LMS
-- Links: Dashboard, Events, Orders overview
-- Sign out and "Switch to LMS" option for users with LMS access
+### Step 1: Create Database Table
+- Create `attendees` table with RLS policies
+- RLS: Order owners (by user_id) can edit their attendees; event organizers/admins can view/edit all
+- Create a secure token column on orders for allowing guest editing without login
 
-### Step 2: Create Dashboard Selector Page
-Create `src/pages/DashboardSelector.tsx`:
-- Shown after successful login for users with access to both dashboards
-- Two cards: "LMS Dashboard" and "Events Dashboard"
-- Each card shows description and role-appropriate access
-- "Remember my choice" checkbox option
-- Stores preference in localStorage
+### Step 2: Update Checkout Flow
+- After successful checkout, create attendee rows for each ticket purchased
+- Update `create-event-checkout` edge function to generate attendee records
 
-### Step 3: Create Auth Context Enhancement
-Update `src/contexts/AuthContext.tsx`:
-- Add helper to check if user has LMS access (admin, advisor, student roles)
-- Add helper to check if user has Events access (admin, event_organizer roles)
-- Add `hasDualAccess` computed property
+### Step 3: Create Attendee Management Page
+- New page: `/events/:slug/order/:orderId/attendees`
+- Allows the purchaser to fill in attendee details
+- Accessible via email link sent after purchase (token-based access for guests)
+- Mobile-friendly form with name/email for each attendee
 
-### Step 4: Update Event Management Pages
-Modify all pages in `src/pages/events/manage/`:
-- `Index.tsx` - Use EventsDashboardLayout instead of AppLayout
-- `NewEvent.tsx` - Use EventsDashboardLayout
-- `EditEvent.tsx` - Use EventsDashboardLayout
-- `ManageTickets.tsx` - Use EventsDashboardLayout
-- `EventOrders.tsx` - Use EventsDashboardLayout
+### Step 4: Update Event Orders Dashboard
+- Add "Attendees" tab to EventOrders page
+- Show all attendees across all orders with their status (info complete/incomplete)
+- Filter by ticket type, completion status
+- Inline editing for admins
+- Enhanced CSV export with all attendee details
 
-### Step 5: Update Routing Logic
-Modify `src/App.tsx`:
-- Add DashboardSelector route
-- Redirect users with dual access to selector after login (if no preference saved)
-- Update ProtectedRoute to handle dashboard context
-- Keep event_organizer-only users going directly to Events Dashboard
-- Keep LMS-only users going directly to LMS
+### Step 5: Add Order Success Page Link
+- Update CheckoutSuccess page to show "Add Attendee Details" button
+- Link purchasers to the attendee management page
 
-### Step 6: Update Sidebar Navigation
-Modify `src/components/layout/Sidebar.tsx`:
-- Remove Events link from admin navigation (they'll access via Events Dashboard)
-- Add "Switch to Events Dashboard" link for admins
-- Clean separation of concerns
+## New Pages/Components
+- `src/pages/events/OrderAttendees.tsx` - Public page for purchasers to add attendee info
+- `src/components/events/AttendeeForm.tsx` - Form for individual attendee details
+- `src/components/events/AttendeesTable.tsx` - Admin table showing all attendees
+- `src/hooks/useAttendees.ts` - Data hooks for attendee operations
 
-## Technical Details
+## Files to Modify
+- `supabase/functions/create-event-checkout/index.ts` - Create attendee records after order
+- `supabase/functions/verify-event-payment/index.ts` - Create attendees on payment verification
+- `src/pages/events/CheckoutSuccess.tsx` - Add link to attendee form
+- `src/pages/events/manage/EventOrders.tsx` - Add Attendees tab
+- `src/App.tsx` - Add new route
 
-**New files to create:**
-- `src/layouts/EventsDashboardLayout.tsx` - Complete events dashboard layout
-- `src/components/events/EventsDashboardSidebar.tsx` - Events-specific sidebar
-- `src/components/events/EventsDashboardHeader.tsx` - Events-specific header
-- `src/pages/DashboardSelector.tsx` - Dashboard selection page
+## User Flows
 
-**Files to modify:**
-- `src/contexts/AuthContext.tsx` - Add access helpers
-- `src/App.tsx` - Update routing
-- `src/pages/events/manage/Index.tsx` - Use new layout
-- `src/pages/events/manage/NewEvent.tsx` - Use new layout
-- `src/pages/events/manage/EditEvent.tsx` - Use new layout
-- `src/pages/events/manage/ManageTickets.tsx` - Use new layout
-- `src/pages/events/manage/EventOrders.tsx` - Use new layout
-- `src/components/layout/Sidebar.tsx` - Remove Events from LMS sidebar
+### Purchaser Flow (Advisor registering students)
+1. Advisor goes to checkout, selects 20 "Student" tickets
+2. Enters their own name/email as the buyer
+3. Completes payment
+4. On success page, sees "Add Attendee Details" button
+5. Opens attendee form, enters names/emails for each student
+6. Can save partial progress and return later via email link
 
-**Access Logic:**
-```text
-LMS Access: admin, advisor, student
-Events Access: admin, event_organizer
-Dual Access: admin (has both roles implicitly)
-```
-
-**Dashboard Selector Flow:**
-```text
-Login -> Check roles -> 
-  If only LMS roles -> Go to LMS (/)
-  If only event_organizer -> Go to Events Dashboard (/events/manage)
-  If dual access (admin) -> Check localStorage preference ->
-    If preference set -> Go to preferred dashboard
-    If no preference -> Show Dashboard Selector
-```
-
+### Admin Flow
+1. Go to Event → Orders & Attendees
+2. New "Attendees" tab shows all individual attendees
+3. Can see which attendees have incomplete information
+4. Can filter, search, and inline edit attendee details
+5. Export complete attendee list to CSV
