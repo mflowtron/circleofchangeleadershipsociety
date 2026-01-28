@@ -4,10 +4,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, Ticket, LogOut } from 'lucide-react';
+import logoLight from '@/assets/coclc-logo-light.png';
+import logoDark from '@/assets/coclc-logo-dark.png';
+import { useTheme } from 'next-themes';
 
 export default function DashboardSelector() {
   const { user, loading, role, signOut } = useAuth();
   const navigate = useNavigate();
+  const { resolvedTheme } = useTheme();
+  const logo = resolvedTheme === 'dark' ? logoDark : logoLight;
 
   // Determine access levels
   const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
@@ -52,9 +57,14 @@ export default function DashboardSelector() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">Welcome Back</h1>
-          <p className="text-muted-foreground">Choose where you'd like to go</p>
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <img src={logo} alt="Circle of Change" className="h-12" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold">Welcome Back</h1>
+            <p className="text-muted-foreground">Choose where you'd like to go</p>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
