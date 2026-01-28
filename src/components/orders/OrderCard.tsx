@@ -21,6 +21,7 @@ import {
 
 interface OrderCardProps {
   order: PortalOrder;
+  onSendMessage: (orderId: string, message: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const statusColors: Record<string, string> = {
@@ -37,7 +38,7 @@ const statusLabels: Record<string, string> = {
   refunded: 'Refunded',
 };
 
-export function OrderCard({ order }: OrderCardProps) {
+export function OrderCard({ order, onSendMessage }: OrderCardProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const progressPercent = order.attendee_stats.total > 0 
@@ -136,7 +137,7 @@ export function OrderCard({ order }: OrderCardProps) {
                   </span>
                 )}
               </h3>
-              <MessageList messages={order.order_messages} orderId={order.id} />
+              <MessageList messages={order.order_messages} orderId={order.id} onSendMessage={onSendMessage} />
             </div>
 
             {/* Attendees Section */}
