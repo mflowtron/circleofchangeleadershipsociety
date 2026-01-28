@@ -17,12 +17,30 @@ export default function OrderPortalIndex() {
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [codeSent, setCodeSent] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    // Small delay to allow session to load from localStorage
+    const timer = setTimeout(() => {
+      setCheckingAuth(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/my-orders/dashboard');
+      navigate('/my-orders/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
+
+  // Show loading while checking auth
+  if (checkingAuth || isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
