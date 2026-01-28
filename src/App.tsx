@@ -15,6 +15,7 @@ import Users from "@/pages/Users";
 import Chapters from "@/pages/Chapters";
 import Moderation from "@/pages/Moderation";
 import MyChapter from "@/pages/MyChapter";
+import Announcements from "@/pages/Announcements";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -82,6 +83,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <Moderation />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/announcements" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Announcements />
           </ProtectedRoute>
         } 
       />
