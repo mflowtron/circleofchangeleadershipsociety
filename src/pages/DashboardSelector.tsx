@@ -1,35 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { GraduationCap, Ticket, LogOut } from 'lucide-react';
-
-const DASHBOARD_PREFERENCE_KEY = 'preferred_dashboard';
 
 export default function DashboardSelector() {
   const { user, loading, role, signOut } = useAuth();
   const navigate = useNavigate();
-  const [rememberChoice, setRememberChoice] = useState(false);
 
   // Determine access levels
   const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
   const hasEventsAccess = role === 'admin' || role === 'event_organizer';
   const hasDualAccess = hasLMSAccess && hasEventsAccess;
-
-  // Check for saved preference on mount
-  useEffect(() => {
-    if (!loading && user && hasDualAccess) {
-      const savedPreference = localStorage.getItem(DASHBOARD_PREFERENCE_KEY);
-      if (savedPreference === 'lms') {
-        navigate('/', { replace: true });
-      } else if (savedPreference === 'events') {
-        navigate('/events/manage', { replace: true });
-      }
-    }
-  }, [loading, user, hasDualAccess, navigate]);
 
   // Redirect users without dual access
   useEffect(() => {
@@ -43,9 +26,6 @@ export default function DashboardSelector() {
   }, [loading, user, hasDualAccess, hasLMSAccess, hasEventsAccess, navigate]);
 
   const selectDashboard = (dashboard: 'lms' | 'events') => {
-    if (rememberChoice) {
-      localStorage.setItem(DASHBOARD_PREFERENCE_KEY, dashboard);
-    }
     navigate(dashboard === 'lms' ? '/' : '/events/manage', { replace: true });
   };
 
@@ -127,18 +107,7 @@ export default function DashboardSelector() {
           </Card>
         </div>
 
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Checkbox 
-              id="remember" 
-              checked={rememberChoice}
-              onCheckedChange={(checked) => setRememberChoice(checked === true)}
-            />
-            <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
-              Remember my choice
-            </Label>
-          </div>
-
+        <div className="flex justify-center">
           <Button variant="ghost" onClick={signOut} className="gap-2">
             <LogOut className="h-4 w-4" />
             Sign out

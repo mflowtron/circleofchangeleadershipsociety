@@ -78,8 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    // Clear dashboard preference on sign out
-    localStorage.removeItem('preferred_dashboard');
     await supabase.auth.signOut();
   };
 

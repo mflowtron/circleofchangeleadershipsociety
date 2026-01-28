@@ -10,8 +10,6 @@ interface EventsDashboardLayoutProps {
   children: ReactNode;
 }
 
-const DASHBOARD_PREFERENCE_KEY = 'preferred_dashboard';
-
 export default function EventsDashboardLayout({ children }: EventsDashboardLayoutProps) {
   const { user, loading, role } = useAuth();
   const navigate = useNavigate();
@@ -21,8 +19,7 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
   const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
 
   const handleSwitchDashboard = () => {
-    localStorage.setItem(DASHBOARD_PREFERENCE_KEY, 'lms');
-    navigate('/');
+    navigate('/select-dashboard');
   };
 
   if (loading) {

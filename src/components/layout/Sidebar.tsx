@@ -49,9 +49,8 @@ export default function Sidebar() {
   const items = navItems[role as keyof typeof navItems] || navItems.student;
 
   const handleSwitchToEvents = () => {
-    localStorage.setItem('preferred_dashboard', 'events');
     setIsOpen(false);
-    navigate('/events/manage');
+    navigate('/select-dashboard');
   };
 
   return (
