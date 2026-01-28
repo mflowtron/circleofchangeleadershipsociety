@@ -1,48 +1,34 @@
 import { Check, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEvents } from '@/hooks/useEvents';
 import { useEventSelection } from '@/contexts/EventSelectionContext';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 export function EventSelector() {
   const { events = [], isLoading } = useEvents();
-  const { selectedEventIds, setSelectedEventIds, clearSelection, hasSelection } = useEventSelection();
+  const { selectedEventId, setSelectedEventId, clearSelection, hasSelection } = useEventSelection();
+  const [open, setOpen] = useState(false);
 
-  const handleToggleEvent = (eventId: string) => {
-    if (selectedEventIds.includes(eventId)) {
-      setSelectedEventIds(selectedEventIds.filter((id) => id !== eventId));
-    } else {
-      setSelectedEventIds([...selectedEventIds, eventId]);
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedEventIds.length === events.length) {
-      clearSelection();
-    } else {
-      setSelectedEventIds(events.map((e) => e.id));
-    }
+  const handleSelectEvent = (eventId: string | null) => {
+    setSelectedEventId(eventId);
+    setOpen(false);
   };
 
   const getDisplayText = () => {
     if (!hasSelection) return 'All Events';
-    if (selectedEventIds.length === 1) {
-      const event = events.find((e) => e.id === selectedEventIds[0]);
-      return event?.title || '1 Event';
-    }
-    return `${selectedEventIds.length} Events`;
+    const event = events.find((e) => e.id === selectedEventId);
+    return event?.title || 'Unknown Event';
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -52,9 +38,17 @@ export function EventSelector() {
           <span className="truncate text-left flex-1">{getDisplayText()}</span>
           <div className="flex items-center gap-1">
             {hasSelection && (
-              <Badge variant="secondary" className="h-5 px-1.5 text-xs">
-                {selectedEventIds.length}
-              </Badge>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 p-0 hover:bg-transparent"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearSelection();
+                }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
             )}
             <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
           </div>
@@ -62,55 +56,34 @@ export function EventSelector() {
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="start">
         <div className="p-2 border-b">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Filter by Event</span>
-            {hasSelection && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={clearSelection}
-              >
-                <X className="h-3 w-3 mr-1" />
-                Clear
-              </Button>
-            )}
-          </div>
+          <span className="text-sm font-medium">Select Event</span>
         </div>
         <ScrollArea className="h-64">
           <div className="p-2 space-y-1">
             <div
               className={cn(
-                "flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted",
+                "flex items-center justify-between px-2 py-1.5 rounded cursor-pointer hover:bg-muted",
                 !hasSelection && "bg-primary/10"
               )}
-              onClick={handleSelectAll}
+              onClick={() => handleSelectEvent(null)}
             >
-              <Checkbox
-                checked={!hasSelection || selectedEventIds.length === events.length}
-                onCheckedChange={handleSelectAll}
-              />
-              <span className="text-sm font-medium">
-                {selectedEventIds.length === events.length ? 'Deselect All' : 'All Events'}
-              </span>
+              <span className="text-sm font-medium">All Events</span>
+              {!hasSelection && <Check className="h-4 w-4 text-primary" />}
             </div>
             <div className="h-px bg-border my-2" />
             {events.map((event) => {
-              const isSelected = selectedEventIds.includes(event.id);
+              const isSelected = selectedEventId === event.id;
               return (
                 <div
                   key={event.id}
                   className={cn(
-                    "flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted",
+                    "flex items-center justify-between px-2 py-1.5 rounded cursor-pointer hover:bg-muted",
                     isSelected && "bg-primary/10"
                   )}
-                  onClick={() => handleToggleEvent(event.id)}
+                  onClick={() => handleSelectEvent(event.id)}
                 >
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => handleToggleEvent(event.id)}
-                  />
                   <span className="text-sm truncate">{event.title}</span>
+                  {isSelected && <Check className="h-4 w-4 text-primary" />}
                 </div>
               );
             })}
