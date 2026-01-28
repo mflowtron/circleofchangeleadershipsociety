@@ -29,6 +29,8 @@ import type { OrderWithItems } from '@/hooks/useOrders';
 interface OrdersTableProps {
   orders: OrderWithItems[];
   isLoading?: boolean;
+  eventMap?: Map<string, string>;
+  showEventColumn?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -38,7 +40,7 @@ const statusColors: Record<string, string> = {
   refunded: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
 };
 
-export function OrdersTable({ orders, isLoading }: OrdersTableProps) {
+export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: OrdersTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
@@ -127,6 +129,7 @@ export function OrdersTable({ orders, isLoading }: OrdersTableProps) {
               <TableRow>
                 <TableHead className="w-10" />
                 <TableHead>Order</TableHead>
+                {showEventColumn && <TableHead>Event</TableHead>}
                 <TableHead>Customer</TableHead>
                 <TableHead>Tickets</TableHead>
                 <TableHead>Status</TableHead>
@@ -160,6 +163,13 @@ export function OrdersTable({ orders, isLoading }: OrdersTableProps) {
                           {format(new Date(order.created_at), 'MMM d, yyyy h:mm a')}
                         </div>
                       </TableCell>
+                      {showEventColumn && (
+                        <TableCell>
+                          <span className="text-sm truncate max-w-[200px] block">
+                            {eventMap?.get(order.event_id) || 'Unknown'}
+                          </span>
+                        </TableCell>
+                      )}
                       <TableCell>
                         <div className="font-medium">{order.full_name}</div>
                         <div className="text-sm text-muted-foreground">{order.email}</div>
@@ -176,7 +186,7 @@ export function OrdersTable({ orders, isLoading }: OrdersTableProps) {
                     </TableRow>
                     <CollapsibleContent asChild>
                       <TableRow className="bg-muted/30">
-                        <TableCell colSpan={6} className="p-4">
+                        <TableCell colSpan={showEventColumn ? 7 : 6} className="p-4">
                           <div className="space-y-4">
                             {/* Contact Info */}
                             <div className="flex flex-wrap gap-4 text-sm">

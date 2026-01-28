@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { EventsDashboardHeader } from '@/components/events/EventsDashboardHeader';
 import { EventsDashboardSidebar } from '@/components/events/EventsDashboardSidebar';
+import { EventSelectionProvider } from '@/contexts/EventSelectionContext';
 
 interface EventsDashboardLayoutProps {
   children: ReactNode;
@@ -39,25 +40,27 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <EventsDashboardSidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)}
-        onSwitchDashboard={handleSwitchDashboard}
-        showSwitchOption={hasLMSAccess}
-      />
-      <div className="flex-1 flex flex-col md:ml-64">
-        <EventsDashboardHeader 
-          onMenuClick={() => setSidebarOpen(true)}
+    <EventSelectionProvider>
+      <div className="min-h-screen bg-background flex">
+        <EventsDashboardSidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)}
           onSwitchDashboard={handleSwitchDashboard}
           showSwitchOption={hasLMSAccess}
         />
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <div className="animate-fade-up">
-            {children}
-          </div>
-        </main>
+        <div className="flex-1 flex flex-col md:ml-64">
+          <EventsDashboardHeader 
+            onMenuClick={() => setSidebarOpen(true)}
+            onSwitchDashboard={handleSwitchDashboard}
+            showSwitchOption={hasLMSAccess}
+          />
+          <main className="flex-1 p-4 md:p-6 overflow-auto">
+            <div className="animate-fade-up">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </EventSelectionProvider>
   );
 }

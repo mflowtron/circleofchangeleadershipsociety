@@ -26,6 +26,8 @@ interface AttendeesTableProps {
   isLoading: boolean;
   ticketTypes: Array<{ id: string; name: string }>;
   onExport: () => void;
+  eventMap?: Map<string, string>;
+  showEventColumn?: boolean;
 }
 
 export function AttendeesTable({
@@ -33,6 +35,8 @@ export function AttendeesTable({
   isLoading,
   ticketTypes,
   onExport,
+  eventMap,
+  showEventColumn,
 }: AttendeesTableProps) {
   const [search, setSearch] = useState('');
   const [ticketFilter, setTicketFilter] = useState<string>('all');
@@ -175,6 +179,7 @@ export function AttendeesTable({
           <TableHeader>
             <TableRow>
               <TableHead>Status</TableHead>
+              {showEventColumn && <TableHead>Event</TableHead>}
               <TableHead>Attendee Name</TableHead>
               <TableHead>Attendee Email</TableHead>
               <TableHead>Ticket Type</TableHead>
@@ -186,7 +191,7 @@ export function AttendeesTable({
           <TableBody>
             {filteredAttendees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={showEventColumn ? 8 : 7} className="text-center py-8 text-muted-foreground">
                   No attendees found
                 </TableCell>
               </TableRow>
@@ -210,6 +215,13 @@ export function AttendeesTable({
                         </Badge>
                       )}
                     </TableCell>
+                    {showEventColumn && (
+                      <TableCell>
+                        <span className="text-sm truncate max-w-[200px] block">
+                          {eventMap?.get(attendee.order?.event_id || '') || 'Unknown'}
+                        </span>
+                      </TableCell>
+                    )}
                     <TableCell>
                       {isEditing ? (
                         <Input

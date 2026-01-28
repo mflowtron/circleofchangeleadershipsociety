@@ -3,12 +3,14 @@ import { cn } from '@/lib/utils';
 import { 
   Calendar, 
   Plus, 
-  LayoutDashboard,
   X,
   ArrowLeftRight,
-  Ticket
+  Ticket,
+  ShoppingCart,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EventSelector } from './EventSelector';
 
 interface EventsDashboardSidebarProps {
   isOpen: boolean;
@@ -18,6 +20,8 @@ interface EventsDashboardSidebarProps {
 }
 
 const navItems = [
+  { path: '/events/manage/orders', label: 'Orders', icon: ShoppingCart },
+  { path: '/events/manage/attendees', label: 'Attendees', icon: Users },
   { path: '/events/manage', label: 'Events', icon: Calendar, exact: true },
   { path: '/events/manage/new', label: 'Create Event', icon: Plus },
 ];
@@ -70,6 +74,11 @@ export function EventsDashboardSidebar({
           >
             <X className="h-5 w-5" />
           </Button>
+        </div>
+        
+        {/* Event Selector */}
+        <div className="p-3 border-b">
+          <EventSelector />
         </div>
         
         {/* Navigation */}
