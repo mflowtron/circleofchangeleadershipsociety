@@ -1,175 +1,212 @@
 
-# Badge Creation System for Event Attendees
+# Order Management Portal
 
 ## Overview
-Build a comprehensive badge generation system that allows event organizers to:
-1. Upload a custom badge background/design image
-2. Position text fields (attendee name, ticket type, etc.) on the badge using a visual editor
-3. Generate a PDF with multiple badges laid out on the AVERY 5392 template (6 badges per page, 3"x4" each)
-
-## AVERY 5392 Template Specifications
-- Page size: 8.5" x 11" (Letter)
-- 6 badges per page (2 columns x 3 rows)
-- Each badge: 3" wide x 4" tall
-- Margins: 0.69" top, 0.19" left/right between badges
-
-## Architecture
-
-### New Components
-```text
-src/components/events/badges/
-├── BadgeDesigner.tsx       - Visual editor to position text on badge
-├── BadgePreview.tsx        - Live preview of a single badge
-├── BadgeFieldEditor.tsx    - Controls for each text field (position, font, size)
-├── BadgeTemplateUpload.tsx - Image upload for badge background
-└── BadgeGeneratorDialog.tsx - Main dialog to access the badge system
-```
-
-### New Pages
-```text
-src/pages/events/manage/BadgeDesigner.tsx - Full page badge design experience
-```
-
-### Data Model
-Create a `badge_templates` table to store event-specific badge designs:
-- `id` - UUID primary key
-- `event_id` - Reference to event
-- `background_image_url` - URL to uploaded badge background
-- `fields` - JSONB array of field configurations:
-  ```json
-  [
-    {
-      "id": "name",
-      "label": "Attendee Name", 
-      "x": 1.5,
-      "y": 0.5,
-      "fontSize": 24,
-      "fontWeight": "bold",
-      "color": "#000000",
-      "align": "center",
-      "source": "attendee_name"
-    },
-    {
-      "id": "ticketType",
-      "label": "Ticket Type",
-      "x": 1.5,
-      "y": 1.2,
-      "fontSize": 14,
-      "color": "#666666",
-      "align": "center", 
-      "source": "ticket_type"
-    }
-  ]
-  ```
-- `created_at`, `updated_at` timestamps
-
-### Storage
-Create a new `badge-templates` storage bucket for badge background images.
-
-## Implementation Steps
-
-### Step 1: Database Setup
-Create migration for:
-- `badge_templates` table with RLS policies (admin/event_organizer access)
-- `badge-templates` storage bucket with appropriate policies
-
-### Step 2: Badge Template Hooks
-Create `src/hooks/useBadgeTemplates.ts`:
-- `useBadgeTemplate(eventId)` - Fetch template for an event
-- `useCreateBadgeTemplate()` - Create new template
-- `useUpdateBadgeTemplate()` - Update template fields/image
-- `useUploadBadgeBackground()` - Upload background image to storage
-
-### Step 3: Badge Designer Component
-Create visual editor with:
-- Drag-and-drop field positioning on badge canvas
-- Live preview with sample attendee data
-- Field property panel (font size, color, alignment)
-- Background image upload with crop/fit options
-- Grid/guides toggle for alignment help
-
-### Step 4: PDF Generation Utility
-Create `src/lib/badgePdfGenerator.ts`:
-- Install `jspdf` package for PDF generation
-- Configure AVERY 5392 page layout
-- Render badge background image
-- Overlay text fields at configured positions
-- Handle pagination for multiple attendees
-
-### Step 5: Badge Generation Dialog
-Create dialog accessible from Attendees page:
-- Select/create badge template
-- Preview badges with real attendee data
-- Filter which attendees to include (by ticket type, completion status)
-- Generate and download PDF
-
-### Step 6: Integration Points
-- Add "Print Badges" button to Attendees page header
-- Add badge template management to event settings
-- Update sidebar with badge designer link when event is selected
+Create a self-service portal where ticket purchasers can manage their orders using email-based OTP authentication. The portal will allow viewing order status, managing attendees, purchasing additional tickets, and receiving admin messages.
 
 ## User Flow
 
 ```text
-1. Event Organizer selects an event
-2. Goes to Attendees page or Event Settings
-3. Clicks "Print Badges" or "Badge Designer"
-4. If no template exists:
-   a. Upload badge background image (3"x4" design)
-   b. Add/position text fields using drag-and-drop
-   c. Configure font styles for each field
-   d. Save template
-5. If template exists:
-   a. Preview badges with attendee data
-   b. Optionally edit template
-6. Filter attendees (complete only, specific ticket types)
-7. Click "Generate PDF"
-8. Download PDF ready for AVERY 5392 sheets
++------------------+     +------------------+     +------------------+
+|  Email Entry     | --> |  OTP Code Sent   | --> |  Verify Code     |
+|  (Public Page)   |     |  (Edge Function) |     |  (Edge Function) |
++------------------+     +------------------+     +------------------+
+                                                          |
+                                                          v
+                         +----------------------------------+
+                         |     Order Management Portal      |
+                         |----------------------------------|
+                         | - View Order Details & Status    |
+                         | - See/Edit Attendee Information  |
+                         | - View Admin Messages            |
+                         | - Purchase Additional Tickets    |
+                         +----------------------------------+
 ```
 
-## Technical Details
+## Features
 
-### PDF Generation (jsPDF)
-```typescript
-// AVERY 5392 dimensions in points (72 points per inch)
-const PAGE_WIDTH = 612;  // 8.5"
-const PAGE_HEIGHT = 792; // 11"
-const BADGE_WIDTH = 216; // 3"
-const BADGE_HEIGHT = 288; // 4"
-const TOP_MARGIN = 50;   // ~0.69"
-const LEFT_MARGIN = 54;  // ~0.75"
-const H_GAP = 14;        // ~0.19" between columns
-const V_GAP = 0;         // No vertical gap
+### 1. Email + OTP Authentication
+- User enters the email they used to purchase tickets
+- System sends a 6-digit OTP code valid for 10 minutes
+- After verification, user gets access to all orders tied to that email
+- Codes are single-use and expire after verification
 
-// Layout: 2 columns x 3 rows = 6 badges per page
-const COLS = 2;
-const ROWS = 3;
+### 2. Order Dashboard
+- List all orders associated with the email
+- Show order status (completed, pending, cancelled, refunded)
+- Display ticket types and quantities
+- Show attendee completion progress (e.g., "3/5 attendees registered")
+
+### 3. Attendee Management
+- View all attendees across orders
+- Edit attendee names and emails inline
+- Visual indicators for incomplete registrations
+
+### 4. Admin Messaging
+- Display messages from event organizers chronologically
+- Support for important announcements (highlighted)
+- Read receipts tracking
+
+### 5. Add More Tickets (Future Enhancement)
+- Select additional ticket types from original event
+- Seamless Stripe checkout integration
+- Links new order to same email for unified management
+
+---
+
+## Technical Implementation
+
+### Database Changes
+
+**New Table: `order_access_codes`**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| email | text | Email address |
+| code | text | 6-digit OTP code |
+| expires_at | timestamptz | Expiration time (10 min) |
+| used_at | timestamptz | When code was verified |
+| created_at | timestamptz | Creation time |
+
+**New Table: `order_messages`**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| order_id | uuid | FK to orders |
+| message | text | Message content |
+| is_important | boolean | Highlighted message |
+| created_by | uuid | Admin user who sent |
+| read_at | timestamptz | When purchaser read |
+| created_at | timestamptz | Creation time |
+
+### RLS Policies
+
+**order_access_codes**
+- SELECT: Service role only (via edge functions)
+- INSERT: Service role only
+- UPDATE: Service role only
+- DELETE: Service role only
+
+**order_messages**
+- SELECT: Order owner (verified via edge function session) OR admin/event_organizer
+- INSERT: Admin or event organizer only
+- UPDATE: Message author only (for corrections)
+
+### Edge Functions
+
+**1. `send-order-access-code`**
+- Accepts: `{ email: string }`
+- Validates email exists in orders table
+- Generates 6-digit random code
+- Stores in `order_access_codes` with 10-min expiry
+- Sends email via Resend (uses existing secret if available)
+- Returns: `{ success: true }`
+
+**2. `verify-order-access-code`**
+- Accepts: `{ email: string, code: string }`
+- Validates code matches, not expired, not used
+- Marks code as used
+- Returns: `{ valid: true, session_token: uuid }` (session token stored in localStorage)
+
+**3. `get-orders-by-email`**
+- Accepts: `{ email: string, session_token: uuid }`
+- Validates session token
+- Returns all orders + attendees + messages for that email
+
+**4. `add-order-message`** (Admin endpoint)
+- Accepts: `{ order_id: uuid, message: string, is_important: boolean }`
+- Requires admin/event_organizer authentication
+- Creates message record
+- Returns the created message
+
+### Frontend Pages
+
+**1. `/my-orders` - Order Portal Entry**
+- Email input form
+- "Send Access Code" button
+- OTP input (6 boxes using existing InputOTP component)
+- "Verify" button
+
+**2. `/my-orders/dashboard` - Order Dashboard (after verification)**
+- Header with email and "Sign Out" button
+- List of orders as cards showing:
+  - Order number, date, event name
+  - Status badge
+  - Ticket summary
+  - Attendee progress bar
+  - Admin messages (if any, with badge count)
+- Click order to expand/see details
+
+### File Structure
+
+```text
+src/pages/orders/
+  ├── Index.tsx           (Email entry + OTP verification)
+  └── Dashboard.tsx       (Order management after auth)
+
+src/hooks/
+  └── useOrderPortal.ts   (Custom hook for portal state)
+
+src/components/orders/
+  ├── OrderCard.tsx       (Individual order display)
+  ├── AttendeeList.tsx    (Editable attendee list)
+  └── MessageList.tsx     (Admin messages display)
+
+supabase/functions/
+  ├── send-order-access-code/index.ts
+  ├── verify-order-access-code/index.ts
+  ├── get-orders-by-email/index.ts
+  └── add-order-message/index.ts
 ```
 
-### Badge Field Sources
-Available data fields for badges:
-- `attendee_name` - Attendee's name
-- `attendee_email` - Attendee's email  
-- `ticket_type` - Ticket type name
-- `order_number` - Order reference number
-- `purchaser_name` - Name of person who purchased
-- `event_name` - Event title
-- `event_date` - Event start date
+### Admin Interface Updates
 
-### New Files to Create
-- `src/components/events/badges/BadgeDesigner.tsx`
-- `src/components/events/badges/BadgePreview.tsx`
-- `src/components/events/badges/BadgeFieldEditor.tsx`
-- `src/components/events/badges/BadgeTemplateUpload.tsx`
-- `src/components/events/badges/BadgeGeneratorDialog.tsx`
-- `src/hooks/useBadgeTemplates.ts`
-- `src/lib/badgePdfGenerator.ts`
-- `src/pages/events/manage/BadgeDesigner.tsx`
+Update the existing OrderDetail page (`src/pages/events/manage/OrderDetail.tsx`) to include:
+- "Send Message" button
+- Message composer with "Mark as Important" checkbox
+- List of sent messages with read status
 
-### Files to Modify
-- `src/pages/events/manage/Attendees.tsx` - Add Print Badges button
-- `src/components/events/EventsDashboardSidebar.tsx` - Add Badge Designer nav item
-- `src/App.tsx` - Add badge designer route
+---
 
-### Dependencies to Install
-- `jspdf` - PDF generation library
+## Implementation Phases
+
+### Phase 1: Database & Edge Functions
+1. Create `order_access_codes` and `order_messages` tables
+2. Implement `send-order-access-code` edge function
+3. Implement `verify-order-access-code` edge function
+4. Implement `get-orders-by-email` edge function
+
+### Phase 2: Public Portal
+1. Create email entry page with OTP flow
+2. Build order dashboard with order cards
+3. Integrate existing attendee editing functionality
+4. Add message display component
+
+### Phase 3: Admin Messaging
+1. Add message composer to OrderDetail page
+2. Implement `add-order-message` edge function
+3. Show read status in admin view
+
+### Phase 4: Additional Tickets (Optional)
+1. Add "Buy More Tickets" button to order card
+2. Link to checkout with pre-filled email
+3. Associate new order with same purchaser
+
+---
+
+## Routes
+
+| Path | Component | Auth Required |
+|------|-----------|---------------|
+| `/my-orders` | Order Portal Entry | No |
+| `/my-orders/dashboard` | Order Dashboard | OTP Session |
+
+---
+
+## Security Considerations
+
+1. **Rate Limiting**: Limit OTP requests to 3 per email per hour
+2. **Code Expiry**: 10-minute window prevents brute force
+3. **Single Use**: Codes invalidated after verification
+4. **Session Tokens**: UUID tokens stored securely, checked on each request
+5. **No PII Exposure**: Email verification required before showing any order data
