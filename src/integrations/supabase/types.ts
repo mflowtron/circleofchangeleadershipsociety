@@ -278,6 +278,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_post_like_count: { Args: { post_uuid: string }; Returns: number }
       get_user_chapter: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -286,6 +287,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_user_liked_post: { Args: { post_uuid: string }; Returns: boolean }
       is_advisor_for_chapter: {
         Args: { _chapter_id: string; _user_id: string }
         Returns: boolean

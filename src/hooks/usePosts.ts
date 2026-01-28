@@ -69,11 +69,9 @@ export function usePosts(filter: FilterType = 'all') {
             .eq('user_id', post.user_id)
             .single();
 
-          // Get likes count
-          const { count: likesCount } = await supabase
-            .from('likes')
-            .select('*', { count: 'exact', head: true })
-            .eq('post_id', post.id);
+          // Get likes count using database function (privacy-preserving)
+          const { data: likesCountData } = await supabase
+            .rpc('get_post_like_count', { post_uuid: post.id });
 
           // Get comments count
           const { count: commentsCount } = await supabase
@@ -81,20 +79,16 @@ export function usePosts(filter: FilterType = 'all') {
             .select('*', { count: 'exact', head: true })
             .eq('post_id', post.id);
 
-          // Check if user has liked
-          const { data: userLike } = await supabase
-            .from('likes')
-            .select('id')
-            .eq('post_id', post.id)
-            .eq('user_id', user.id)
-            .maybeSingle();
+          // Check if user has liked using database function (privacy-preserving)
+          const { data: userHasLiked } = await supabase
+            .rpc('has_user_liked_post', { post_uuid: post.id });
 
           return {
             ...post,
             author: authorData || { full_name: 'Unknown', avatar_url: null },
-            likes_count: likesCount || 0,
+            likes_count: likesCountData || 0,
             comments_count: commentsCount || 0,
-            user_has_liked: !!userLike,
+            user_has_liked: userHasLiked || false,
           };
         })
       );
