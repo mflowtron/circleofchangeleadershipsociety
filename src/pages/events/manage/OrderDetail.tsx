@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Mail, Phone, Check, X, Pencil, MessageSquare, Send, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Check, X, Pencil, MessageSquare, Send, AlertTriangle, Loader2, User, Building2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -127,6 +127,11 @@ export default function OrderDetail() {
   ).length;
   const incompleteCount = attendees.length - completeCount;
 
+  // Count unread customer messages
+  const unreadCustomerMessages = messages.filter(
+    (m) => m.sender_type === 'customer' && !m.read_at
+  ).length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -220,99 +225,7 @@ export default function OrderDetail() {
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Total:</span>
                 <Badge variant="secondary">{attendees.length}</Badge>
-      </div>
-
-      {/* Messages Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Customer Messages
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Message Composer */}
-          <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-            <Label htmlFor="message">Send a message to the customer</Label>
-            <Textarea
-              id="message"
-              placeholder="Type your message here..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              rows={3}
-            />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="important"
-                  checked={isImportant}
-                  onCheckedChange={(checked) => setIsImportant(checked === true)}
-                />
-                <Label htmlFor="important" className="text-sm cursor-pointer">
-                  Mark as important
-                </Label>
               </div>
-              <Button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || createMessage.isPending}
-              >
-                {createMessage.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4 mr-2" />
-                )}
-                Send Message
-              </Button>
-            </div>
-          </div>
-
-          {/* Message History */}
-          {messagesLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : messages.length === 0 ? (
-            <p className="text-center py-4 text-muted-foreground">
-              No messages sent yet
-            </p>
-          ) : (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground">Message History</h4>
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`p-3 rounded-lg border ${
-                    msg.is_important 
-                      ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' 
-                      : 'bg-background'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      {msg.is_important && (
-                        <div className="flex items-center gap-1 text-yellow-600 text-xs mb-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Important
-                        </div>
-                      )}
-                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                    </div>
-                    <div className="text-right text-xs text-muted-foreground flex-shrink-0">
-                      <p>{format(new Date(msg.created_at), 'MMM d, h:mm a')}</p>
-                      {msg.read_at ? (
-                        <p className="text-green-600 flex items-center gap-1 justify-end">
-                          <Check className="h-3 w-3" />
-                          Read
-                        </p>
-                      ) : (
-                        <p>Unread</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Complete:</span>
                 <Badge variant="default" className="bg-green-600">
@@ -429,6 +342,120 @@ export default function OrderDetail() {
                   })}
                 </TableBody>
               </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Messages Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Messages
+              {unreadCustomerMessages > 0 && (
+                <Badge variant="default" className="ml-2">
+                  {unreadCustomerMessages} new
+                </Badge>
+              )}
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Message Composer */}
+          <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+            <Label htmlFor="message">Send a message to the customer</Label>
+            <Textarea
+              id="message"
+              placeholder="Type your message here..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              rows={3}
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="important"
+                  checked={isImportant}
+                  onCheckedChange={(checked) => setIsImportant(checked === true)}
+                />
+                <Label htmlFor="important" className="text-sm cursor-pointer">
+                  Mark as important
+                </Label>
+              </div>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || createMessage.isPending}
+              >
+                {createMessage.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                Send Message
+              </Button>
+            </div>
+          </div>
+
+          {/* Message History */}
+          {messagesLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : messages.length === 0 ? (
+            <p className="text-center py-4 text-muted-foreground">
+              No messages yet
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-muted-foreground">Conversation</h4>
+              {messages.map((msg) => {
+                const isCustomer = msg.sender_type === 'customer';
+                
+                return (
+                  <div
+                    key={msg.id}
+                    className={`
+                      rounded-lg p-3 border
+                      ${msg.is_important 
+                        ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' 
+                        : isCustomer
+                          ? 'bg-primary/5 border-primary/20 ml-0 mr-8'
+                          : 'bg-muted border-transparent ml-8 mr-0'
+                      }
+                    `}
+                  >
+                    <div className="flex items-start gap-2">
+                      {msg.is_important ? (
+                        <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      ) : isCustomer ? (
+                        <User className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium">
+                            {isCustomer ? `Customer (${msg.sender_email || order.email})` : 'You (Organizer)'}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{format(new Date(msg.created_at), 'MMM d, yyyy • h:mm a')}</span>
+                          {!isCustomer && msg.read_at && (
+                            <span className="flex items-center gap-1 text-green-600">
+                              <Check className="h-3 w-3" />
+                              Read by customer
+                            </span>
+                          )}
+                          {!isCustomer && !msg.read_at && (
+                            <span className="text-muted-foreground">Not read yet</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

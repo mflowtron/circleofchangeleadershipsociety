@@ -85,7 +85,9 @@ serve(async (req: Request) => {
           message,
           is_important,
           read_at,
-          created_at
+          created_at,
+          sender_type,
+          sender_email
         )
       `)
       .ilike('email', normalizedEmail)
