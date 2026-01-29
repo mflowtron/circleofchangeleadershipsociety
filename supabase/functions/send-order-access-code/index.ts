@@ -69,7 +69,7 @@ serve(async (req: Request) => {
       console.error('Error checking rate limit:', rateError);
     }
 
-    if (recentCodes && recentCodes.length >= 3) {
+    if (recentCodes && recentCodes.length >= 10) {
       return new Response(
         JSON.stringify({ error: 'Too many code requests. Please try again later.' }),
         { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
