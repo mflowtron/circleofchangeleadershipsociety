@@ -43,6 +43,104 @@ export type Database = {
           },
         ]
       }
+      agenda_item_speakers: {
+        Row: {
+          agenda_item_id: string
+          created_at: string
+          id: string
+          role: string
+          sort_order: number
+          speaker_id: string
+        }
+        Insert: {
+          agenda_item_id: string
+          created_at?: string
+          id?: string
+          role?: string
+          sort_order?: number
+          speaker_id: string
+        }
+        Update: {
+          agenda_item_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          sort_order?: number
+          speaker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_item_speakers_agenda_item_id_fkey"
+            columns: ["agenda_item_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_item_speakers_speaker_id_fkey"
+            columns: ["speaker_id"]
+            isOneToOne: false
+            referencedRelation: "speakers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          ends_at: string | null
+          event_id: string
+          id: string
+          is_highlighted: boolean
+          item_type: string
+          location: string | null
+          sort_order: number
+          starts_at: string
+          title: string
+          track: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          event_id: string
+          id?: string
+          is_highlighted?: boolean
+          item_type?: string
+          location?: string | null
+          sort_order?: number
+          starts_at: string
+          title: string
+          track?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          ends_at?: string | null
+          event_id?: string
+          id?: string
+          is_highlighted?: boolean
+          item_type?: string
+          location?: string | null
+          sort_order?: number
+          starts_at?: string
+          title?: string
+          track?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_items_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           content: string
@@ -769,6 +867,62 @@ export type Database = {
           video_url?: string | null
         }
         Relationships: []
+      }
+      speakers: {
+        Row: {
+          bio: string | null
+          company: string | null
+          created_at: string
+          event_id: string
+          id: string
+          linkedin_url: string | null
+          name: string
+          photo_url: string | null
+          sort_order: number
+          title: string | null
+          twitter_url: string | null
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          bio?: string | null
+          company?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          linkedin_url?: string | null
+          name: string
+          photo_url?: string | null
+          sort_order?: number
+          title?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          bio?: string | null
+          company?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          linkedin_url?: string | null
+          name?: string
+          photo_url?: string | null
+          sort_order?: number
+          title?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "speakers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ticket_types: {
         Row: {

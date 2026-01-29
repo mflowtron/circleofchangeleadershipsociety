@@ -40,6 +40,8 @@ const ManageOrders = lazy(() => import("@/pages/events/manage/Orders"));
 const ManageAttendees = lazy(() => import("@/pages/events/manage/Attendees"));
 const OrderDetail = lazy(() => import("@/pages/events/manage/OrderDetail"));
 const BadgeDesigner = lazy(() => import("@/pages/events/manage/BadgeDesigner"));
+const ManageSpeakers = lazy(() => import("@/pages/events/manage/Speakers"));
+const ManageAgenda = lazy(() => import("@/pages/events/manage/Agenda"));
 const Checkout = lazy(() => import("@/pages/events/Checkout"));
 const CheckoutSuccess = lazy(() => import("@/pages/events/CheckoutSuccess"));
 const OrderAttendees = lazy(() => import("@/pages/events/OrderAttendees"));
@@ -368,6 +370,26 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <BadgeDesigner />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/events/manage/speakers" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+            <Suspense fallback={<PageLoader />}>
+              <ManageSpeakers />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/events/manage/agenda" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+            <Suspense fallback={<PageLoader />}>
+              <ManageAgenda />
             </Suspense>
           </ProtectedRoute>
         } 

@@ -8,7 +8,9 @@ import {
   Ticket,
   ShoppingCart,
   Users,
-  BadgeCheck
+  BadgeCheck,
+  UserCircle,
+  CalendarDays
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EventSelector } from './EventSelector';
@@ -25,6 +27,8 @@ interface EventsDashboardSidebarProps {
 const eventNavItems = [
   { path: '/events/manage/orders', label: 'Orders', icon: ShoppingCart },
   { path: '/events/manage/attendees', label: 'Attendees', icon: Users },
+  { path: '/events/manage/speakers', label: 'Speakers', icon: UserCircle },
+  { path: '/events/manage/agenda', label: 'Agenda', icon: CalendarDays },
 ];
 
 export function EventsDashboardSidebar({ 
@@ -45,7 +49,7 @@ export function EventsDashboardSidebar({
   const dynamicNavItems = hasSelection 
     ? [
         ...eventNavItems,
-        { path: `/events/manage/${selectedEventId}/badges`, label: 'Badge Designer', icon: BadgeCheck },
+        { path: `/events/manage/${selectedEventId}/badges`, label: 'Badges', icon: BadgeCheck },
       ]
     : [];
 
