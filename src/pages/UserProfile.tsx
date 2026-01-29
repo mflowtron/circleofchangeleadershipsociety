@@ -161,7 +161,15 @@ export default function UserProfile() {
       {/* Posts Section */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-foreground">
-          Posts by {profile.full_name.split(' ')[0]}
+          Posts by {(() => {
+            const parts = profile.full_name.split(' ');
+            const titles = ['dr.', 'mr.', 'mrs.', 'ms.', 'prof.', 'rev.'];
+            const firstPart = parts[0]?.toLowerCase() || '';
+            if (titles.includes(firstPart) && parts.length > 1) {
+              return `${parts[0]} ${parts[1]}`;
+            }
+            return parts[0];
+          })()}
         </h2>
 
         {postsLoading ? (
