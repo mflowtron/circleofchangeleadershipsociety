@@ -52,9 +52,10 @@ export default function Orders() {
               : 'Showing orders from all events'}
           </p>
         </div>
-        <Button variant="outline" onClick={handleExport} disabled={orders.length === 0}>
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
+        <Button variant="outline" onClick={handleExport} disabled={orders.length === 0} className="w-full sm:w-auto">
+          <Download className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Export CSV</span>
+          <span className="sm:hidden">Export</span>
         </Button>
       </div>
 

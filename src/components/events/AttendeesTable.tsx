@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Attendee, useUpdateAttendee } from '@/hooks/useAttendees';
 import { toast } from 'sonner';
 
@@ -116,7 +117,7 @@ export function AttendeesTable({
   return (
     <div className="space-y-4">
       {/* Stats */}
-      <div className="flex flex-wrap gap-4 text-sm">
+      <div className="flex flex-wrap gap-2 sm:gap-4 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">Total:</span>
           <Badge variant="secondary">{attendees.length}</Badge>
@@ -134,7 +135,7 @@ export function AttendeesTable({
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-2 sm:gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -144,49 +145,51 @@ export function AttendeesTable({
             className="pl-9"
           />
         </div>
-        <Select value={ticketFilter} onValueChange={setTicketFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Ticket type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tickets</SelectItem>
-            {ticketTypes.map((type) => (
-              <SelectItem key={type.id} value={type.id}>
-                {type.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[150px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="complete">Complete</SelectItem>
-            <SelectItem value="incomplete">Incomplete</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={onExport}>
-          <Download className="h-4 w-4 mr-2" />
-          Export
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Select value={ticketFilter} onValueChange={setTicketFilter}>
+            <SelectTrigger className="flex-1 sm:flex-none sm:w-[180px]">
+              <Filter className="h-4 w-4 mr-2 flex-shrink-0" />
+              <SelectValue placeholder="Ticket type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tickets</SelectItem>
+              {ticketTypes.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="flex-1 sm:flex-none sm:w-[150px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="complete">Complete</SelectItem>
+              <SelectItem value="incomplete">Incomplete</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={onExport} className="flex-1 sm:flex-none">
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border overflow-hidden">
+      <ResponsiveTable className="rounded-lg border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Status</TableHead>
-              {showEventColumn && <TableHead>Event</TableHead>}
-              <TableHead>Attendee Name</TableHead>
-              <TableHead>Attendee Email</TableHead>
-              <TableHead>Ticket Type</TableHead>
-              <TableHead>Order #</TableHead>
-              <TableHead>Purchaser</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              {showEventColumn && <TableHead className="hidden lg:table-cell">Event</TableHead>}
+              <TableHead>Attendee</TableHead>
+              <TableHead className="hidden md:table-cell">Email</TableHead>
+              <TableHead className="hidden sm:table-cell">Ticket</TableHead>
+              <TableHead className="hidden lg:table-cell">Order #</TableHead>
+              <TableHead className="hidden xl:table-cell">Purchaser</TableHead>
+              <TableHead className="w-[80px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -206,18 +209,18 @@ export function AttendeesTable({
                     <TableCell>
                       {isComplete ? (
                         <Badge variant="default" className="bg-green-600">
-                          <Check className="h-3 w-3 mr-1" />
-                          Complete
+                          <Check className="h-3 w-3 sm:mr-1" />
+                          <span className="hidden sm:inline">Complete</span>
                         </Badge>
                       ) : (
                         <Badge variant="destructive">
-                          <X className="h-3 w-3 mr-1" />
-                          Incomplete
+                          <X className="h-3 w-3 sm:mr-1" />
+                          <span className="hidden sm:inline">Incomplete</span>
                         </Badge>
                       )}
                     </TableCell>
                     {showEventColumn && (
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <span className="text-sm truncate max-w-[200px] block">
                           {eventMap?.get(attendee.order?.event_id || '') || 'Unknown'}
                         </span>
@@ -229,35 +232,45 @@ export function AttendeesTable({
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
                           placeholder="Name"
-                          className="h-8"
+                          className="h-8 min-w-[120px]"
                         />
                       ) : (
-                        <span className={!attendee.attendee_name ? 'text-muted-foreground italic' : ''}>
-                          {attendee.attendee_name || 'Not provided'}
-                        </span>
+                        <div>
+                          <span className={!attendee.attendee_name ? 'text-muted-foreground italic' : ''}>
+                            {attendee.attendee_name || 'Not provided'}
+                          </span>
+                          {/* Mobile-only: show email inline */}
+                          <div className="md:hidden text-sm text-muted-foreground truncate">
+                            {attendee.attendee_email || ''}
+                          </div>
+                          {/* Mobile-only: show ticket type inline */}
+                          <div className="sm:hidden text-xs text-muted-foreground">
+                            {attendee.ticket_type?.name || ''}
+                          </div>
+                        </div>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {isEditing ? (
                         <Input
                           value={editEmail}
                           onChange={(e) => setEditEmail(e.target.value)}
                           placeholder="Email"
                           type="email"
-                          className="h-8"
+                          className="h-8 min-w-[150px]"
                         />
                       ) : (
-                        <span className={!attendee.attendee_email ? 'text-muted-foreground italic' : ''}>
+                        <span className={`truncate max-w-[180px] block ${!attendee.attendee_email ? 'text-muted-foreground italic' : ''}`}>
                           {attendee.attendee_email || 'Not provided'}
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>{attendee.ticket_type?.name || '-'}</TableCell>
-                    <TableCell className="font-mono text-sm">
+                    <TableCell className="hidden sm:table-cell">{attendee.ticket_type?.name || '-'}</TableCell>
+                    <TableCell className="hidden lg:table-cell font-mono text-sm">
                       {attendee.order_id ? (
                         <Link
                           to={`/events/manage/orders/${attendee.order_id}`}
-                          className="text-primary hover:underline"
+                          className="text-primary hover:underline truncate block max-w-[100px]"
                         >
                           {attendee.order?.order_number || '-'}
                         </Link>
@@ -265,7 +278,9 @@ export function AttendeesTable({
                         '-'
                       )}
                     </TableCell>
-                    <TableCell>{attendee.order?.full_name || '-'}</TableCell>
+                    <TableCell className="hidden xl:table-cell">
+                      <span className="truncate block max-w-[120px]">{attendee.order?.full_name || '-'}</span>
+                    </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <div className="flex gap-1">
@@ -301,7 +316,7 @@ export function AttendeesTable({
             )}
           </TableBody>
         </Table>
-      </div>
+      </ResponsiveTable>
     </div>
   );
 }

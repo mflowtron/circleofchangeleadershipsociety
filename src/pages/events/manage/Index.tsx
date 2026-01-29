@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 
 export default function ManageEventsIndex() {
   const { events, isLoading, deleteEvent, isDeleting } = useEvents();
@@ -33,15 +34,16 @@ export default function ManageEventsIndex() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Manage Events</h1>
           <p className="text-muted-foreground">Create and manage your events</p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link to="/events/manage/new">
-            <Plus className="h-4 w-4 mr-2" />
-            New Event
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Event</span>
+            <span className="sm:hidden">New</span>
           </Link>
         </Button>
       </div>
@@ -65,12 +67,12 @@ export default function ManageEventsIndex() {
           </Button>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
+        <ResponsiveTable className="rounded-lg border overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Event</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead className="hidden sm:table-cell">Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -79,26 +81,30 @@ export default function ManageEventsIndex() {
               {events.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell>
-                    <div className="font-medium">{event.title}</div>
+                    <div className="font-medium truncate max-w-[150px] sm:max-w-none">{event.title}</div>
                     {event.venue_name && (
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground truncate max-w-[150px] sm:max-w-none">
                         {event.venue_name}
                       </div>
                     )}
+                    {/* Mobile-only: show date inline */}
+                    <div className="sm:hidden text-xs text-muted-foreground mt-1">
+                      {format(new Date(event.starts_at), 'MMM d, yyyy')}
+                    </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     {format(new Date(event.starts_at), 'MMM d, yyyy h:mm a')}
                   </TableCell>
                   <TableCell>
                     {event.is_published ? (
                       <Badge className="gap-1">
                         <Eye className="h-3 w-3" />
-                        Published
+                        <span className="hidden sm:inline">Published</span>
                       </Badge>
                     ) : (
                       <Badge variant="secondary" className="gap-1">
                         <EyeOff className="h-3 w-3" />
-                        Draft
+                        <span className="hidden sm:inline">Draft</span>
                       </Badge>
                     )}
                   </TableCell>
@@ -150,7 +156,7 @@ export default function ManageEventsIndex() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

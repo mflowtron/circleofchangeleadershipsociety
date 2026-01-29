@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Pencil, CheckCircle, Clock, Users as UsersIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -257,21 +258,26 @@ export default function Users() {
               <CardDescription>{approvedUsers.length} approved users</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Chapter</TableHead>
-                    <TableHead className="w-24">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {approvedUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.full_name}</TableCell>
-                      <TableCell className="capitalize">{user.role}</TableCell>
-                      <TableCell>{user.chapter_name || 'None'}</TableCell>
+              <ResponsiveTable>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="hidden sm:table-cell">Role</TableHead>
+                      <TableHead className="hidden md:table-cell">Chapter</TableHead>
+                      <TableHead className="w-16 sm:w-24">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {approvedUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="font-medium truncate max-w-[150px] sm:max-w-none">{user.full_name}</div>
+                          {/* Mobile-only: show role inline */}
+                          <div className="sm:hidden text-xs text-muted-foreground capitalize">{user.role}</div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell capitalize">{user.role}</TableCell>
+                        <TableCell className="hidden md:table-cell">{user.chapter_name || 'None'}</TableCell>
                       <TableCell>
                         <Dialog>
                           <DialogTrigger asChild>
@@ -329,6 +335,7 @@ export default function Users() {
                   ))}
                 </TableBody>
               </Table>
+            </ResponsiveTable>
             </CardContent>
           </Card>
         </TabsContent>
@@ -352,16 +359,20 @@ export default function Users() {
                   <p className="text-muted-foreground">All users have been reviewed</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Registered</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Chapter</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                <div className="space-y-4">
+                  {/* Desktop table view */}
+                  <div className="hidden md:block">
+                    <ResponsiveTable>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Registered</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Chapter</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
                   <TableBody>
                     {pendingUsers.map((user) => (
                       <TableRow key={user.id}>
@@ -438,8 +449,92 @@ export default function Users() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
-                </Table>
+                      </TableBody>
+                    </Table>
+                  </ResponsiveTable>
+                </div>
+                
+                {/* Mobile card view */}
+                <div className="md:hidden space-y-3">
+                  {pendingUsers.map((user) => (
+                    <Card key={user.id} className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          {user.avatar_url ? (
+                            <img 
+                              src={user.avatar_url} 
+                              alt={user.full_name} 
+                              className="h-10 w-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-sm font-medium text-primary">
+                              {user.full_name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{user.full_name}</p>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Pending
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(user.created_at), 'MMM d')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs w-16">Role</Label>
+                          <Select
+                            value={getSelectedRole(user)}
+                            onValueChange={(value) => handlePendingChange(user.user_id, 'role', value)}
+                          >
+                            <SelectTrigger className="flex-1 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="student">Student</SelectItem>
+                              <SelectItem value="advisor">Advisor</SelectItem>
+                              <SelectItem value="event_organizer">Event Organizer</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs w-16">Chapter</Label>
+                          <Select
+                            value={getSelectedChapter(user)}
+                            onValueChange={(value) => handlePendingChange(user.user_id, 'chapter_id', value)}
+                          >
+                            <SelectTrigger className="flex-1 h-8">
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {chapters.map((chapter) => (
+                                <SelectItem key={chapter.id} value={chapter.id}>
+                                  {chapter.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleApprove(user.user_id)}
+                          disabled={approveMutation.isPending}
+                          className="w-full mt-2"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Approve
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
               )}
             </CardContent>
           </Card>

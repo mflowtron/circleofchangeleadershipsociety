@@ -76,7 +76,7 @@ export function RecordingsBrowseView({
           items={recordings.map((r) => r.id)}
           strategy={rectSortingStrategy}
         >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 p-2 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5">
+          <div className="grid gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 p-2 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5">
             {recordings.map((recording, index) => (
               <SortableRecordingCard
                 key={recording.id}
@@ -98,7 +98,7 @@ export function RecordingsBrowseView({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-3">
       {recordings.map((recording) => (
         <RecordingCard
           key={recording.id}

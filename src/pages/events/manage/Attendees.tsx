@@ -56,25 +56,27 @@ export default function Attendees() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Attendees</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground truncate">
             {hasSelection
               ? `Showing attendees for ${selectedEventName}`
               : 'Showing attendees from all events'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {hasSelection && selectedEvent && (
-            <Button variant="outline" onClick={() => setBadgeDialogOpen(true)}>
-              <Printer className="h-4 w-4 mr-2" />
-              Print Badges
+            <Button variant="outline" onClick={() => setBadgeDialogOpen(true)} className="flex-1 sm:flex-none">
+              <Printer className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Print Badges</span>
+              <span className="sm:hidden">Badges</span>
             </Button>
           )}
-          <Button variant="outline" onClick={handleExport} disabled={attendees.length === 0}>
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
+          <Button variant="outline" onClick={handleExport} disabled={attendees.length === 0} className="flex-1 sm:flex-none">
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">Export</span>
           </Button>
         </div>
       </div>

@@ -298,25 +298,26 @@ export default function Recordings() {
   // Browse mode: show grid of recordings
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-foreground">Lecture Recordings</h1>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {canReorder && (
             <Button
               variant={isReorderMode ? "default" : "outline"}
               onClick={() => setIsReorderMode(!isReorderMode)}
               disabled={isSavingOrder}
+              className="flex-1 sm:flex-none"
             >
               {isReorderMode ? (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Done
+                  <Check className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Done</span>
                 </>
               ) : (
                 <>
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
-                  Reorder
+                  <ArrowUpDown className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Reorder</span>
                 </>
               )}
             </Button>
@@ -328,12 +329,13 @@ export default function Recordings() {
               setUploadDialogOpen(open);
             }}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Upload Recording
+                <Button className="flex-1 sm:flex-none">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Upload Recording</span>
+                  <span className="sm:hidden">Upload</span>
                 </Button>
               </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)]">
               <DialogHeader>
                 <DialogTitle>Upload New Recording</DialogTitle>
               </DialogHeader>

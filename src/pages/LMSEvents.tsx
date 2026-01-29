@@ -172,7 +172,7 @@ function EventFormDialog({
                 rows={3}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="starts_at">Start Date/Time *</Label>
                 <Input
@@ -301,8 +301,16 @@ export default function LMSEvents() {
 
       <Tabs defaultValue="upcoming" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
-          {isAdmin && <TabsTrigger value="manage">Manage Events</TabsTrigger>}
+          <TabsTrigger value="upcoming">
+            <span className="hidden xs:inline">Upcoming Events</span>
+            <span className="xs:hidden">Upcoming</span>
+          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="manage">
+              <span className="hidden xs:inline">Manage Events</span>
+              <span className="xs:hidden">Manage</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="upcoming" className="space-y-4">

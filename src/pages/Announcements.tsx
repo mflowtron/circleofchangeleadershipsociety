@@ -73,9 +73,9 @@ export default function Announcements() {
                     key={announcement.id}
                     className="p-4 rounded-xl border border-border/50 bg-card hover:shadow-soft transition-shadow"
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
                           <h3 className="font-semibold text-foreground truncate">
                             {announcement.title}
                           </h3>
@@ -84,29 +84,29 @@ export default function Announcements() {
                               status === 'active' ? 'default' :
                               status === 'expired' ? 'destructive' : 'secondary'
                             }
-                            className="text-xs"
+                            className="text-xs flex-shrink-0"
                           >
                             {status}
                           </Badge>
                         </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2 break-words">
                           {announcement.content}
                         </p>
-                        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
+                            <Calendar className="h-3 w-3 flex-shrink-0" />
                             Created {format(new Date(announcement.created_at), 'MMM d, yyyy')}
                           </span>
                           {announcement.expires_at && (
                             <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
+                              <Clock className="h-3 w-3 flex-shrink-0" />
                               Expires {format(new Date(announcement.expires_at), 'MMM d, yyyy h:mm a')}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-shrink-0">
                         <Button
                           variant="ghost"
                           size="icon"
