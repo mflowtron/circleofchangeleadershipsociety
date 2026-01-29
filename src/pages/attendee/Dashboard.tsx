@@ -4,10 +4,10 @@ import { AttendeeLayout } from '@/components/attendee/AttendeeLayout';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function DashboardContent() {
-  const { isAuthenticated, loading, selectedEvent, events } = useAttendee();
+  const { isAuthenticated, loading, selectedEvent, events, orders } = useAttendee();
   const location = useLocation();
 
-  // Show loading state
+  // Show loading state while checking authentication
   if (loading && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -25,11 +25,12 @@ function DashboardContent() {
     return <Navigate to="/attendee" state={{ from: location }} replace />;
   }
 
-  // Show loading while fetching events
-  if (loading) {
+  // Show loading while fetching orders/events (orders are still being loaded)
+  if (loading || (orders.length === 0 && events.length === 0)) {
     return (
-      <AttendeeLayout title="Loading...">
+      <AttendeeLayout title="Loading..." showHeader={false}>
         <div className="p-4 space-y-4">
+          <Skeleton className="h-12 w-full rounded-lg" />
           <Skeleton className="h-48 w-full rounded-lg" />
           <Skeleton className="h-24 w-full rounded-lg" />
           <Skeleton className="h-24 w-full rounded-lg" />
@@ -38,7 +39,7 @@ function DashboardContent() {
     );
   }
 
-  // No events found
+  // No events found (orders loaded but no completed events)
   if (events.length === 0) {
     return (
       <AttendeeLayout title="No Events" showEventSelector={false}>
