@@ -1,169 +1,152 @@
 
-# Add Empty Time Slot Clicking to Create Agenda Items
 
-## Overview
+# Fix Agenda Calendar View Item Positioning
 
-Enable clicking on empty time slots in the calendar view to create new agenda items pre-populated with the selected date and time. This provides a more intuitive way to add items directly at specific times instead of using the "Add Item" button and manually setting the time.
+## Problem Summary
 
-## Current State
+Agenda items are not appearing in the correct time slots, and many items are not displaying at all. This is caused by timezone handling issues and the visible time range being too narrow.
 
-- `AgendaCalendarView.tsx` renders a 3-day grid with 15-minute time slots
-- Grid lines are rendered as divs but have no click handlers
-- `AgendaBuilder.tsx` manages the form state and passes `onEditItem` to the calendar view
-- `AgendaItemForm.tsx` accepts optional `item` prop to pre-populate the form
+## Root Cause
 
-## Design
+There are two related issues:
 
-### User Experience
+### Issue 1: Timezone Mismatch in Position Calculation
 
-1. User hovers over an empty time slot - cursor changes to crosshair
-2. User clicks on empty slot - form opens with date/time pre-filled
-3. Default duration of 30 minutes is applied (end time = start time + 30 min)
-
-### Visual Feedback
-
-- Subtle hover effect on time slots (slightly darker background)
-- Click area spans the full width of each day column
-- Existing agenda items remain clickable (edit behavior unchanged)
-
-## Implementation
-
-### 1. Update AgendaCalendarView Props
-
-Add a new callback for creating items at a specific time:
+In `AgendaCalendarItem.tsx`, the position calculation mixes UTC and local times:
 
 ```typescript
-interface AgendaCalendarViewProps {
-  agendaItems: AgendaItem[];
-  onEditItem: (item: AgendaItem) => void;
-  onCreateItem: (dateTime: Date) => void;  // NEW
-  eventStartDate?: Date;
-  startHour?: number;
-  endHour?: number;
+const dayStart = new Date(itemStart);       // itemStart is from DB (UTC string)
+dayStart.setHours(startHour, 0, 0, 0);      // Sets 8 AM in LOCAL timezone
+const minutesFromStart = differenceInMinutes(itemStart, dayStart);
+```
+
+When `itemStart` is "2026-01-29 09:00:00+00" (9 AM UTC), and the user is in PST (UTC-8):
+- `itemStart` becomes 1 AM local time
+- `dayStart` is set to 8 AM local time
+- `minutesFromStart` = -420 (7 hours before!)
+- Item renders with `top: -168px` (completely off-screen)
+
+### Issue 2: Visible Time Range Too Narrow
+
+The calendar defaults to 8 AM - 6 PM (`startHour = 8`, `endHour = 18`). Database items span 9 AM - 4 PM UTC, which maps to different local hours depending on timezone. Users in timezones behind UTC see empty calendars because all events fall before their 8 AM.
+
+## Solution
+
+### Fix 1: Extend Default Visible Hours
+
+Expand the default time range to capture more events:
+- Change `startHour` from 8 to 6 (6 AM)
+- Change `endHour` from 18 to 22 (10 PM)
+
+This provides a wider window that accommodates timezone differences.
+
+### Fix 2: Clamp Items to Visible Grid
+
+Add boundary checking in `AgendaCalendarItem` to ensure items that fall outside the visible range are either:
+- Clamped to the visible area (partial visibility), OR
+- Not rendered if completely outside
+
+### Fix 3: Make Hours Dynamic (Optional Enhancement)
+
+Calculate `startHour` and `endHour` dynamically based on the actual agenda items' local times:
+- Find the earliest item start time (in local timezone)
+- Find the latest item end time (in local timezone)
+- Set visible range to encompass all items with padding
+
+## Implementation Details
+
+### File: `src/components/events/agenda/AgendaCalendarView.tsx`
+
+**Change 1**: Extend default hours
+
+```typescript
+// Before
+startHour = 8,
+endHour = 18,
+
+// After
+startHour = 6,
+endHour = 22,
+```
+
+**Change 2**: Calculate dynamic hours based on agenda items
+
+```typescript
+// Calculate earliest and latest times from agenda items
+const { dynamicStartHour, dynamicEndHour } = useMemo(() => {
+  if (agendaItems.length === 0) {
+    return { dynamicStartHour: startHour, dynamicEndHour: endHour };
+  }
+  
+  let earliest = 23;
+  let latest = 0;
+  
+  agendaItems.forEach(item => {
+    const start = new Date(item.starts_at);
+    const end = item.ends_at ? new Date(item.ends_at) : addMinutes(start, 30);
+    earliest = Math.min(earliest, start.getHours());
+    latest = Math.max(latest, end.getHours() + 1);
+  });
+  
+  return {
+    dynamicStartHour: Math.min(earliest, startHour),
+    dynamicEndHour: Math.max(latest, endHour)
+  };
+}, [agendaItems, startHour, endHour]);
+```
+
+### File: `src/components/events/agenda/AgendaCalendarItem.tsx`
+
+**Change 3**: Add visibility check and clamp positioning
+
+```typescript
+export function AgendaCalendarItem({ item, startHour, endHour, onClick }) {
+  const itemStart = new Date(item.starts_at);
+  const itemEnd = item.ends_at ? new Date(item.ends_at) : addMinutes(itemStart, 30);
+  
+  // Get local hours for visibility check
+  const itemStartHour = itemStart.getHours() + itemStart.getMinutes() / 60;
+  const itemEndHour = itemEnd.getHours() + itemEnd.getMinutes() / 60;
+  
+  // Skip rendering if completely outside visible range
+  if (itemEndHour <= startHour || itemStartHour >= endHour) {
+    return null;
+  }
+  
+  // Calculate position relative to the grid start hour
+  const gridStartMinutes = startHour * 60;
+  const itemStartMinutes = itemStart.getHours() * 60 + itemStart.getMinutes();
+  const minutesFromGridStart = itemStartMinutes - gridStartMinutes;
+  
+  // Clamp to visible area if item starts before grid
+  const clampedMinutesFromStart = Math.max(0, minutesFromGridStart);
+  const topPosition = (clampedMinutesFromStart / 15) * ROW_HEIGHT;
+  
+  // Adjust height if clamped
+  const durationMinutes = differenceInMinutes(itemEnd, itemStart);
+  const visibleDuration = minutesFromGridStart < 0 
+    ? durationMinutes + minutesFromGridStart 
+    : durationMinutes;
+  const heightRows = Math.max(1, visibleDuration / 15);
+  const height = heightRows * ROW_HEIGHT;
+  
+  // ... rest of component
 }
-```
-
-### 2. Create Clickable Time Slot Component
-
-Create a new `AgendaCalendarTimeSlotRow.tsx` component or inline clickable areas that:
-- Handle click events on empty parts of the grid
-- Calculate the exact time based on click position
-- Call `onCreateItem` with the computed datetime
-
-### 3. Modify Grid Rendering
-
-Replace the passive grid line divs with interactive clickable areas:
-
-```typescript
-// In AgendaCalendarView.tsx - Day column time grid section
-{timeSlots.map((slot, index) => (
-  <div
-    key={`slot-${slot.hour}-${slot.minute}`}
-    className="absolute w-full cursor-crosshair hover:bg-muted/50 transition-colors"
-    style={{ 
-      top: `${index * ROW_HEIGHT}px`, 
-      height: `${ROW_HEIGHT}px` 
-    }}
-    onClick={() => handleSlotClick(day, slot)}
-  />
-))}
-```
-
-### 4. Add Click Handler
-
-```typescript
-const handleSlotClick = (day: Date, slot: TimeSlot) => {
-  const dateTime = new Date(day);
-  dateTime.setHours(slot.hour, slot.minute, 0, 0);
-  onCreateItem(dateTime);
-};
-```
-
-### 5. Update AgendaBuilder
-
-Add state to track default date/time for new items:
-
-```typescript
-const [defaultDateTime, setDefaultDateTime] = useState<Date | null>(null);
-
-const handleCreateAtTime = (dateTime: Date) => {
-  setDefaultDateTime(dateTime);
-  setDefaultItemType('session');
-  setEditingItem(null);
-  setFormOpen(true);
-};
-```
-
-Pass the new callback to AgendaCalendarView:
-
-```typescript
-<AgendaCalendarView
-  agendaItems={agendaItems}
-  onEditItem={handleEditItem}
-  onCreateItem={handleCreateAtTime}  // NEW
-/>
-```
-
-### 6. Update AgendaItemForm
-
-Add optional `defaultDateTime` prop and use it when no `item` is provided:
-
-```typescript
-interface AgendaItemFormProps {
-  // ... existing props
-  defaultDateTime?: Date | null;  // NEW
-}
-```
-
-Update the default values logic:
-
-```typescript
-const getDefaultDate = () => {
-  if (item?.starts_at) {
-    return new Date(item.starts_at);
-  }
-  if (defaultDateTime) {
-    return defaultDateTime;
-  }
-  return new Date();
-};
-
-const getDefaultStartTime = () => {
-  if (item?.starts_at) {
-    return format(new Date(item.starts_at), 'HH:mm');
-  }
-  if (defaultDateTime) {
-    return format(defaultDateTime, 'HH:mm');
-  }
-  return '09:00';
-};
-
-const getDefaultEndTime = () => {
-  if (item?.ends_at) {
-    return format(new Date(item.ends_at), 'HH:mm');
-  }
-  if (defaultDateTime) {
-    // Default 30 min duration
-    return format(addMinutes(defaultDateTime, 30), 'HH:mm');
-  }
-  return '';
-};
 ```
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/events/agenda/AgendaCalendarView.tsx` | Add `onCreateItem` prop, make time slots clickable |
-| `src/components/events/agenda/AgendaBuilder.tsx` | Add `defaultDateTime` state, pass `onCreateItem` to calendar, pass `defaultDateTime` to form |
-| `src/components/events/agenda/AgendaItemForm.tsx` | Add `defaultDateTime` prop, use it for default form values |
+| `src/components/events/agenda/AgendaCalendarView.tsx` | Add dynamic hour calculation, widen default range, pass `endHour` to items |
+| `src/components/events/agenda/AgendaCalendarItem.tsx` | Add `endHour` prop, fix position calculation to use local hours, add visibility bounds check |
 
-## Technical Considerations
+## Testing Checklist
 
-1. **Click vs Item Collision**: Time slot click handlers are at z-index below agenda items, so clicking an item still triggers edit (not create)
+After implementation, verify:
+- All 26 agenda items appear on the calendar
+- Items are positioned at the correct time slots matching their displayed times
+- Items that span grid boundaries are partially visible (not hidden)
+- Navigation between days works correctly
+- Current time indicator still appears correctly
 
-2. **Event Propagation**: Stop propagation on agenda item clicks to prevent triggering slot click underneath
-
-3. **Snap to 15 Minutes**: Clicks always snap to the nearest 15-minute slot
-
-4. **Mobile**: Touch events work the same as clicks
