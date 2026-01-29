@@ -7,25 +7,37 @@
  * Use this for troubleshooting when users are stuck on old versions.
  */
 export async function clearAllCaches(): Promise<void> {
-  // Clear all caches
-  if ('caches' in window) {
-    const cacheNames = await caches.keys();
-    await Promise.all(
-      cacheNames.map(cacheName => caches.delete(cacheName))
-    );
-    console.log('[PWA] Cleared all caches:', cacheNames);
-  }
+  console.log('[PWA] Starting cache clear...');
 
-  // Unregister all service workers
-  if ('serviceWorker' in navigator) {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    for (const registration of registrations) {
-      await registration.unregister();
-      console.log('[PWA] Unregistered service worker');
+  try {
+    // Clear all caches
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      console.log('[PWA] Found caches:', cacheNames);
+      await Promise.all(
+        cacheNames.map(cacheName => caches.delete(cacheName))
+      );
+      console.log('[PWA] Cleared all caches');
     }
+  } catch (error) {
+    console.error('[PWA] Error clearing caches:', error);
   }
 
-  // Force reload to get fresh content
+  try {
+    // Unregister all service workers
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const registration of registrations) {
+        await registration.unregister();
+      }
+      console.log('[PWA] Unregistered service workers');
+    }
+  } catch (error) {
+    console.error('[PWA] Error unregistering service workers:', error);
+  }
+
+  // Always reload, even if clearing failed
+  console.log('[PWA] Reloading page...');
   window.location.reload();
 }
 
