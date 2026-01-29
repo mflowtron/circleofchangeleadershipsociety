@@ -133,17 +133,17 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         }
 
         // Use facingMode for faster mobile camera acquisition
-        // Request high resolution for better distance scanning
+        // Request maximum resolution (4K) for better distance scanning
         const cameraConfig = currentCamera 
           ? { 
               deviceId: { exact: currentCamera },
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
+              width: { ideal: 3840 },
+              height: { ideal: 2160 },
             }
           : { 
               facingMode: "environment",
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
+              width: { ideal: 3840 },
+              height: { ideal: 2160 },
             };
 
         // Check if native Barcode Detection API is available
@@ -158,7 +158,7 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         // - disableFlip: false allows detection of mirrored/inverted codes
         // - formatsToSupport limits to QR only for faster processing
         const scanConfig = {
-          fps: 30, // Higher frame rate for faster detection
+          fps: 60, // Maximum frame rate for fastest detection
           aspectRatio: 1,
           disableFlip: false, // Allow scanning flipped/mirrored QR codes
           formatsToSupport: [0], // 0 = QR_CODE only, faster processing
