@@ -1,70 +1,156 @@
 
 
-# Fix Access Code Visibility in Dark Mode Emails
+# Fix QR Code Scanner Performance and Stability on Mobile
 
-## Problem
+## Problems Identified
 
-When the access code email is viewed on devices using dark mode, the 6-digit code becomes nearly invisible. This happens because some email clients (like Apple Mail, Gmail app) apply automatic color inversions in dark mode, turning the dark text (`#1A1814`) into light text while leaving the background light.
+After analyzing the code and session replay data, I found several issues causing the scanner to be slow and unstable on mobile:
+
+### Issue 1: Scanner Restarts on Every Dependency Change
+The `handleScan` callback is included in the effect dependencies (line 141), which causes the scanner to stop and restart every time the callback reference changes. This creates a jarring experience where the camera briefly disappears.
+
+### Issue 2: Problematic State Update Pattern
+On line 82-86 of CheckIn.tsx, there's an incorrect use of `useState` as an effect:
+```javascript
+useState(() => {
+  if (scannedAttendeeId && !loadingAttendee) {
+    updateStatusFromAttendee();
+  }
+});
+```
+This is meant to be `useEffect`, causing the status update logic to not work properly.
+
+### Issue 3: Race Condition in Status Updates
+When a QR code is scanned, the `handleScan` function:
+1. Sets `scannedAttendeeId` 
+2. Sets `scanStatus` to 'loading'
+3. Deactivates the scanner
+
+However, the `updateStatusFromAttendee` callback isn't being called reliably because of the broken `useState` usage, leaving the UI stuck in a loading state or causing the camera box to disappear without any check-in occurring.
+
+### Issue 4: Scanner FPS Too Low for Mobile
+The current `fps: 10` setting can feel slow on mobile devices. Increasing to 15-20 fps improves responsiveness without significantly impacting battery.
+
+### Issue 5: Missing Visual Feedback
+Users don't get immediate feedback when a QR code is detected - the scanner just disappears.
 
 ## Solution
 
-Force the code display area to maintain consistent colors regardless of dark mode by using explicit background colors and adding dark mode meta tags that instruct email clients to preserve our intended styling.
+### File 1: `src/components/events/checkin/QRScanner.tsx`
+
+1. **Use `facingMode` instead of camera ID for initial start**
+   - Mobile devices respond better to `{ facingMode: "environment" }` than specific camera IDs
+   - This also speeds up initial camera acquisition
+
+2. **Stabilize callback reference with useRef**
+   - Store the callback in a ref to prevent scanner restarts when the callback reference changes
+
+3. **Increase scanning FPS for mobile**
+   - Change from `fps: 10` to `fps: 15` for faster detection
+
+4. **Add visual scan feedback**
+   - Add a brief visual flash/pulse when a QR code is detected before the scanner closes
+
+5. **Improve error recovery**
+   - Add a retry mechanism if the camera fails to start
+
+### File 2: `src/pages/events/manage/CheckIn.tsx`
+
+1. **Fix the broken `useState` to `useEffect`**
+   - Change line 82-86 from `useState(...)` to `useEffect(...)`
+   - Add proper dependencies to ensure status updates fire correctly
+
+2. **Improve the state machine logic**
+   - Ensure status transitions happen reliably when attendee data loads
+
+3. **Add success vibration feedback on mobile**
+   - Use the Vibration API to provide haptic feedback on successful scan
 
 ## Technical Changes
 
-### File to Modify
-`supabase/functions/send-order-access-code/index.ts`
+### QRScanner.tsx Changes
 
-### Changes
+```typescript
+// Add useRef for stable callback reference
+const onScanRef = useRef(onScan);
+useEffect(() => { onScanRef.current = onScan; }, [onScan]);
 
-1. **Add Dark Mode Meta Tags**
-   - Add `color-scheme` meta tag to tell email clients we support both light and dark modes
-   - Add a `<style>` block with `@media (prefers-color-scheme: dark)` rules
+// In handleScan, use the ref instead of the prop
+const handleScan = useCallback((decodedText: string) => {
+  // ... extraction logic ...
+  if (attendeeId) {
+    lastScanRef.current = decodedText;
+    onScanRef.current(attendeeId); // Use ref instead of direct prop
+    // ...
+  }
+}, [extractAttendeeId, onError]); // Remove onScan from dependencies
 
-2. **Force Code Box Colors**
-   - Use a solid white background (`#FFFFFF`) instead of gradient for the code box
-   - Add explicit `!important` or use inline styles that email clients won't override
-   - Add a contrasting dark background option that works in dark mode
+// Use facingMode for initial camera start
+await scannerRef.current.start(
+  { facingMode: "environment" }, // Instead of camera ID
+  { fps: 15, qrbox: { width: 250, height: 250 } },
+  handleScan,
+  () => {}
+);
 
-3. **Recommended Approach: Dark Code Box**
-   Since the surrounding card may get inverted, use a dark charcoal background with gold/white text for the code - this will look great in both light and dark modes:
-
-   | Element | Light Mode | Dark Mode |
-   |---------|------------|-----------|
-   | Code box background | #1A1814 (charcoal) | #1A1814 (stays dark) |
-   | Code text | #D4A84B (gold) | #D4A84B (gold) |
-   | Border | #D4A84B (gold) | #D4A84B (gold) |
-
-   This inverted design ensures the code is always readable because:
-   - Dark backgrounds typically don't get inverted by email clients
-   - Gold text on charcoal has excellent contrast
-   - Matches the brand aesthetic (golden accents on dark)
-
-### Updated Code Box HTML
-
-```html
-<div style="display:inline-block; background-color:#1A1814; border:2px solid #D4A84B; border-radius:12px; padding:20px 32px;">
-  <span style="font-size:36px; font-weight:700; letter-spacing:12px; color:#D4A84B; font-family:'Courier New', monospace;">
-    ${code}
-  </span>
-</div>
+// Remove handleScan from the effect dependencies to prevent restarts
+}, [isActive, currentCamera, hasPermission]); // handleScan removed
 ```
 
-## Visual Result
+### CheckIn.tsx Changes
 
-The code box will now have:
-- **Dark charcoal background** (`#1A1814`) - consistent in all modes
-- **Golden text** (`#D4A84B`) - high contrast, brand-aligned
-- **Golden border** (`#D4A84B`) - visual emphasis
-- Excellent readability in both light and dark mode email clients
+```typescript
+// Fix line 82-86: Change useState to useEffect
+useEffect(() => {
+  if (scannedAttendeeId && !loadingAttendee) {
+    updateStatusFromAttendee();
+  }
+}, [scannedAttendeeId, loadingAttendee, updateStatusFromAttendee]);
 
-## Why This Works
+// Remove the inline status check (lines 89-91) as it will be handled by useEffect
 
-Email clients that apply dark mode transformations typically:
-- Invert light backgrounds to dark
-- Invert dark text to light
-- Leave already-dark backgrounds alone
-- Leave colored text (like gold) alone
+// Add haptic feedback in handleScan
+const handleScan = useCallback((attendeeId: string) => {
+  // Haptic feedback on mobile
+  if ('vibrate' in navigator) {
+    navigator.vibrate(100);
+  }
+  setScannedAttendeeId(attendeeId);
+  setScanStatus('loading');
+  setIsScannerActive(false);
+}, []);
+```
 
-By using a dark background with colored text, we sidestep the problematic automatic inversions entirely.
+## Visual Flow After Fix
+
+```text
+┌─────────────────────┐
+│  Camera Active      │
+│  [Scanning...]      │
+└─────────────────────┘
+         │
+         │ QR Code Detected
+         │ (vibration feedback)
+         ▼
+┌─────────────────────┐
+│  Loading Card       │
+│  "Looking up..."    │
+└─────────────────────┘
+         │
+         │ Attendee Found
+         ▼
+┌─────────────────────┐
+│  Attendee Card      │
+│  [Check In] button  │
+└─────────────────────┘
+```
+
+## Expected Improvements
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Scan detection speed | ~1-2 seconds | ~0.5 seconds |
+| Camera restart on scan | Yes (causes flicker) | No |
+| Status update reliability | Broken | Reliable |
+| Mobile haptic feedback | None | Vibration pulse |
 
