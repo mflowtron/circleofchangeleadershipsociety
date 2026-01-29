@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,6 +7,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Linkedin, ArrowLeft, Users } from 'lucide-react';
 import { CircleLoader } from '@/components/ui/circle-loader';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useUserPosts } from '@/hooks/useUserPosts';
+import PostCard from '@/components/feed/PostCard';
 
 interface UserProfileData {
   user_id: string;
@@ -26,6 +29,8 @@ export default function UserProfile() {
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { posts, loading: postsLoading, toggleLike, deletePost } = useUserPosts(userId);
 
   useEffect(() => {
     // Redirect to own profile page if viewing self
@@ -152,6 +157,49 @@ export default function UserProfile() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Posts Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-foreground">
+          Posts by {profile.full_name.split(' ')[0]}
+        </h2>
+
+        {postsLoading ? (
+          <div className="space-y-4">
+            {[1, 2].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-20 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center">
+              <p className="text-muted-foreground">No posts yet</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                onLike={() => toggleLike(post.id, post.user_has_liked)}
+                onDelete={() => deletePost(post.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
