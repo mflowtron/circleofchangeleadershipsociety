@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
-import { Camera, CameraOff, SwitchCamera, AlertCircle } from 'lucide-react';
+import { Camera, SwitchCamera, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface QRScannerProps {
@@ -19,8 +19,16 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
   const [currentCamera, setCurrentCamera] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [scanDetected, setScanDetected] = useState(false);
   const lastScanRef = useRef<string | null>(null);
   const scanCooldownRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Stable callback refs to prevent scanner restarts
+  const onScanRef = useRef(onScan);
+  const onErrorRef = useRef(onError);
+  
+  useEffect(() => { onScanRef.current = onScan; }, [onScan]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
   // Initialize camera list
   useEffect(() => {
@@ -67,24 +75,33 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
       const attendeeId = extractAttendeeId(decodedText);
       if (attendeeId) {
         lastScanRef.current = decodedText;
-        onScan(attendeeId);
+        
+        // Visual feedback - flash effect
+        setScanDetected(true);
+        
+        // Use ref to avoid dependency on onScan prop
+        onScanRef.current(attendeeId);
         
         // Reset after cooldown
         if (scanCooldownRef.current) clearTimeout(scanCooldownRef.current);
         scanCooldownRef.current = setTimeout(() => {
           lastScanRef.current = null;
+          setScanDetected(false);
         }, 3000);
       } else {
-        onError?.('Invalid QR code format');
+        onErrorRef.current?.('Invalid QR code format');
       }
     },
-    [onScan, onError, extractAttendeeId]
+    [extractAttendeeId] // Removed onScan, onError - using refs instead
   );
 
   // Start/stop scanner based on isActive prop
   useEffect(() => {
+    let mounted = true;
+    const handleScanRef = handleScan; // Capture current reference
+    
     const startScanner = async () => {
-      if (!currentCamera || !containerRef.current) return;
+      if (!containerRef.current) return;
 
       try {
         if (!scannerRef.current) {
@@ -96,22 +113,32 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
           await scannerRef.current.stop();
         }
 
+        // Use facingMode for faster mobile camera acquisition
+        const cameraConfig = currentCamera 
+          ? currentCamera 
+          : { facingMode: "environment" };
+
         await scannerRef.current.start(
-          currentCamera,
+          cameraConfig,
           {
-            fps: 10,
+            fps: 15, // Increased from 10 for faster detection
             qrbox: { width: 250, height: 250 },
             aspectRatio: 1,
           },
-          handleScan,
+          handleScanRef,
           () => {} // Ignore errors during scanning (e.g., no QR found)
         );
-        setIsScanning(true);
-        setError(null);
+        
+        if (mounted) {
+          setIsScanning(true);
+          setError(null);
+        }
       } catch (err) {
         console.error('Scanner start error:', err);
-        setError('Failed to start camera');
-        setIsScanning(false);
+        if (mounted) {
+          setError('Failed to start camera');
+          setIsScanning(false);
+        }
       }
     };
 
@@ -125,20 +152,23 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         } catch (err) {
           console.error('Scanner stop error:', err);
         }
-        setIsScanning(false);
+        if (mounted) {
+          setIsScanning(false);
+        }
       }
     };
 
-    if (isActive && currentCamera && hasPermission) {
+    if (isActive && hasPermission) {
       startScanner();
     } else {
       stopScanner();
     }
 
     return () => {
+      mounted = false;
       stopScanner();
     };
-  }, [isActive, currentCamera, hasPermission, handleScan]);
+  }, [isActive, currentCamera, hasPermission]); // Removed handleScan from deps
 
   // Cleanup on unmount
   useEffect(() => {
@@ -183,8 +213,16 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
     <div className={cn('relative', className)} ref={containerRef}>
       <div
         id="qr-reader"
-        className="w-full aspect-square bg-muted rounded-lg overflow-hidden"
+        className={cn(
+          "w-full aspect-square bg-muted rounded-lg overflow-hidden transition-all duration-150",
+          scanDetected && "ring-4 ring-green-500 ring-opacity-75"
+        )}
       />
+      
+      {/* Scan detected flash overlay */}
+      {scanDetected && (
+        <div className="absolute inset-0 bg-green-500/20 rounded-lg animate-pulse pointer-events-none" />
+      )}
       
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
@@ -216,7 +254,7 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         </Button>
       )}
 
-      {isScanning && (
+      {isScanning && !scanDetected && (
         <div className="absolute bottom-4 right-4">
           <div className="flex items-center gap-2 bg-background/80 px-3 py-1.5 rounded-full text-xs">
             <span className="relative flex h-2 w-2">

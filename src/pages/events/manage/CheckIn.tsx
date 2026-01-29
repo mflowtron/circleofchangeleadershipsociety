@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useEventSelection } from '@/contexts/EventSelectionContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -38,6 +38,10 @@ export default function CheckIn() {
   const checkIn = useCheckIn();
 
   const handleScan = useCallback((attendeeId: string) => {
+    // Haptic feedback on mobile
+    if ('vibrate' in navigator) {
+      navigator.vibrate(100);
+    }
     setScannedAttendeeId(attendeeId);
     setScanStatus('loading');
     setIsScannerActive(false);
@@ -78,17 +82,12 @@ export default function CheckIn() {
     setScanStatus('idle');
   }, [scannedAttendeeId, loadingAttendee, scannedAttendee, selectedEventId, existingCheckIn]);
 
-  // Effect to update status when data changes
-  useState(() => {
+  // Effect to update status when attendee data loads
+  useEffect(() => {
     if (scannedAttendeeId && !loadingAttendee) {
       updateStatusFromAttendee();
     }
-  });
-
-  // Watch for attendee data changes
-  if (scannedAttendeeId && scanStatus === 'loading' && !loadingAttendee && scannedAttendee !== undefined) {
-    updateStatusFromAttendee();
-  }
+  }, [scannedAttendeeId, loadingAttendee, updateStatusFromAttendee]);
 
   const handleCheckIn = async () => {
     if (!scannedAttendeeId || !selectedEventId) return;
