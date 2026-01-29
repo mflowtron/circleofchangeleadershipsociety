@@ -19,7 +19,7 @@ interface AttendeeInfo {
 }
 
 interface CheckInResultProps {
-  status: 'idle' | 'loading' | 'success' | 'already_checked_in' | 'error' | 'wrong_event';
+  status: 'idle' | 'loading' | 'ready' | 'success' | 'already_checked_in' | 'error' | 'wrong_event';
   attendee: AttendeeInfo | null;
   existingCheckInTime?: string | null;
   errorMessage?: string;
