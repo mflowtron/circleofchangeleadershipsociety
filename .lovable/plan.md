@@ -1,256 +1,233 @@
 
-# QR Code Attendee Check-in System
+
+# Attendee Mobile App Environment
 
 ## Overview
 
-This plan implements a robust QR code scanning system for event organizers to check in attendees at events. The system will track check-ins per day, supporting multi-day events where attendees may need to check in each day.
+Create a dedicated mobile-first experience for event attendees to log in using their email (same OTP flow as the order portal), view their registered events, browse and bookmark agenda items, and display their check-in QR code. This will be a separate experience from the admin/organizer dashboard, focused entirely on the attendee journey.
 
 ## Architecture
 
 ```text
-+------------------+     +-------------------+     +------------------+
-|  QR Scanner UI   | --> | Check-in Logic    | --> | attendee_checkins|
-|  (Camera/Manual) |     | (Validate + Save) |     | (Database Table) |
-+------------------+     +-------------------+     +------------------+
-        |                         |
-        v                         v
-+------------------+     +-------------------+
-| html5-qrcode     |     | Real-time Stats   |
-| (Browser Camera) |     | (Today's count)   |
-+------------------+     +-------------------+
++------------------+     +-------------------+     +----------------------+
+|  Attendee Login  | --> | Attendee Context  | --> | Event Selection      |
+|  (Email + OTP)   |     | (Extends Order    |     | (Multi-event aware)  |
++------------------+     | Portal Session)   |     +----------------------+
+                         +-------------------+              |
+                                                           v
++------------------+     +-------------------+     +----------------------+
+|  My QR Code      | <-- | Attendee App      | <-- | Agenda + Bookmarks   |
+|  (Per Event)     |     | (Bottom Nav)      |     | (Per Event)          |
++------------------+     +-------------------+     +----------------------+
+                                |
+                                v
+                         +-------------------+
+                         | Agenda Bookmarks  |
+                         | (Local + DB)      |
+                         +-------------------+
 ```
 
 ## Database Design
 
-### New Table: `attendee_checkins`
+### New Table: `attendee_bookmarks`
 
 | Column | Type | Description |
 |--------|------|-------------|
 | id | uuid | Primary key |
 | attendee_id | uuid | FK to attendees table |
-| event_id | uuid | FK to events table (denormalized for easy querying) |
-| check_in_date | date | The date of check-in (not datetime - one per day) |
-| checked_in_at | timestamptz | Exact time of check-in |
-| checked_in_by | uuid | FK to user who performed check-in |
-| notes | text | Optional notes (e.g., "manual check-in") |
-| created_at | timestamptz | Record creation time |
+| agenda_item_id | uuid | FK to agenda_items table |
+| created_at | timestamptz | When bookmark was created |
 
-**Unique constraint:** `(attendee_id, check_in_date)` - prevents duplicate check-ins on the same day
+**Unique constraint:** `(attendee_id, agenda_item_id)` - one bookmark per item per attendee
 
 ### RLS Policies
-- SELECT: Event owners and admins can view check-ins for their events
-- INSERT: Event owners and admins can create check-ins
-- UPDATE: Event owners and admins can update check-ins (for notes)
-- DELETE: Event owners and admins can undo check-ins
+Since attendees authenticate via session tokens (not Supabase Auth), we'll use edge functions to manage bookmarks securely.
 
-## QR Code Format
-
-The QR code will encode the attendee's unique ID as a URL for easy sharing and fallback:
+## New Files Structure
 
 ```
-https://[domain]/events/checkin/{attendee_id}
+src/
+├── pages/
+│   └── attendee/
+│       ├── Index.tsx          # Login page (reuse order portal auth)
+│       ├── Dashboard.tsx      # Main app shell with bottom nav
+│       ├── EventHome.tsx      # Selected event overview
+│       ├── Agenda.tsx         # Full agenda with bookmark capability
+│       ├── MySchedule.tsx     # Bookmarked sessions only
+│       └── QRCode.tsx         # Check-in QR code display
+│
+├── components/
+│   └── attendee/
+│       ├── AttendeeLayout.tsx       # Mobile-first layout with bottom nav
+│       ├── BottomNavigation.tsx     # Tab bar (Home, Agenda, My Schedule, QR)
+│       ├── EventSelector.tsx        # For multi-event attendees
+│       ├── AgendaItemCard.tsx       # Agenda item with bookmark toggle
+│       ├── BookmarkButton.tsx       # Animated bookmark toggle
+│       └── QRCodeDisplay.tsx        # Large QR with attendee info
+│
+├── hooks/
+│   └── useAttendeePortal.ts    # Extends useOrderPortal with bookmarks
+│   └── useAttendeeBookmarks.ts # Manage agenda bookmarks
+│
+└── contexts/
+    └── AttendeeContext.tsx     # Current event, attendee, bookmarks
 ```
 
-This format allows:
-- Organizers to scan using the in-app scanner
-- Attendees to click the link to view their registration
-- Future: deep linking to the check-in page
+## New Edge Functions
 
-## New Files
+### `get-attendee-bookmarks`
+Fetch bookmarks for an attendee across all their events.
 
-### 1. `src/pages/events/manage/CheckIn.tsx`
-Main check-in page with:
-- QR scanner component (full-screen camera view)
-- Manual search fallback (by name/email/order number)
-- Today's check-in stats
-- Recent check-in activity feed
+### `toggle-attendee-bookmark`
+Add or remove a bookmark for an agenda item.
 
-### 2. `src/components/events/checkin/QRScanner.tsx`
-Wrapper component for html5-qrcode library:
-- Camera selection (front/back)
-- Start/stop controls
-- Visual feedback on successful/failed scan
-- Error handling for camera permissions
+## UI Design
 
-### 3. `src/components/events/checkin/CheckInResult.tsx`
-Displays scan result with:
-- Attendee details (name, email, ticket type)
-- Check-in status (already checked in today? first time?)
-- Confirm/Cancel buttons
-- Success/error animations
-
-### 4. `src/components/events/checkin/ManualCheckIn.tsx`
-Search interface for manual check-in:
-- Search by name, email, or order number
-- List of matching attendees
-- Quick check-in buttons
-
-### 5. `src/components/events/checkin/CheckInStats.tsx`
-Dashboard showing:
-- Total attendees for event
-- Checked in today count
-- Percentage progress bar
-- Quick breakdown by ticket type
-
-### 6. `src/components/events/checkin/AttendeeQRCode.tsx`
-Component to display/download attendee QR codes:
-- Used in order confirmation emails
-- Downloadable from order portal
-- Printable format
-
-### 7. `src/hooks/useCheckins.ts`
-React Query hooks for:
-- `useEventCheckins(eventId, date)` - Get all check-ins for an event on a date
-- `useAttendeeCheckins(attendeeId)` - Get all check-ins for an attendee
-- `useCheckIn()` - Mutation to check in an attendee
-- `useUndoCheckIn()` - Mutation to undo a check-in
-- `useCheckInStats(eventId, date)` - Get check-in statistics
-
-## UI/UX Flow
-
-### Check-In Page Layout
+### Bottom Navigation (Mobile-First)
 
 ```text
-+------------------------------------------------+
-|  <- Back    Check-In    [Stats] [Manual]       |
-+------------------------------------------------+
-|                                                |
-|  +------------------------------------------+  |
-|  |                                          |  |
-|  |           CAMERA VIEWFINDER              |  |
-|  |                                          |  |
-|  |    [Scanning QR codes...]                |  |
-|  |                                          |  |
-|  +------------------------------------------+  |
-|                                                |
-|  [Switch Camera]              [Enter Manually] |
-|                                                |
-|  -- Today's Activity --                        |
-|  [x] John Doe checked in at 9:15 AM            |
-|  [x] Jane Smith checked in at 9:12 AM          |
-|  ...                                           |
-+------------------------------------------------+
++--------------------------------------------------+
+|                                                  |
+|              [EVENT CONTENT AREA]                |
+|                                                  |
++--------------------------------------------------+
+| [Home]   [Agenda]   [My Schedule]   [QR Code]    |
++--------------------------------------------------+
 ```
 
-### Success State (After Scan)
+### Home Tab
+- Event cover image and title
+- Quick stats: "Day 1 of 3", upcoming session
+- Next session countdown
+- Quick actions: View QR, My Schedule
 
-```text
-+------------------------------------------------+
-|                                                |
-|             [CHECK MARK ANIMATION]             |
-|                                                |
-|              John Doe                          |
-|          General Admission                     |
-|         Order #ORD-20260129-0001               |
-|                                                |
-|           CHECKED IN!                          |
-|           9:15 AM                              |
-|                                                |
-|         [Scan Next]  [View Details]            |
-|                                                |
-+------------------------------------------------+
-```
+### Agenda Tab
+- Day picker (tabs or swipe)
+- Track filter dropdown
+- Session cards with bookmark toggle
+- Tap to expand for details and speakers
 
-### Already Checked In State
+### My Schedule Tab
+- Only bookmarked sessions
+- Grouped by day
+- Empty state with "Browse Agenda" CTA
 
-```text
-+------------------------------------------------+
-|                                                |
-|            [WARNING ICON]                      |
-|                                                |
-|              John Doe                          |
-|          Already checked in today              |
-|             at 9:15 AM                         |
-|                                                |
-|     [Continue Anyway]  [Scan Different]        |
-|                                                |
-+------------------------------------------------+
-```
+### QR Code Tab
+- Large QR code (centered, prominent)
+- Attendee name and ticket type
+- Download and share buttons
+- "Show this to check in" instruction
 
-## Navigation Integration
+## Route Structure
 
-### Sidebar Addition (`EventsDashboardSidebar.tsx`)
-
-Add new nav item when event is selected:
-```typescript
-{ path: '/events/manage/checkin', label: 'Check-In', icon: ScanLine }
-```
-
-### Route Addition (`App.tsx`)
-
-```typescript
-<Route 
-  path="/events/manage/checkin" 
-  element={
-    <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
-      <CheckIn />
-    </ProtectedRoute>
-  } 
-/>
-```
-
-## Dependencies
-
-### New Package: `html5-qrcode`
-
-This is the most reliable browser-based QR scanning library:
-- Works on mobile and desktop
-- Handles camera permissions
-- Supports multiple camera sources
-- No native dependencies
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/attendee` | Index.tsx | Login (redirect if authenticated) |
+| `/attendee/app` | Dashboard.tsx | Main app with bottom nav |
+| `/attendee/app/home` | EventHome.tsx | Event overview |
+| `/attendee/app/agenda` | Agenda.tsx | Full agenda |
+| `/attendee/app/schedule` | MySchedule.tsx | Bookmarked sessions |
+| `/attendee/app/qr` | QRCode.tsx | Check-in QR code |
 
 ## Implementation Sequence
 
-1. **Database Migration**
-   - Create `attendee_checkins` table
-   - Add RLS policies
-   - Enable realtime for live updates
+### Phase 1: Database and Authentication
+1. Create `attendee_bookmarks` table with unique constraint
+2. Create edge function `get-attendee-bookmarks`
+3. Create edge function `toggle-attendee-bookmark`
+4. Extend `useOrderPortal` to include attendee-specific data
 
-2. **Core Hooks**
-   - Create `useCheckins.ts` with all check-in operations
-   - Add attendee lookup by ID function
+### Phase 2: Core Components
+1. Create `AttendeeContext` for managing selected event and attendee
+2. Build `AttendeeLayout` with mobile-optimized header
+3. Build `BottomNavigation` component with active state
+4. Create `useAttendeeBookmarks` hook
 
-3. **Scanner Components**
-   - Build QRScanner component with html5-qrcode
-   - Add CheckInResult component for feedback
-   - Create ManualCheckIn search interface
+### Phase 3: Pages
+1. Build `/attendee` login page (leverage existing OTP flow)
+2. Create `Dashboard.tsx` as the app shell
+3. Build `EventHome.tsx` with event overview
+4. Build `Agenda.tsx` with bookmark functionality
+5. Build `MySchedule.tsx` for personal schedule
+6. Build `QRCode.tsx` with large QR display
 
-4. **Main Check-In Page**
-   - Build CheckIn page layout
-   - Integrate scanner and manual check-in
-   - Add stats dashboard
+### Phase 4: Polish and PWA
+1. Add iOS safe area support
+2. Implement pull-to-refresh on agenda
+3. Add haptic feedback on bookmark toggle
+4. Optimize for offline viewing of bookmarks
 
-5. **Navigation & Routing**
-   - Add route to App.tsx
-   - Add sidebar navigation item
+## Multi-Event Support
 
-6. **QR Code Generation**
-   - Add QR code display to order portal
-   - Include in attendee badge data
+When an attendee has tickets to multiple events:
+1. Show event selector on first load
+2. Remember last selected event in localStorage
+3. Allow switching events from header
+4. Bookmarks and QR codes are per-event
 
-## Multi-Day Event Support
+## Mobile Optimizations
 
-For events spanning multiple days:
-- Check-ins are tracked per date, not just once
-- Organizers can select which day they're checking in for (defaults to today)
-- Historical check-in data is preserved for reporting
-- Stats show progress for the selected day
+1. **Safe Areas**: Respect iOS notch and home indicator
+2. **Touch Targets**: Minimum 44px for all interactive elements
+3. **Swipe Gestures**: Swipe between agenda days
+4. **Pull to Refresh**: On agenda and schedule pages
+5. **Haptic Feedback**: On bookmark toggle and QR display
+6. **Offline Support**: Cache agenda and bookmarks locally
+7. **Large QR Code**: Optimized for brightness and scanability
 
-## Error Handling
+## Technical Details
 
-| Scenario | Response |
-|----------|----------|
-| Camera not available | Show manual check-in option prominently |
-| Invalid QR code | "Invalid code - not an attendee QR" message |
-| Attendee not found | "No attendee found with this ID" |
-| Already checked in | Show warning with option to view details |
-| Network error | Queue check-in locally, sync when online |
-| Wrong event | "This attendee is for a different event" |
+### Attendee Identification
+- Reuse existing order portal session (email + OTP)
+- Session stored in localStorage with expiration
+- Attendees are linked to orders by email match
 
-## Future Enhancements (Not in Scope)
+### Bookmark Sync Strategy
+1. Optimistic UI updates for instant feedback
+2. Sync with server on toggle
+3. Refresh bookmarks on app resume
+4. Handle conflicts gracefully
 
-- Offline mode with local queue
-- Bulk check-in via CSV upload
-- Check-out tracking for sessions
-- Push notifications to organizers
-- Attendee self-check-in kiosk mode
+### QR Code Generation
+- Use existing `AttendeeQRCode` component logic
+- Encode: `{baseUrl}/events/checkin/{attendeeId}`
+- Size optimized for mobile screens (280px)
+- High contrast for scanability
+
+## Security Considerations
+
+1. Session validation on every API call
+2. Bookmarks scoped to attendee's registered events only
+3. QR codes only shown for attendee's own registrations
+4. No access to other attendees' data
+
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `supabase/migrations/xxx_attendee_bookmarks.sql` | Database table and constraints |
+| `supabase/functions/get-attendee-bookmarks/index.ts` | Fetch bookmarks API |
+| `supabase/functions/toggle-attendee-bookmark/index.ts` | Toggle bookmark API |
+| `src/contexts/AttendeeContext.tsx` | State management for attendee app |
+| `src/hooks/useAttendeeBookmarks.ts` | Bookmark management hook |
+| `src/components/attendee/AttendeeLayout.tsx` | Mobile layout wrapper |
+| `src/components/attendee/BottomNavigation.tsx` | Tab bar component |
+| `src/components/attendee/EventSelector.tsx` | Multi-event picker |
+| `src/components/attendee/AgendaItemCard.tsx` | Session card with bookmark |
+| `src/components/attendee/BookmarkButton.tsx` | Animated bookmark toggle |
+| `src/components/attendee/QRCodeDisplay.tsx` | Large QR presentation |
+| `src/pages/attendee/Index.tsx` | Login page |
+| `src/pages/attendee/Dashboard.tsx` | App shell |
+| `src/pages/attendee/EventHome.tsx` | Event overview |
+| `src/pages/attendee/Agenda.tsx` | Full agenda view |
+| `src/pages/attendee/MySchedule.tsx` | Personal schedule |
+| `src/pages/attendee/QRCode.tsx` | QR code page |
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/App.tsx` | Add attendee routes |
+| `src/hooks/useOrderPortal.ts` | Add method to get attendee ID for current user |
+| `supabase/functions/get-orders-by-email/index.ts` | Include bookmark data in response |
+
