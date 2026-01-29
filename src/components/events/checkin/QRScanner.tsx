@@ -3,13 +3,23 @@ import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
 import { Camera, SwitchCamera, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { startQrWithFallback, serializeDomError } from './qrScannerFallback';
 
 interface QRScannerProps {
   onScan: (attendeeId: string) => void;
   onError?: (error: string) => void;
   isActive: boolean;
   className?: string;
+}
+
+// Local error serializer
+function serializeError(err: unknown): { name?: string; message: string } {
+  if (err instanceof Error) return { name: err.name, message: err.message };
+  if (typeof err === 'string') return { message: err };
+  try {
+    return { message: JSON.stringify(err) };
+  } catch {
+    return { message: String(err) };
+  }
 }
 
 export function QRScanner({ onScan, onError, isActive, className }: QRScannerProps) {
@@ -24,12 +34,24 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
   const lastScanRef = useRef<string | null>(null);
   const scanCooldownRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Serialization queue to prevent overlapping start/stop transitions
+  const transitionRef = useRef<Promise<void>>(Promise.resolve());
+  
+  // Track if user has manually switched cameras
+  const userSelectedCameraRef = useRef(false);
+  
   // Stable callback refs to prevent scanner restarts
   const onScanRef = useRef(onScan);
   const onErrorRef = useRef(onError);
   
   useEffect(() => { onScanRef.current = onScan; }, [onScan]);
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
+  // Enqueue function to serialize all start/stop operations
+  const enqueue = useCallback((fn: () => Promise<void>): Promise<void> => {
+    transitionRef.current = transitionRef.current.then(fn, fn);
+    return transitionRef.current;
+  }, []);
 
   // Initialize camera list
   useEffect(() => {
@@ -49,7 +71,7 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         }
       })
       .catch((err) => {
-        console.error('Camera access error:', err);
+        console.error('[QRScanner] Camera access error:', err);
         setError('Camera permission denied');
         setHasPermission(false);
       });
@@ -75,12 +97,10 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
       
       // Prevent duplicate scans
       if (decodedText === lastScanRef.current) {
-        console.log('[QRScanner] Duplicate scan, ignoring');
         return;
       }
       
       const attendeeId = extractAttendeeId(decodedText);
-      console.log('[QRScanner] Extracted attendee ID:', attendeeId);
       
       if (attendeeId) {
         lastScanRef.current = decodedText;
@@ -98,7 +118,6 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
           setScanDetected(false);
         }, 3000);
       } else {
-        console.log('[QRScanner] Invalid QR format');
         onErrorRef.current?.('Invalid QR code format');
       }
     },
@@ -109,114 +128,123 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
   const handleScanRef = useRef(handleScanSuccess);
   useEffect(() => { handleScanRef.current = handleScanSuccess; }, [handleScanSuccess]);
 
-  // Start/stop scanner based on isActive prop
+  // Stop scanner helper (returns promise)
+  const stopScanner = useCallback(async (): Promise<void> => {
+    if (!scannerRef.current) return;
+    
+    try {
+      const state = scannerRef.current.getState();
+      console.log('[QRScanner] Stop requested, current state:', state);
+      
+      if (state === Html5QrcodeScannerState.SCANNING || state === Html5QrcodeScannerState.PAUSED) {
+        await scannerRef.current.stop();
+        console.log('[QRScanner] Stop success');
+      }
+    } catch (err) {
+      // Ignore stop errors - scanner may already be stopped
+      console.log('[QRScanner] Stop ignored (may already be stopped):', err);
+    }
+    
+    // Small delay to allow camera resources to release
+    await new Promise(resolve => setTimeout(resolve, 150));
+    setIsScanning(false);
+  }, []);
+
+  // Start scanner helper (returns promise)
+  const startScanner = useCallback(async (): Promise<void> => {
+    if (!containerRef.current) {
+      console.log('[QRScanner] No container ref, skipping start');
+      return;
+    }
+
+    // Create scanner instance if needed
+    if (!scannerRef.current) {
+      console.log('[QRScanner] Creating new Html5Qrcode instance');
+      scannerRef.current = new Html5Qrcode('qr-reader');
+    }
+
+    // Determine camera constraints - safe defaults
+    let cameraConstraints: MediaTrackConstraints;
+    
+    if (userSelectedCameraRef.current && currentCamera) {
+      // User explicitly switched cameras - use deviceId
+      cameraConstraints = { deviceId: { exact: currentCamera } };
+      console.log('[QRScanner] Using user-selected camera:', currentCamera);
+    } else {
+      // Default: prefer environment-facing camera (most compatible)
+      cameraConstraints = { facingMode: 'environment' };
+      console.log('[QRScanner] Using default facingMode: environment');
+    }
+
+    // Safe scan config - no qrbox (full frame), moderate FPS
+    const scanConfig = {
+      fps: 15,
+      disableFlip: false,
+      formatsToSupport: [0], // QR_CODE only
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true,
+      },
+    } as Parameters<typeof scannerRef.current.start>[1];
+
+    console.log('[QRScanner] Start requested with config:', { cameraConstraints, scanConfig });
+
+    try {
+      await scannerRef.current.start(
+        cameraConstraints,
+        scanConfig,
+        (decodedText: string) => handleScanRef.current(decodedText),
+        () => {} // Ignore "no QR found" messages
+      );
+      
+      console.log('[QRScanner] Start success');
+      setIsScanning(true);
+      setError(null);
+    } catch (err) {
+      const e = serializeError(err);
+      console.error('[QRScanner] Start error:', e.name, e.message);
+      
+      // Provide user-friendly error messages
+      let userMessage = 'Failed to start camera';
+      if (e.name === 'NotAllowedError') {
+        userMessage = 'Camera permission denied';
+      } else if (e.name === 'NotFoundError') {
+        userMessage = 'No camera found';
+      } else if (e.name === 'OverconstrainedError') {
+        userMessage = 'Camera not supported';
+      } else if (e.message) {
+        userMessage = e.message;
+      }
+      
+      setError(userMessage);
+      setIsScanning(false);
+    }
+  }, [currentCamera]);
+
+  // Start/stop scanner based on isActive prop - serialized
   useEffect(() => {
     let mounted = true;
-    
-    const startScanner = async () => {
-      if (!containerRef.current) {
-        console.log('[QRScanner] No container ref');
-        return;
-      }
-
-      try {
-        // Create scanner instance if needed
-        if (!scannerRef.current) {
-          console.log('[QRScanner] Creating new Html5Qrcode instance');
-          scannerRef.current = new Html5Qrcode('qr-reader');
-        }
-
-        // Stop if already scanning
-        const state = scannerRef.current.getState();
-        if (state === Html5QrcodeScannerState.SCANNING) {
-          console.log('[QRScanner] Stopping existing scan');
-          await scannerRef.current.stop();
-        }
-
-        // Use a fallback ladder so we take the *best supported* device settings
-        // instead of failing outright when a device can't do 4K / certain constraints.
-        const cameraBases: MediaTrackConstraints[] = [];
-        if (currentCamera) {
-          cameraBases.push({ deviceId: { exact: currentCamera } });
-        }
-        // Always try environment-facing camera as a compatibility fallback.
-        cameraBases.push({ facingMode: "environment" });
-
-        // Check if native Barcode Detection API is available
-        const hasNativeAPI = 'BarcodeDetector' in window;
-        console.log('[QRScanner] Native BarcodeDetector available:', hasNativeAPI);
-        console.log('[QRScanner] Starting scanner with camera bases (fallback enabled):', cameraBases);
-
-        // Build scan config - use type assertion for experimentalFeatures which is valid but not in TS types
-        // Optimized for reliable QR detection:
-        // - Higher FPS for faster detection on modern devices
-        // - No qrbox restriction - scan entire viewfinder area
-        // - disableFlip: false allows detection of mirrored/inverted codes
-        // - formatsToSupport limits to QR only for faster processing
-        const baseScanConfig = {
-          fps: 30,
-          aspectRatio: 1,
-          disableFlip: false, // Allow scanning flipped/mirrored QR codes
-          formatsToSupport: [0], // 0 = QR_CODE only, faster processing
-          // Use native Barcode Detection API when available (Chrome/Edge Android, Safari 17.2+)
-          // This provides faster and more reliable scanning on supported devices
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true,
-          },
-        } as Parameters<typeof scannerRef.current.start>[1];
-
-        await startQrWithFallback({
-          scanner: scannerRef.current,
-          cameraBases,
-          baseScanConfig,
-          onDecodedText: (decodedText: string) => {
-            handleScanRef.current(decodedText);
-          },
-        });
-        
-        if (mounted) {
-          console.log('[QRScanner] Scanner started successfully');
-          setIsScanning(true);
-          setError(null);
-        }
-      } catch (err) {
-        const e = serializeDomError(err);
-        console.error('[QRScanner] Start error:', e.name, e.message, e.raw);
-        if (mounted) {
-          setError(e.message || 'Failed to start camera');
-          setIsScanning(false);
-        }
-      }
-    };
-
-    const stopScanner = async () => {
-      if (scannerRef.current) {
-        try {
-          const state = scannerRef.current.getState();
-          if (state === Html5QrcodeScannerState.SCANNING) {
-            console.log('[QRScanner] Stopping scanner');
-            await scannerRef.current.stop();
-          }
-        } catch (err) {
-          console.error('[QRScanner] Stop error:', err);
-        }
-        if (mounted) {
-          setIsScanning(false);
-        }
-      }
-    };
 
     if (isActive && hasPermission) {
-      startScanner();
+      enqueue(async () => {
+        if (!mounted) return;
+        await stopScanner();
+        if (!mounted) return;
+        await startScanner();
+      });
     } else {
-      stopScanner();
+      enqueue(async () => {
+        if (!mounted) return;
+        await stopScanner();
+      });
     }
 
     return () => {
       mounted = false;
-      stopScanner();
+      enqueue(async () => {
+        await stopScanner();
+      });
     };
-  }, [isActive, currentCamera, hasPermission]);
+  }, [isActive, currentCamera, hasPermission, enqueue, stopScanner, startScanner]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -224,21 +252,12 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
       if (scanCooldownRef.current) {
         clearTimeout(scanCooldownRef.current);
       }
-      if (scannerRef.current) {
-        try {
-          const state = scannerRef.current.getState();
-          if (state === Html5QrcodeScannerState.SCANNING) {
-            scannerRef.current.stop();
-          }
-        } catch (err) {
-          // Ignore cleanup errors
-        }
-      }
     };
   }, []);
 
   const switchCamera = () => {
     if (cameras.length <= 1) return;
+    userSelectedCameraRef.current = true;
     const currentIndex = cameras.findIndex((c) => c.id === currentCamera);
     const nextIndex = (currentIndex + 1) % cameras.length;
     setCurrentCamera(cameras[nextIndex].id);
