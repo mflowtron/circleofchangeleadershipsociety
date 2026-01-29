@@ -22,23 +22,46 @@ const ITEM_TYPE_COLORS: Record<AgendaItemType, string> = {
 interface AgendaCalendarItemProps {
   item: AgendaItem;
   startHour: number;
+  endHour: number;
   onClick: (item: AgendaItem) => void;
 }
 
-export function AgendaCalendarItem({ item, startHour, onClick }: AgendaCalendarItemProps) {
+export function AgendaCalendarItem({ item, startHour, endHour, onClick }: AgendaCalendarItemProps) {
   const itemStart = new Date(item.starts_at);
   const itemEnd = item.ends_at ? new Date(item.ends_at) : addMinutes(itemStart, 30);
   
-  // Calculate position from the start of the day grid
-  const dayStart = new Date(itemStart);
-  dayStart.setHours(startHour, 0, 0, 0);
+  // Get local hours for visibility check
+  const itemStartHour = itemStart.getHours() + itemStart.getMinutes() / 60;
+  const itemEndHour = itemEnd.getHours() + itemEnd.getMinutes() / 60;
   
-  const minutesFromStart = differenceInMinutes(itemStart, dayStart);
-  const topPosition = (minutesFromStart / 15) * ROW_HEIGHT;
+  // Skip rendering if completely outside visible range
+  if (itemEndHour <= startHour || itemStartHour >= endHour) {
+    return null;
+  }
   
-  // Calculate height based on duration
+  // Calculate position relative to the grid start hour using local time
+  const gridStartMinutes = startHour * 60;
+  const itemStartMinutes = itemStart.getHours() * 60 + itemStart.getMinutes();
+  const minutesFromGridStart = itemStartMinutes - gridStartMinutes;
+  
+  // Clamp to visible area if item starts before grid
+  const clampedMinutesFromStart = Math.max(0, minutesFromGridStart);
+  const topPosition = (clampedMinutesFromStart / 15) * ROW_HEIGHT;
+  
+  // Calculate height based on duration, adjusting if clamped
   const durationMinutes = differenceInMinutes(itemEnd, itemStart);
-  const heightRows = Math.max(1, durationMinutes / 15);
+  const visibleDuration = minutesFromGridStart < 0 
+    ? durationMinutes + minutesFromGridStart 
+    : durationMinutes;
+  
+  // Also clamp if item extends past grid end
+  const gridEndMinutes = endHour * 60;
+  const itemEndMinutes = itemEnd.getHours() * 60 + itemEnd.getMinutes();
+  const finalVisibleDuration = itemEndMinutes > gridEndMinutes 
+    ? visibleDuration - (itemEndMinutes - gridEndMinutes)
+    : visibleDuration;
+  
+  const heightRows = Math.max(1, finalVisibleDuration / 15);
   const height = heightRows * ROW_HEIGHT;
   
   const config = getAgendaTypeConfig(item.item_type);

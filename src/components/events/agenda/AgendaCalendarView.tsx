@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { format, addDays, startOfDay, isSameDay, isToday } from 'date-fns';
+import { format, addDays, addMinutes, startOfDay, isSameDay, isToday } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -45,12 +45,34 @@ export function AgendaCalendarView({
   onEditItem,
   onCreateItem,
   eventStartDate,
-  startHour = 8,
-  endHour = 18,
+  startHour: defaultStartHour = 6,
+  endHour: defaultEndHour = 22,
 }: AgendaCalendarViewProps) {
   const [viewStartDate, setViewStartDate] = useState<Date>(() =>
     getInitialStartDate(agendaItems, eventStartDate)
   );
+
+  // Calculate dynamic hours based on agenda items in local timezone
+  const { startHour, endHour } = useMemo(() => {
+    if (agendaItems.length === 0) {
+      return { startHour: defaultStartHour, endHour: defaultEndHour };
+    }
+    
+    let earliest = 23;
+    let latest = 0;
+    
+    agendaItems.forEach(item => {
+      const start = new Date(item.starts_at);
+      const end = item.ends_at ? new Date(item.ends_at) : addMinutes(start, 30);
+      earliest = Math.min(earliest, start.getHours());
+      latest = Math.max(latest, end.getHours() + 1);
+    });
+    
+    return {
+      startHour: Math.min(earliest, defaultStartHour),
+      endHour: Math.max(latest, defaultEndHour)
+    };
+  }, [agendaItems, defaultStartHour, defaultEndHour]);
 
   const timeSlots = useMemo(() => generateTimeSlots(startHour, endHour), [startHour, endHour]);
   const totalSlots = timeSlots.length;
@@ -218,6 +240,7 @@ export function AgendaCalendarView({
                       key={item.id}
                       item={item}
                       startHour={startHour}
+                      endHour={endHour}
                       onClick={onEditItem}
                     />
                   ))}
