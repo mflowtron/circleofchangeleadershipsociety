@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { arrayMove } from '@dnd-kit/sortable';
 import MuxUploader from '@mux/mux-uploader-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Upload, Loader2 } from 'lucide-react';
+import { Plus, Upload, Loader2, ArrowUpDown, Check } from 'lucide-react';
 import { RecordingsBrowseView } from '@/components/recordings/RecordingsBrowseView';
 import { RecordingPlayerView } from '@/components/recordings/RecordingPlayerView';
 import { Recording } from '@/components/recordings/RecordingCard';
@@ -33,6 +34,8 @@ export default function Recordings() {
   const [description, setDescription] = useState('');
   const [isCreatingUpload, setIsCreatingUpload] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [isReorderMode, setIsReorderMode] = useState(false);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
   const { role } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
@@ -40,6 +43,7 @@ export default function Recordings() {
 
   const canUpload = role === 'admin' || role === 'advisor';
   const canDelete = role === 'admin';
+  const canReorder = role === 'admin';
   const canManageResources = role === 'admin' || role === 'advisor';
 
   const deleteRecording = async (recordingId: string, e: React.MouseEvent) => {
@@ -107,7 +111,7 @@ export default function Recordings() {
         .from('recordings')
         .select('*')
         .in('status', ['ready', 'preparing'])
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: true });
 
       if (error) throw error;
       setRecordings(data || []);
@@ -120,6 +124,54 @@ export default function Recordings() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const saveRecordingOrder = async (newOrder: Recording[]) => {
+    setIsSavingOrder(true);
+    try {
+      const updates = newOrder.map((rec, idx) => ({
+        id: rec.id,
+        sort_order: idx,
+      }));
+
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('recordings')
+          .update({ sort_order: update.sort_order })
+          .eq('id', update.id);
+        
+        if (error) throw error;
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error saving order',
+        description: error.message,
+      });
+      // Refetch to restore correct order
+      fetchRecordings();
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
+
+  const handleReorder = (activeId: string, overId: string) => {
+    const oldIndex = recordings.findIndex((r) => r.id === activeId);
+    const newIndex = recordings.findIndex((r) => r.id === overId);
+    
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newOrder = arrayMove(recordings, oldIndex, newIndex);
+      setRecordings(newOrder);
+      saveRecordingOrder(newOrder);
+    }
+  };
+
+  const handleMoveByIndex = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= recordings.length) return;
+    
+    const newOrder = arrayMove(recordings, fromIndex, toIndex);
+    setRecordings(newOrder);
+    saveRecordingOrder(newOrder);
   };
 
   const createUpload = async () => {
@@ -249,17 +301,38 @@ export default function Recordings() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Lecture Recordings</h1>
         
-        {canUpload && (
-          <Dialog open={uploadDialogOpen} onOpenChange={(open) => {
-            if (!open) resetUploadState();
-            setUploadDialogOpen(open);
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Upload Recording
-              </Button>
-            </DialogTrigger>
+        <div className="flex items-center gap-2">
+          {canReorder && (
+            <Button
+              variant={isReorderMode ? "default" : "outline"}
+              onClick={() => setIsReorderMode(!isReorderMode)}
+              disabled={isSavingOrder}
+            >
+              {isReorderMode ? (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Done
+                </>
+              ) : (
+                <>
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  Reorder
+                </>
+              )}
+            </Button>
+          )}
+          
+          {canUpload && !isReorderMode && (
+            <Dialog open={uploadDialogOpen} onOpenChange={(open) => {
+              if (!open) resetUploadState();
+              setUploadDialogOpen(open);
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Upload Recording
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Upload New Recording</DialogTitle>
@@ -326,14 +399,18 @@ export default function Recordings() {
               )}
             </DialogContent>
           </Dialog>
-        )}
+          )}
+        </div>
       </div>
 
       <RecordingsBrowseView
         recordings={recordings}
         canDelete={canDelete}
+        isReorderMode={isReorderMode}
         onSelect={setSelectedRecording}
         onDelete={deleteRecording}
+        onReorder={handleReorder}
+        onMoveByIndex={handleMoveByIndex}
       />
     </div>
   );

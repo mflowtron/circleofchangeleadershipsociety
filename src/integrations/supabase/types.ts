@@ -723,6 +723,7 @@ export type Database = {
           mux_asset_id: string | null
           mux_playback_id: string | null
           mux_upload_id: string | null
+          sort_order: number | null
           status: string | null
           thumbnail_url: string | null
           title: string
@@ -738,6 +739,7 @@ export type Database = {
           mux_asset_id?: string | null
           mux_playback_id?: string | null
           mux_upload_id?: string | null
+          sort_order?: number | null
           status?: string | null
           thumbnail_url?: string | null
           title: string
@@ -753,6 +755,7 @@ export type Database = {
           mux_asset_id?: string | null
           mux_playback_id?: string | null
           mux_upload_id?: string | null
+          sort_order?: number | null
           status?: string | null
           thumbnail_url?: string | null
           title?: string
