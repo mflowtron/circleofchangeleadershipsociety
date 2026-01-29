@@ -207,6 +207,42 @@ export type Database = {
         }
         Relationships: []
       }
+      attendee_bookmarks: {
+        Row: {
+          agenda_item_id: string
+          attendee_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          agenda_item_id: string
+          attendee_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          agenda_item_id?: string
+          attendee_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendee_bookmarks_agenda_item_id_fkey"
+            columns: ["agenda_item_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendee_bookmarks_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendee_checkins: {
         Row: {
           attendee_id: string

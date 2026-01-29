@@ -53,6 +53,14 @@ const EventsDashboardLayout = lazy(() => import("@/layouts/EventsDashboardLayout
 const OrderPortalIndex = lazy(() => import("@/pages/orders/Index"));
 const OrderPortalDashboard = lazy(() => import("@/pages/orders/Dashboard"));
 
+// Attendee App pages - lazy loaded
+const AttendeeLogin = lazy(() => import("@/pages/attendee/Index"));
+const AttendeeDashboard = lazy(() => import("@/pages/attendee/Dashboard"));
+const AttendeeHome = lazy(() => import("@/pages/attendee/EventHome"));
+const AttendeeAgenda = lazy(() => import("@/pages/attendee/Agenda"));
+const AttendeeSchedule = lazy(() => import("@/pages/attendee/MySchedule"));
+const AttendeeQRCode = lazy(() => import("@/pages/attendee/QRCode"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -296,6 +304,39 @@ function AppRoutes() {
         </Suspense>
       } />
       
+      {/* Attendee App Routes (Public - uses session token auth) */}
+      <Route path="/attendee" element={
+        <Suspense fallback={<PageLoader />}>
+          <AttendeeLogin />
+        </Suspense>
+      } />
+      <Route path="/attendee/app" element={
+        <Suspense fallback={<PageLoader />}>
+          <AttendeeDashboard />
+        </Suspense>
+      }>
+        <Route index element={<Navigate to="/attendee/app/home" replace />} />
+        <Route path="home" element={
+          <Suspense fallback={<PageLoader />}>
+            <AttendeeHome />
+          </Suspense>
+        } />
+        <Route path="agenda" element={
+          <Suspense fallback={<PageLoader />}>
+            <AttendeeAgenda />
+          </Suspense>
+        } />
+        <Route path="schedule" element={
+          <Suspense fallback={<PageLoader />}>
+            <AttendeeSchedule />
+          </Suspense>
+        } />
+        <Route path="qr" element={
+          <Suspense fallback={<PageLoader />}>
+            <AttendeeQRCode />
+          </Suspense>
+        } />
+      </Route>
       {/* Event Management Routes (Protected with Events Dashboard Layout) */}
       <Route 
         path="/events/manage" 

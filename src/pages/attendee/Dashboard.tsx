@@ -1,0 +1,80 @@
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useAttendee, AttendeeProvider } from '@/contexts/AttendeeContext';
+import { AttendeeLayout } from '@/components/attendee/AttendeeLayout';
+import { Skeleton } from '@/components/ui/skeleton';
+
+function DashboardContent() {
+  const { isAuthenticated, loading, selectedEvent, events } = useAttendee();
+  const location = useLocation();
+
+  // Show loading state
+  if (loading && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="space-y-4 w-full max-w-sm p-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/attendee" state={{ from: location }} replace />;
+  }
+
+  // Show loading while fetching events
+  if (loading) {
+    return (
+      <AttendeeLayout title="Loading...">
+        <div className="p-4 space-y-4">
+          <Skeleton className="h-48 w-full rounded-lg" />
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-24 w-full rounded-lg" />
+        </div>
+      </AttendeeLayout>
+    );
+  }
+
+  // No events found
+  if (events.length === 0) {
+    return (
+      <AttendeeLayout title="No Events" showEventSelector={false}>
+        <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
+          <div className="text-6xl mb-4">🎫</div>
+          <h2 className="text-xl font-semibold mb-2">No Events Found</h2>
+          <p className="text-muted-foreground max-w-xs">
+            We couldn't find any events associated with your email address.
+          </p>
+        </div>
+      </AttendeeLayout>
+    );
+  }
+
+  // Determine title based on current route
+  const getTitle = () => {
+    if (location.pathname.includes('/agenda')) return 'Agenda';
+    if (location.pathname.includes('/schedule')) return 'My Schedule';
+    if (location.pathname.includes('/qr')) return 'My QR Code';
+    return selectedEvent?.title || 'Event';
+  };
+
+  return (
+    <AttendeeLayout 
+      title={getTitle()} 
+      showEventSelector={events.length > 1}
+    >
+      <Outlet />
+    </AttendeeLayout>
+  );
+}
+
+export default function AttendeeDashboard() {
+  return (
+    <AttendeeProvider>
+      <DashboardContent />
+    </AttendeeProvider>
+  );
+}
