@@ -106,10 +106,12 @@ export function RecordingPlayerView({
     }
   }, []);
 
-  // Generate captions
+  // Generate captions with user-friendly error handling
   const handleGenerateCaptions = async () => {
     if (!recording.mux_asset_id) {
-      toast.error('Video asset not ready');
+      toast.error('Video is still processing', {
+        description: 'Please wait for the video to finish processing before generating captions.',
+      });
       return;
     }
 
@@ -118,7 +120,11 @@ export function RecordingPlayerView({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        throw new Error('Not authenticated');
+        toast.error('Please sign in', {
+          description: 'You need to be signed in to generate captions.',
+        });
+        setIsGeneratingCaptions(false);
+        return;
       }
 
       const response = await fetch(
@@ -140,14 +146,51 @@ export function RecordingPlayerView({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate captions');
+        // Parse specific error types for user-friendly messages
+        const errorMessage = data.error || '';
+        
+        if (errorMessage.includes('Unauthorized') || errorMessage.includes('Auth')) {
+          toast.error('Session expired', {
+            description: 'Please refresh the page and try again.',
+          });
+        } else if (errorMessage.includes('No audio track')) {
+          toast.error('No audio found', {
+            description: 'This video has no audio track to transcribe.',
+          });
+        } else if (errorMessage.includes('already') || errorMessage.includes('generating')) {
+          toast.error('Captions in progress', {
+            description: 'Caption generation is already underway for this video.',
+          });
+        } else if (response.status === 500) {
+          toast.error('Server error', {
+            description: 'Something went wrong on our end. Please try again later.',
+          });
+        } else {
+          toast.error('Caption generation failed', {
+            description: errorMessage || 'An unexpected error occurred. Please try again.',
+          });
+        }
+        setIsGeneratingCaptions(false);
+        return;
       }
 
       setCaptionsStatus('generating');
-      toast.success('Caption generation started. This may take a few minutes.');
+      toast.success('Caption generation started', {
+        description: 'This may take a few minutes depending on video length.',
+      });
     } catch (error) {
       console.error('Error generating captions:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to generate captions');
+      
+      // Handle network errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        toast.error('Connection error', {
+          description: 'Unable to reach the server. Please check your internet connection.',
+        });
+      } else {
+        toast.error('Something went wrong', {
+          description: 'Please try again. If the problem persists, contact support.',
+        });
+      }
       setIsGeneratingCaptions(false);
     }
   };
