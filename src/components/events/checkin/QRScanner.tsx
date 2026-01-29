@@ -158,7 +158,7 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         // - disableFlip: false allows detection of mirrored/inverted codes
         // - formatsToSupport limits to QR only for faster processing
         const scanConfig = {
-          fps: 60, // Maximum frame rate for fastest detection
+          fps: 30, // Maximum reliable frame rate (60 FPS can cause issues)
           aspectRatio: 1,
           disableFlip: false, // Allow scanning flipped/mirrored QR codes
           formatsToSupport: [0], // 0 = QR_CODE only, faster processing
