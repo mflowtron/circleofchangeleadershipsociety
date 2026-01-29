@@ -19,7 +19,7 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
   const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
 
   const handleSwitchDashboard = () => {
-    navigate('/select-dashboard');
+    navigate('/');
   };
 
   if (loading) {

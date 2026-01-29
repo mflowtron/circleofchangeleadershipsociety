@@ -60,7 +60,7 @@ export default function Sidebar() {
 
   const handleSwitchToEvents = () => {
     setIsOpen(false);
-    navigate('/select-dashboard');
+    navigate('/events/manage');
   };
 
   return (
