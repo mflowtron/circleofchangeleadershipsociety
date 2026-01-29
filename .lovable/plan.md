@@ -1,94 +1,47 @@
 
+# Fix Success Message Being Overwritten by "Already Checked In"
 
-# Fix Clear Cache & Reload Button
+## Problem
 
-## Problem Diagnosis
+After a successful check-in, the green success message appears briefly but is immediately replaced by the yellow "already checked in" warning. This creates a confusing user experience.
 
-The "Clear Cache & Reload" button shows the toast notification but the page never reloads. This is happening because:
+## Root Cause
 
-1. The `clearAllCaches()` function is an async function that uses `await` internally
-2. When called inside `setTimeout()`, errors are silently swallowed
-3. If any of the cache operations fail or don't complete, the `window.location.reload()` at the end never executes
+When a check-in completes successfully:
+1. The status is set to `success`
+2. The query cache is invalidated (to update stats and activity feed)
+3. This causes the `existingCheckIn` query to refetch
+4. Since a check-in record now exists, the `existingCheckIn` query returns data
+5. A useEffect hook detects this change and automatically updates the status to `already_checked_in`
+
+The useEffect is designed to update the status when data loads, but it doesn't account for the `success` state which should persist.
 
 ## Solution
 
-Make the cache clearing more robust by:
-- Adding proper error handling with try/catch
-- Ensuring the reload happens even if cache clearing fails
-- Adding a fallback timeout to force reload if async operations hang
-- Adding console logging for debugging
+Modify the `updateStatusFromAttendee` function to skip status updates when the current status is `success`. The success state should be a "terminal" state that only changes when the user clicks "Scan Next".
 
 ## Technical Changes
 
-### 1. Update `src/utils/pwaUtils.ts`
+### Update `src/pages/events/manage/CheckIn.tsx`
 
-Wrap all operations in try/catch blocks and ensure reload always happens:
-
-```typescript
-export async function clearAllCaches(): Promise<void> {
-  console.log('[PWA] Starting cache clear...');
-  
-  try {
-    // Clear all caches
-    if ('caches' in window) {
-      const cacheNames = await caches.keys();
-      console.log('[PWA] Found caches:', cacheNames);
-      await Promise.all(
-        cacheNames.map(cacheName => caches.delete(cacheName))
-      );
-      console.log('[PWA] Cleared all caches');
-    }
-  } catch (error) {
-    console.error('[PWA] Error clearing caches:', error);
-  }
-
-  try {
-    // Unregister all service workers
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      for (const registration of registrations) {
-        await registration.unregister();
-      }
-      console.log('[PWA] Unregistered service workers');
-    }
-  } catch (error) {
-    console.error('[PWA] Error unregistering service workers:', error);
-  }
-
-  // Always reload, even if clearing failed
-  console.log('[PWA] Reloading page...');
-  window.location.reload();
-}
-```
-
-### 2. Update `src/pages/Profile.tsx`
-
-Add a fallback timeout and better error handling in the button click handler:
+Add a check at the beginning of `updateStatusFromAttendee` to preserve the success state:
 
 ```typescript
-onClick={() => {
-  toast({
-    title: 'Clearing cache...',
-    description: 'The app will reload momentarily.',
-  });
+const updateStatusFromAttendee = useCallback(() => {
+  if (!scannedAttendeeId) return;
   
-  // Set a fallback reload in case the async function hangs
-  const fallbackTimeout = setTimeout(() => {
-    console.log('[PWA] Fallback reload triggered');
-    window.location.reload();
-  }, 3000);
+  // Don't override success state - user must manually proceed to next scan
+  if (scanStatus === 'success') return;
   
-  // Call the async function and clear fallback on success
-  clearAllCaches().finally(() => {
-    clearTimeout(fallbackTimeout);
-  });
-}}
+  if (loadingAttendee) {
+    setScanStatus('loading');
+    return;
+  }
+  // ... rest of the function
+}, [scannedAttendeeId, loadingAttendee, scannedAttendee, selectedEventId, existingCheckIn, scanStatus]);
 ```
 
-## Why This Will Work
-
-- Each async operation is wrapped in its own try/catch, so one failure won't prevent the others
-- The reload is called unconditionally at the end of the function
-- A fallback timeout ensures the page reloads even if the async operations hang
-- Console logging helps debug if issues persist
-
+This ensures:
+- The success message remains visible until the user clicks "Scan Next"
+- The function still properly handles other state transitions (loading, ready, error, wrong_event)
+- Adding `scanStatus` to the dependency array ensures the callback always has the current status value
