@@ -864,6 +864,10 @@ export type Database = {
         Returns: boolean
       }
       is_user_approved: { Args: { _user_id: string }; Returns: boolean }
+      reserve_tickets: {
+        Args: { _quantity: number; _ticket_type_id: string }
+        Returns: boolean
+      }
       verify_order_edit_token: {
         Args: { _order_id: string; _token: string }
         Returns: boolean

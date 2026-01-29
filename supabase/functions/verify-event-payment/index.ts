@@ -88,22 +88,8 @@ serve(async (req) => {
           logStep("Order marked as completed");
         }
 
-        // Update ticket quantities sold
-        for (const item of order.order_items) {
-          // Fetch current value and update
-          const { data: ticketType } = await supabaseAdmin
-            .from('ticket_types')
-            .select('quantity_sold')
-            .eq('id', item.ticket_type_id)
-            .single();
-
-          if (ticketType) {
-            await supabaseAdmin
-              .from('ticket_types')
-              .update({ quantity_sold: ticketType.quantity_sold + item.quantity })
-              .eq('id', item.ticket_type_id);
-          }
-        }
+        // Note: Ticket quantities are now reserved atomically in create-event-checkout
+        // before the Stripe redirect, so no update needed here
 
         logStep("Ticket quantities updated");
 
