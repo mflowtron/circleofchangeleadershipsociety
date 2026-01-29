@@ -52,32 +52,6 @@ export function AgendaCalendarView({
     getInitialStartDate(agendaItems, eventStartDate)
   );
 
-  // Calculate dynamic hours based on agenda items in local timezone
-  const { startHour, endHour } = useMemo(() => {
-    if (agendaItems.length === 0) {
-      return { startHour: defaultStartHour, endHour: defaultEndHour };
-    }
-    
-    let earliest = 23;
-    let latest = 0;
-    
-    agendaItems.forEach(item => {
-      const start = new Date(item.starts_at);
-      const end = item.ends_at ? new Date(item.ends_at) : addMinutes(start, 30);
-      earliest = Math.min(earliest, start.getHours());
-      latest = Math.max(latest, end.getHours() + 1);
-    });
-    
-    return {
-      startHour: Math.min(earliest, defaultStartHour),
-      endHour: Math.max(latest, defaultEndHour)
-    };
-  }, [agendaItems, defaultStartHour, defaultEndHour]);
-
-  const timeSlots = useMemo(() => generateTimeSlots(startHour, endHour), [startHour, endHour]);
-  const totalSlots = timeSlots.length;
-  const gridHeight = totalSlots * ROW_HEIGHT;
-
   // Generate the 3 days to display
   const days = useMemo(() => {
     return [0, 1, 2].map(offset => addDays(viewStartDate, offset));
@@ -95,6 +69,38 @@ export function AgendaCalendarView({
     });
     return grouped;
   }, [agendaItems, days]);
+
+  // Calculate dynamic hours based on VISIBLE agenda items only (current 3-day period)
+  const { startHour, endHour } = useMemo(() => {
+    // Get only items from the visible 3-day period
+    const visibleItems = days.flatMap(day => {
+      const dayKey = format(day, 'yyyy-MM-dd');
+      return itemsByDay[dayKey] || [];
+    });
+
+    if (visibleItems.length === 0) {
+      return { startHour: defaultStartHour, endHour: defaultEndHour };
+    }
+    
+    let earliest = 23;
+    let latest = 0;
+    
+    visibleItems.forEach(item => {
+      const start = new Date(item.starts_at);
+      const end = item.ends_at ? new Date(item.ends_at) : addMinutes(start, 30);
+      earliest = Math.min(earliest, start.getHours());
+      latest = Math.max(latest, end.getHours() + 1);
+    });
+    
+    return {
+      startHour: Math.min(earliest, defaultStartHour),
+      endHour: Math.max(latest, defaultEndHour)
+    };
+  }, [days, itemsByDay, defaultStartHour, defaultEndHour]);
+
+  const timeSlots = useMemo(() => generateTimeSlots(startHour, endHour), [startHour, endHour]);
+  const totalSlots = timeSlots.length;
+  const gridHeight = totalSlots * ROW_HEIGHT;
 
   const handlePrevious = () => {
     setViewStartDate(prev => addDays(prev, -3));
