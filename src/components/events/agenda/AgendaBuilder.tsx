@@ -271,6 +271,7 @@ export function AgendaBuilder({ eventId }: AgendaBuilderProps) {
         speakers={speakers}
         existingTracks={tracks}
         onSubmit={handleSubmit}
+        onDelete={setDeletingItem}
         isLoading={createAgendaItem.isPending || updateAgendaItem.isPending}
       />
 

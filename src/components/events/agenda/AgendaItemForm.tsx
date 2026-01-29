@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, addMinutes } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -77,6 +77,7 @@ interface AgendaItemFormProps {
     event_id: string;
     sort_order: number;
   }, speakerAssignments: SpeakerAssignment[]) => Promise<void>;
+  onDelete?: (item: AgendaItem) => void;
   isLoading?: boolean;
 }
 
@@ -89,6 +90,7 @@ export function AgendaItemForm({
   speakers,
   existingTracks,
   onSubmit,
+  onDelete,
   isLoading,
 }: AgendaItemFormProps) {
   const [selectedSpeakers, setSelectedSpeakers] = useState<SpeakerAssignment[]>([]);
@@ -415,17 +417,35 @@ export function AgendaItemForm({
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : item ? 'Save Changes' : 'Add Item'}
-              </Button>
+            <div className="flex justify-between gap-2 pt-4">
+              {item && onDelete ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    onDelete(item);
+                    onOpenChange(false);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              ) : (
+                <div />
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? 'Saving...' : item ? 'Save Changes' : 'Add Item'}
+                </Button>
+              </div>
             </div>
           </form>
         </Form>
