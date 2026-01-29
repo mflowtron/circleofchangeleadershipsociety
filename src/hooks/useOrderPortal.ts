@@ -74,6 +74,7 @@ export function useOrderPortal() {
   const [orders, setOrders] = useState<PortalOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initializing, setInitializing] = useState(true);
 
   // Load session from localStorage on mount
   useEffect(() => {
@@ -90,6 +91,7 @@ export function useOrderPortal() {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
+    setInitializing(false);
   }, []);
 
   // Fetch orders when session is available
@@ -282,7 +284,7 @@ export function useOrderPortal() {
     isAuthenticated: !!session,
     email: session?.email || null,
     orders,
-    loading,
+    loading: loading || initializing,
     error,
     sendCode,
     verifyCode,
