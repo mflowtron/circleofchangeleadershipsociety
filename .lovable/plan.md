@@ -1,105 +1,123 @@
 
 
-# Fix Calendar View Hours to Match Visible Time Period
+# Fix Speaker Name Overlapping with Session Title in Calendar View
 
 ## Problem
 
-The calendar currently calculates visible hours based on **all** agenda items across all days in the event. This means:
-- Navigating to a 3-day period with events from 9 AM - 4 PM still shows hours based on events from other days
-- The visible time range doesn't adapt when you navigate to different date ranges
+In the agenda calendar view, speaker names like "Marta Skull" are overlapping with session titles like "Workshop: Mental Health & Wellness". This creates an unreadable and confusing display.
+
+## Root Cause
+
+Each `AgendaCalendarItem` component has its own `TooltipProvider` wrapper. When multiple agenda items are rendered close together in the calendar grid, their tooltips can overlap and render at incorrect positions. The Radix UI tooltip documentation recommends using a single `TooltipProvider` at the app or container level to coordinate tooltip display.
+
+The current structure:
+
+```text
+AgendaCalendarView
+  AgendaCalendarItem (TooltipProvider wraps each item)
+    Tooltip
+      TooltipTrigger
+      TooltipContent (shows speakers here)
+  AgendaCalendarItem (TooltipProvider wraps each item)
+    Tooltip
+      ...
+  (Many more items, each with their own TooltipProvider)
+```
+
+When tooltips from multiple providers overlap, z-index and positioning conflicts occur.
 
 ## Solution
 
-Change the dynamic hour calculation to only consider items from the **currently visible 3-day period** instead of all agenda items.
+1. **Move TooltipProvider up to AgendaCalendarView level** - Wrap the calendar grid with a single `TooltipProvider` so all tooltips are coordinated
+2. **Update AgendaCalendarItem** - Remove the individual `TooltipProvider` wrapper from each item
+3. **Ensure proper z-index** - Add explicit z-index to tooltip content for agenda items to ensure they render above other items
 
-## Implementation
+## Implementation Details
 
 ### File: `src/components/events/agenda/AgendaCalendarView.tsx`
 
-**Current Code (lines 56-75):**
-```typescript
-const { startHour, endHour } = useMemo(() => {
-  if (agendaItems.length === 0) {
-    return { startHour: defaultStartHour, endHour: defaultEndHour };
-  }
-  
-  let earliest = 23;
-  let latest = 0;
-  
-  agendaItems.forEach(item => {  // <-- Iterates ALL items
-    const start = new Date(item.starts_at);
-    const end = item.ends_at ? new Date(item.ends_at) : addMinutes(start, 30);
-    earliest = Math.min(earliest, start.getHours());
-    latest = Math.max(latest, end.getHours() + 1);
-  });
-  
-  return {
-    startHour: Math.min(earliest, defaultStartHour),
-    endHour: Math.max(latest, defaultEndHour)
-  };
-}, [agendaItems, defaultStartHour, defaultEndHour]);
-```
-
-**Updated Logic:**
-
-1. Move the hour calculation **after** the `days` and `itemsByDay` computations
-2. Filter to only items visible in the current 3-day period
-3. Calculate hours from those filtered items only
+**Change 1**: Import TooltipProvider from ui/tooltip
 
 ```typescript
-// Move after itemsByDay is computed
-
-const { startHour, endHour } = useMemo(() => {
-  // Get only items from the visible 3-day period
-  const visibleItems = days.flatMap(day => {
-    const dayKey = format(day, 'yyyy-MM-dd');
-    return itemsByDay[dayKey] || [];
-  });
-  
-  if (visibleItems.length === 0) {
-    return { startHour: defaultStartHour, endHour: defaultEndHour };
-  }
-  
-  let earliest = 23;
-  let latest = 0;
-  
-  visibleItems.forEach(item => {
-    const start = new Date(item.starts_at);
-    const end = item.ends_at ? new Date(item.ends_at) : addMinutes(start, 30);
-    earliest = Math.min(earliest, start.getHours());
-    latest = Math.max(latest, end.getHours() + 1);
-  });
-  
-  return {
-    startHour: Math.min(earliest, defaultStartHour),
-    endHour: Math.max(latest, defaultEndHour)
-  };
-}, [days, itemsByDay, defaultStartHour, defaultEndHour]);
+import { TooltipProvider } from '@/components/ui/tooltip';
 ```
 
-### Dependency Reordering
+**Change 2**: Wrap the calendar grid with TooltipProvider
 
-The current code structure has a circular dependency issue:
-- `days` depends on `viewStartDate`
-- `itemsByDay` depends on `days` and `agendaItems`
-- `startHour/endHour` currently doesn't depend on `days`
+```typescript
+return (
+  <TooltipProvider delayDuration={300}>
+    <div className="flex flex-col h-full">
+      {/* ... existing content ... */}
+    </div>
+  </TooltipProvider>
+);
+```
 
-We need to reorder the useMemo hooks:
+### File: `src/components/events/agenda/AgendaCalendarItem.tsx`
 
-1. Keep `days` first (depends on `viewStartDate`)
-2. Create `itemsByDay` second (depends on `days`, `agendaItems`)
-3. Move `startHour/endHour` calculation third (depends on `days`, `itemsByDay`)
-4. Update `timeSlots` to depend on the new hour values
+**Change 3**: Remove individual TooltipProvider wrapper
+
+Before:
+```typescript
+return (
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        ...
+      </TooltipTrigger>
+      <TooltipContent>...</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
+```
+
+After:
+```typescript
+return (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      ...
+    </TooltipTrigger>
+    <TooltipContent side="right" className="max-w-xs z-50">
+      ...
+    </TooltipContent>
+  </Tooltip>
+);
+```
+
+**Change 4**: Remove unused TooltipProvider import
+
+```typescript
+// Before
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+
+// After
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+```
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/events/agenda/AgendaCalendarView.tsx` | Reorder useMemo hooks, change hour calculation to filter by visible days only |
+| `src/components/events/agenda/AgendaCalendarView.tsx` | Import TooltipProvider, wrap entire calendar grid |
+| `src/components/events/agenda/AgendaCalendarItem.tsx` | Remove TooltipProvider wrapper, remove unused import |
 
-## Result
+## Testing Checklist
 
-- When viewing Jan 29-31 with events from 9 AM-4 PM, calendar shows 6 AM-10 PM (within defaults)
-- When navigating to Feb 1-3 with events from 7 AM-9 PM, calendar adjusts to show that range
-- Empty date ranges fall back to default 6 AM-10 PM
+After implementation, verify:
+- Hover over calendar items shows tooltip on the right side
+- Tooltips don't overlap with item titles
+- Speaker names only appear in tooltip, not overlapping with the item
+- Tooltips disappear properly when moving to a different item
+- Multiple items can be hovered in sequence without visual glitches
 
