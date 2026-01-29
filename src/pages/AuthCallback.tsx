@@ -43,10 +43,39 @@ export default function AuthCallback() {
           }
 
           // Normal browser flow - redirect based on user role
+          // Add a small delay to ensure trigger has completed for new users
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           const [profileResult, roleResult] = await Promise.all([
             supabase.from('profiles').select('is_approved').eq('user_id', session.user.id).single(),
             supabase.from('user_roles').select('role').eq('user_id', session.user.id).single()
           ]);
+
+          console.log('Auth callback - profile result:', profileResult);
+          console.log('Auth callback - role result:', roleResult);
+
+          // Check if profile query failed (not just empty data)
+          if (profileResult.error) {
+            console.error('Profile query error:', profileResult.error);
+            // If profile doesn't exist yet, wait and retry
+            if (profileResult.error.code === 'PGRST116') {
+              setMessage('Setting up your account...');
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              const retryResult = await supabase.from('profiles').select('is_approved').eq('user_id', session.user.id).single();
+              if (retryResult.data) {
+                const isApproved = retryResult.data.is_approved;
+                if (!isApproved) {
+                  navigate('/pending-approval', { replace: true });
+                } else {
+                  navigate('/', { replace: true });
+                }
+                return;
+              }
+            }
+            // Default to pending approval for safety if profile can't be fetched
+            navigate('/pending-approval', { replace: true });
+            return;
+          }
 
           const isApproved = profileResult.data?.is_approved ?? false;
           const role = roleResult.data?.role;
