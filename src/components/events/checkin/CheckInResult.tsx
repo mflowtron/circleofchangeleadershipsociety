@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle2, AlertTriangle, XCircle, User, Ticket, Hash, Clock, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -44,9 +45,35 @@ export function CheckInResult({
 
   if (status === 'loading') {
     return (
-      <Card className="p-8 text-center animate-pulse">
-        <Loader2 className="h-12 w-12 text-muted-foreground mx-auto animate-spin mb-4" />
-        <p className="text-muted-foreground">Looking up attendee...</p>
+      <Card className="p-8">
+        <div className="text-center mb-6">
+          {/* Avatar skeleton with pulse animation */}
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Loader2 className="h-8 w-8 text-primary animate-spin" />
+          </div>
+          
+          {/* Name skeleton */}
+          <Skeleton className="h-6 w-40 mx-auto mb-2" />
+          {/* Email skeleton */}
+          <Skeleton className="h-4 w-52 mx-auto" />
+        </div>
+
+        <div className="space-y-3 mb-6">
+          {/* Ticket type skeleton */}
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          {/* Order number skeleton */}
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+        </div>
+
+        {/* Button skeleton */}
+        <Skeleton className="h-11 w-full mb-2" />
+        <Skeleton className="h-10 w-full" />
       </Card>
     );
   }
