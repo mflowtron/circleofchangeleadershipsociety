@@ -359,6 +359,128 @@ serve(async (req) => {
       );
     }
 
+    // Generate captions for a recording using Mux's auto-captioning
+    if (action === "generate-captions") {
+      if (!isAdmin && !isAdvisor) {
+        throw new Error("Only admins and advisors can generate captions");
+      }
+
+      const { recording_id, asset_id } = body;
+
+      if (!asset_id) {
+        throw new Error("asset_id is required");
+      }
+
+      // First, get the asset tracks to find the audio track ID
+      const tracksResponse = await fetch(
+        `https://api.mux.com/video/v1/assets/${asset_id}`,
+        {
+          headers: {
+            Authorization: `Basic ${muxAuth}`,
+          },
+        }
+      );
+
+      if (!tracksResponse.ok) {
+        const error = await tracksResponse.text();
+        console.error("Failed to get asset:", error);
+        throw new Error(`Failed to get asset details: ${tracksResponse.status}`);
+      }
+
+      const assetData = await tracksResponse.json();
+      const asset = assetData.data;
+
+      // Find the audio track
+      const audioTrack = asset.tracks?.find(
+        (track: { type: string }) => track.type === "audio"
+      );
+
+      if (!audioTrack) {
+        throw new Error("No audio track found on this asset");
+      }
+
+      // Generate subtitles for the audio track
+      const subtitleResponse = await fetch(
+        `https://api.mux.com/video/v1/assets/${asset_id}/tracks/${audioTrack.id}/generate-subtitles`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Basic ${muxAuth}`,
+          },
+          body: JSON.stringify({
+            generated_subtitles: [
+              {
+                language_code: "en",
+                name: "English",
+              },
+            ],
+          }),
+        }
+      );
+
+      if (!subtitleResponse.ok) {
+        const error = await subtitleResponse.text();
+        console.error("Failed to generate subtitles:", error);
+        throw new Error(`Failed to generate subtitles: ${subtitleResponse.status}`);
+      }
+
+      // Update recording status to generating
+      if (recording_id) {
+        await supabase
+          .from("recordings")
+          .update({ captions_status: "generating" })
+          .eq("id", recording_id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, status: "generating" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get caption track info for a recording
+    if (action === "get-caption-track") {
+      const { asset_id } = body;
+
+      if (!asset_id) {
+        throw new Error("asset_id is required");
+      }
+
+      const assetResponse = await fetch(
+        `https://api.mux.com/video/v1/assets/${asset_id}`,
+        {
+          headers: {
+            Authorization: `Basic ${muxAuth}`,
+          },
+        }
+      );
+
+      if (!assetResponse.ok) {
+        throw new Error("Failed to get asset details");
+      }
+
+      const assetData = await assetResponse.json();
+      const asset = assetData.data;
+
+      // Find text tracks (captions)
+      const textTracks = asset.tracks?.filter(
+        (track: { type: string; text_source?: string }) =>
+          track.type === "text" && track.text_source === "generated_vod"
+      );
+
+      const captionTrack = textTracks?.[0];
+
+      return new Response(
+        JSON.stringify({
+          has_captions: !!captionTrack,
+          track_id: captionTrack?.id || null,
+          status: captionTrack?.status || null,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     throw new Error("Invalid action");
   } catch (error) {
     console.error("Error:", error);

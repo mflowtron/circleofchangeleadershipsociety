@@ -20,10 +20,13 @@ export interface Recording {
   description: string | null;
   video_url: string | null;
   mux_playback_id: string | null;
+  mux_asset_id: string | null;
   thumbnail_url: string | null;
   created_at: string;
   status: string | null;
   uploaded_by: string;
+  captions_status: string | null;
+  captions_track_id: string | null;
 }
 
 interface RecordingCardProps {
