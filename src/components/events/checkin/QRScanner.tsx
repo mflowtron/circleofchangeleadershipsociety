@@ -3,6 +3,7 @@ import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
 import { Camera, SwitchCamera, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { startQrWithFallback, serializeDomError } from './qrScannerFallback';
 
 interface QRScannerProps {
   onScan: (attendeeId: string) => void;
@@ -132,24 +133,19 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
           await scannerRef.current.stop();
         }
 
-        // Use facingMode for faster mobile camera acquisition
-        // Request maximum resolution (4K) for better distance scanning
-        const cameraConfig = currentCamera 
-          ? { 
-              deviceId: { exact: currentCamera },
-              width: { ideal: 3840 },
-              height: { ideal: 2160 },
-            }
-          : { 
-              facingMode: "environment",
-              width: { ideal: 3840 },
-              height: { ideal: 2160 },
-            };
+        // Use a fallback ladder so we take the *best supported* device settings
+        // instead of failing outright when a device can't do 4K / certain constraints.
+        const cameraBases: MediaTrackConstraints[] = [];
+        if (currentCamera) {
+          cameraBases.push({ deviceId: { exact: currentCamera } });
+        }
+        // Always try environment-facing camera as a compatibility fallback.
+        cameraBases.push({ facingMode: "environment" });
 
         // Check if native Barcode Detection API is available
         const hasNativeAPI = 'BarcodeDetector' in window;
         console.log('[QRScanner] Native BarcodeDetector available:', hasNativeAPI);
-        console.log('[QRScanner] Starting scanner with config:', cameraConfig);
+        console.log('[QRScanner] Starting scanner with camera bases (fallback enabled):', cameraBases);
 
         // Build scan config - use type assertion for experimentalFeatures which is valid but not in TS types
         // Optimized for reliable QR detection:
@@ -157,8 +153,8 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         // - No qrbox restriction - scan entire viewfinder area
         // - disableFlip: false allows detection of mirrored/inverted codes
         // - formatsToSupport limits to QR only for faster processing
-        const scanConfig = {
-          fps: 30, // Maximum reliable frame rate (60 FPS can cause issues)
+        const baseScanConfig = {
+          fps: 30,
           aspectRatio: 1,
           disableFlip: false, // Allow scanning flipped/mirrored QR codes
           formatsToSupport: [0], // 0 = QR_CODE only, faster processing
@@ -169,15 +165,14 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
           },
         } as Parameters<typeof scannerRef.current.start>[1];
 
-        await scannerRef.current.start(
-          cameraConfig,
-          scanConfig,
-          // Use a wrapper function that reads from ref to get latest handler
-          (decodedText: string) => {
+        await startQrWithFallback({
+          scanner: scannerRef.current,
+          cameraBases,
+          baseScanConfig,
+          onDecodedText: (decodedText: string) => {
             handleScanRef.current(decodedText);
           },
-          () => {} // Ignore "no QR found" errors
-        );
+        });
         
         if (mounted) {
           console.log('[QRScanner] Scanner started successfully');
@@ -185,9 +180,10 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
           setError(null);
         }
       } catch (err) {
-        console.error('[QRScanner] Start error:', err);
+        const e = serializeDomError(err);
+        console.error('[QRScanner] Start error:', e.name, e.message, e.raw);
         if (mounted) {
-          setError('Failed to start camera');
+          setError(e.message || 'Failed to start camera');
           setIsScanning(false);
         }
       }
