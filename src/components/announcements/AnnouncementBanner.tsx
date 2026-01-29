@@ -14,7 +14,7 @@ export default function AnnouncementBanner() {
         <AnnouncementCard
           key={announcement.id}
           announcement={announcement}
-          onDismiss={dismissAnnouncement}
+          showDismiss={false}
         />
       ))}
     </div>
