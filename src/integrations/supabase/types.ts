@@ -715,6 +715,8 @@ export type Database = {
       }
       recordings: {
         Row: {
+          captions_status: string | null
+          captions_track_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -728,6 +730,8 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          captions_status?: string | null
+          captions_track_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -741,6 +745,8 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          captions_status?: string | null
+          captions_track_id?: string | null
           created_at?: string
           description?: string | null
           id?: string

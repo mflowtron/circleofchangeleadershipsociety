@@ -203,6 +203,41 @@ serve(async (req) => {
         break;
       }
 
+      case "video.asset.track.ready": {
+        // Handle caption track becoming ready
+        const track = event.data;
+        const assetId = track.asset_id;
+        const trackId = track.id;
+        const textSource = track.text_source;
+
+        console.log(`Track ready: ${trackId} for asset ${assetId}, text_source: ${textSource}`);
+
+        // Only process generated captions (auto-generated from Whisper)
+        if (textSource === "generated_vod") {
+          // Find recording by asset ID
+          const { data: recording } = await supabase
+            .from("recordings")
+            .select("id")
+            .eq("mux_asset_id", assetId)
+            .maybeSingle();
+
+          if (recording) {
+            await supabase
+              .from("recordings")
+              .update({
+                captions_status: "ready",
+                captions_track_id: trackId,
+              })
+              .eq("id", recording.id);
+
+            console.log(`Updated recording ${recording.id} captions to ready, track_id: ${trackId}`);
+          } else {
+            console.log(`No recording found for asset ${assetId} to update captions`);
+          }
+        }
+        break;
+      }
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
