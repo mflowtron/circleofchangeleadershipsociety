@@ -84,19 +84,19 @@ export function AgendaCalendarItem({ item, startHour, endHour, onClick }: Agenda
             minHeight: `${ROW_HEIGHT}px`,
           }}
         >
-          <div className="flex items-start gap-1 h-full">
+          <div className="flex items-start gap-1 h-full overflow-hidden">
             {!isCompact && (
               <AgendaTypeIcon type={item.item_type} size="sm" className="flex-shrink-0 mt-0.5" />
             )}
-            <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="min-w-0 flex-1 overflow-hidden flex flex-col">
               <p className={cn(
-                'font-medium truncate',
+                'font-medium truncate line-clamp-1',
                 isCompact ? 'text-xs' : 'text-sm'
               )}>
                 {item.title}
               </p>
               {!isCompact && (
-                <p className="text-xs text-muted-foreground truncate">
+                <p className="text-xs text-muted-foreground truncate line-clamp-1 flex-shrink-0">
                   {format(itemStart, 'h:mm a')} - {format(itemEnd, 'h:mm a')}
                 </p>
               )}
