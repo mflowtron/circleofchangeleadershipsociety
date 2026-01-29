@@ -1,156 +1,149 @@
 
 
-# Fix QR Code Scanner Performance and Stability on Mobile
+# Improve PWA Cache Update Speed
 
-## Problems Identified
+## Current Setup Analysis
 
-After analyzing the code and session replay data, I found several issues causing the scanner to be slow and unstable on mobile:
+The current PWA configuration includes:
+- **autoUpdate** register type with `skipWaiting: true` and `clientsClaim: true`
+- 5-minute polling interval for checking updates
+- A manual refresh banner when updates are detected
+- NetworkFirst strategy for navigation and API calls
 
-### Issue 1: Scanner Restarts on Every Dependency Change
-The `handleScan` callback is included in the effect dependencies (line 141), which causes the scanner to stop and restart every time the callback reference changes. This creates a jarring experience where the camera briefly disappears.
+## Why Updates Feel Slow
 
-### Issue 2: Problematic State Update Pattern
-On line 82-86 of CheckIn.tsx, there's an incorrect use of `useState` as an effect:
-```javascript
-useState(() => {
-  if (scannedAttendeeId && !loadingAttendee) {
-    updateStatusFromAttendee();
-  }
-});
-```
-This is meant to be `useEffect`, causing the status update logic to not work properly.
+Despite having `skipWaiting` and `clientsClaim`, users still experience stale content because:
 
-### Issue 3: Race Condition in Status Updates
-When a QR code is scanned, the `handleScan` function:
-1. Sets `scannedAttendeeId` 
-2. Sets `scanStatus` to 'loading'
-3. Deactivates the scanner
+1. **Manual refresh required** - The current flow shows a banner and waits for user action
+2. **5-minute polling interval** - Users may not see updates for up to 5 minutes
+3. **Cached JavaScript bundles** - Old JS files are served from precache until the service worker updates
+4. **iOS Safari limitations** - iOS handles PWA updates differently and may require app restart
 
-However, the `updateStatusFromAttendee` callback isn't being called reliably because of the broken `useState` usage, leaving the UI stuck in a loading state or causing the camera box to disappear without any check-in occurring.
+## Solution: Aggressive Auto-Update Strategy
 
-### Issue 4: Scanner FPS Too Low for Mobile
-The current `fps: 10` setting can feel slow on mobile devices. Increasing to 15-20 fps improves responsiveness without significantly impacting battery.
+### Changes Overview
 
-### Issue 5: Missing Visual Feedback
-Users don't get immediate feedback when a QR code is detected - the scanner just disappears.
+| File | Change |
+|------|--------|
+| `vite.config.ts` | Add cache-busting headers hint and network-first for JS/CSS |
+| `UpdateNotification.tsx` | Auto-reload after short delay, add "Update now" visual, reduce poll to 1 minute |
+| New: `src/utils/pwaUtils.ts` | Helper to force clear caches on critical updates |
 
-## Solution
+### 1. Update Vite Config - Add Runtime Caching for JS/CSS
 
-### File 1: `src/components/events/checkin/QRScanner.tsx`
-
-1. **Use `facingMode` instead of camera ID for initial start**
-   - Mobile devices respond better to `{ facingMode: "environment" }` than specific camera IDs
-   - This also speeds up initial camera acquisition
-
-2. **Stabilize callback reference with useRef**
-   - Store the callback in a ref to prevent scanner restarts when the callback reference changes
-
-3. **Increase scanning FPS for mobile**
-   - Change from `fps: 10` to `fps: 15` for faster detection
-
-4. **Add visual scan feedback**
-   - Add a brief visual flash/pulse when a QR code is detected before the scanner closes
-
-5. **Improve error recovery**
-   - Add a retry mechanism if the camera fails to start
-
-### File 2: `src/pages/events/manage/CheckIn.tsx`
-
-1. **Fix the broken `useState` to `useEffect`**
-   - Change line 82-86 from `useState(...)` to `useEffect(...)`
-   - Add proper dependencies to ensure status updates fire correctly
-
-2. **Improve the state machine logic**
-   - Ensure status transitions happen reliably when attendee data loads
-
-3. **Add success vibration feedback on mobile**
-   - Use the Vibration API to provide haptic feedback on successful scan
-
-## Technical Changes
-
-### QRScanner.tsx Changes
+Add a network-first strategy for JavaScript and CSS files to ensure fresh code is always fetched:
 
 ```typescript
-// Add useRef for stable callback reference
-const onScanRef = useRef(onScan);
-useEffect(() => { onScanRef.current = onScan; }, [onScan]);
-
-// In handleScan, use the ref instead of the prop
-const handleScan = useCallback((decodedText: string) => {
-  // ... extraction logic ...
-  if (attendeeId) {
-    lastScanRef.current = decodedText;
-    onScanRef.current(attendeeId); // Use ref instead of direct prop
-    // ...
-  }
-}, [extractAttendeeId, onError]); // Remove onScan from dependencies
-
-// Use facingMode for initial camera start
-await scannerRef.current.start(
-  { facingMode: "environment" }, // Instead of camera ID
-  { fps: 15, qrbox: { width: 250, height: 250 } },
-  handleScan,
-  () => {}
-);
-
-// Remove handleScan from the effect dependencies to prevent restarts
-}, [isActive, currentCamera, hasPermission]); // handleScan removed
+// Add to runtimeCaching array
+{
+  urlPattern: /\.(?:js|css)$/i,
+  handler: "NetworkFirst",
+  options: {
+    cacheName: "static-resources",
+    expiration: {
+      maxEntries: 100,
+      maxAgeSeconds: 60 * 60 * 24, // 1 day
+    },
+    networkTimeoutSeconds: 3, // Fall back to cache if network is slow
+  },
+},
 ```
 
-### CheckIn.tsx Changes
+### 2. Update the Notification Component - Auto-Reload Option
+
+Transform the update notification to auto-reload after a brief countdown, giving users a heads up but not requiring action:
+
+- Reduce polling from 5 minutes to **1 minute**
+- Show a 5-second countdown before auto-refresh
+- Add option to dismiss and refresh manually later
+- Check for updates immediately on page visibility change (when user returns to app)
+
+### 3. Add Page Visibility Listener
+
+When users switch back to the PWA, immediately check for updates rather than waiting for the next poll:
 
 ```typescript
-// Fix line 82-86: Change useState to useEffect
+// In UpdateNotification.tsx
 useEffect(() => {
-  if (scannedAttendeeId && !loadingAttendee) {
-    updateStatusFromAttendee();
-  }
-}, [scannedAttendeeId, loadingAttendee, updateStatusFromAttendee]);
-
-// Remove the inline status check (lines 89-91) as it will be handled by useEffect
-
-// Add haptic feedback in handleScan
-const handleScan = useCallback((attendeeId: string) => {
-  // Haptic feedback on mobile
-  if ('vibrate' in navigator) {
-    navigator.vibrate(100);
-  }
-  setScannedAttendeeId(attendeeId);
-  setScanStatus('loading');
-  setIsScannerActive(false);
-}, []);
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible' && registration) {
+      registration.update();
+    }
+  };
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+}, [registration]);
 ```
 
-## Visual Flow After Fix
+### 4. Create PWA Utility for Manual Cache Clear
+
+Add a utility function users can trigger from settings to force-clear all PWA caches:
+
+```typescript
+// src/utils/pwaUtils.ts
+export async function clearAllCaches(): Promise<void> {
+  if ('caches' in window) {
+    const cacheNames = await caches.keys();
+    await Promise.all(
+      cacheNames.map(cacheName => caches.delete(cacheName))
+    );
+  }
+  // Unregister and re-register service worker
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  for (const registration of registrations) {
+    await registration.unregister();
+  }
+  window.location.reload();
+}
+```
+
+## Updated User Flow
 
 ```text
-┌─────────────────────┐
-│  Camera Active      │
-│  [Scanning...]      │
-└─────────────────────┘
+┌─────────────────────────────────────────┐
+│  User opens PWA                         │
+└─────────────────────────────────────────┘
          │
-         │ QR Code Detected
-         │ (vibration feedback)
          ▼
-┌─────────────────────┐
-│  Loading Card       │
-│  "Looking up..."    │
-└─────────────────────┘
+┌─────────────────────────────────────────┐
+│  Check for SW update immediately        │
+│  + poll every 1 minute                  │
+│  + check on visibility change           │
+└─────────────────────────────────────────┘
          │
-         │ Attendee Found
+         │ Update detected
          ▼
-┌─────────────────────┐
-│  Attendee Card      │
-│  [Check In] button  │
-└─────────────────────┘
+┌─────────────────────────────────────────┐
+│  Show banner with 5s countdown          │
+│  "Updating in 5... 4... 3..."           │
+│  [Update Now] [Dismiss]                 │
+└─────────────────────────────────────────┘
+         │
+         │ Countdown ends OR user clicks
+         ▼
+┌─────────────────────────────────────────┐
+│  Auto-reload with new version           │
+└─────────────────────────────────────────┘
 ```
 
 ## Expected Improvements
 
 | Metric | Before | After |
 |--------|--------|-------|
-| Scan detection speed | ~1-2 seconds | ~0.5 seconds |
-| Camera restart on scan | Yes (causes flicker) | No |
-| Status update reliability | Broken | Reliable |
-| Mobile haptic feedback | None | Vibration pulse |
+| Update detection | 5 minutes max | 1 minute max |
+| Detection on app resume | Not checked | Immediate check |
+| User action required | Yes (manual) | No (auto after 5s) |
+| JS/CSS freshness | Precache only | Network-first |
+
+## Technical Details
+
+### Files to Modify
+1. **vite.config.ts** - Add JS/CSS runtime caching strategy
+2. **src/components/pwa/UpdateNotification.tsx** - Add auto-reload countdown, visibility listener, reduce poll interval
+3. **New: src/utils/pwaUtils.ts** - Cache clearing utility for troubleshooting
+
+### Implementation Notes
+- The auto-reload countdown can be dismissed if user is in the middle of something
+- Visibility change listener ensures instant update check when returning to app
+- Network-first for JS/CSS means fresh code is always attempted first, with cache fallback for offline
 
