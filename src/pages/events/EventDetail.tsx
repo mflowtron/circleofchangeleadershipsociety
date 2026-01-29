@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { EventsLayout } from '@/layouts/EventsLayout';
 import { useEvent } from '@/hooks/useEvents';
 import { useTicketTypes } from '@/hooks/useTicketTypes';
+import { AgendaPublicView } from '@/components/events/agenda/AgendaPublicView';
 
 export default function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -125,6 +126,9 @@ export default function EventDetail() {
                 <div className="whitespace-pre-wrap">{event.description}</div>
               </div>
             )}
+
+            {/* Agenda */}
+            <AgendaPublicView eventId={event.id} />
 
             {/* Location */}
             {event.venue_address && (
