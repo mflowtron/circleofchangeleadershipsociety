@@ -62,15 +62,8 @@ export function useAnnouncements() {
 
       if (activeError) throw activeError;
 
-      // Fetch dismissals
-      const dismissed = await fetchDismissals();
-      setDismissedIds(dismissed);
-
-      // Filter out dismissed announcements
-      const visibleAnnouncements = (activeData || []).filter(
-        a => !dismissed.has(a.id)
-      );
-      setAnnouncements(visibleAnnouncements);
+      // Show all active announcements (no longer filtering by dismissals)
+      setAnnouncements(activeData || []);
     } catch (error) {
       console.error('Error fetching announcements:', error);
     } finally {
