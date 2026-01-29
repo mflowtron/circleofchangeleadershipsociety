@@ -114,15 +114,90 @@ serve(async (req: Request) => {
       to: [normalizedEmail],
       subject: 'Your Order Access Code',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #333;">Your Access Code</h1>
-          <p>Use this code to access your orders:</p>
-          <div style="background: #f5f5f5; padding: 20px; text-align: center; margin: 20px 0;">
-            <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333;">${code}</span>
-          </div>
-          <p style="color: #666;">This code will expire in 10 minutes.</p>
-          <p style="color: #666;">If you didn't request this code, you can safely ignore this email.</p>
-        </div>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; padding:0; background-color:#FAF9F7; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  
+  <!-- Main Container -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAF9F7; padding:40px 20px;">
+    <tr>
+      <td align="center">
+        
+        <!-- Email Card -->
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; background-color:#FFFFFF; border-radius:16px; box-shadow:0 4px 24px rgba(30,20,15,0.08); overflow:hidden;">
+          
+          <!-- Golden Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #1A1814 0%, #2A2520 100%); padding:32px 40px; text-align:center;">
+              <img src="https://circleofchangeleadershipsociety.lovable.app/coclc-logo-emblem.png" alt="Circle of Change" width="80" style="display:block; margin:0 auto;">
+            </td>
+          </tr>
+          
+          <!-- Content Section -->
+          <tr>
+            <td style="padding:40px;">
+              
+              <!-- Greeting -->
+              <h1 style="margin:0 0 8px; font-size:24px; font-weight:600; color:#1F1C18; text-align:center;">
+                Your Access Code
+              </h1>
+              <p style="margin:0 0 32px; font-size:15px; color:#6B6560; text-align:center; line-height:1.6;">
+                Enter this code to securely access your event tickets and orders.
+              </p>
+              
+              <!-- Code Display -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 auto 32px;">
+                <tr>
+                  <td align="center">
+                    <div style="display:inline-block; background:linear-gradient(180deg, #FEFEFE 0%, #FAF9F7 100%); border:2px solid #D4A84B; border-radius:12px; padding:20px 32px;">
+                      <span style="font-size:36px; font-weight:700; letter-spacing:12px; color:#1A1814; font-family:'Courier New', monospace;">
+                        ${code}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Expiry Notice -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <div style="display:inline-block; background:#FEF9F0; border-radius:8px; padding:12px 20px;">
+                      <span style="font-size:13px; color:#B8923F; font-weight:500;">
+                        ⏱ This code expires in 10 minutes
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background:#FAF9F7; padding:24px 40px; border-top:1px solid #EAE7E3;">
+              <p style="margin:0 0 8px; font-size:13px; color:#6B6560; text-align:center; line-height:1.5;">
+                If you didn't request this code, you can safely ignore this email.
+              </p>
+              <p style="margin:0; font-size:12px; color:#9A958F; text-align:center;">
+                © 2026 Circle of Change Leadership Society
+              </p>
+            </td>
+          </tr>
+          
+        </table>
+        
+      </td>
+    </tr>
+  </table>
+  
+</body>
+</html>
       `,
     });
 
