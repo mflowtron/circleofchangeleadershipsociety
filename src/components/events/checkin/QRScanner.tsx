@@ -137,15 +137,26 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
           ? currentCamera 
           : { facingMode: "environment" };
 
+        // Check if native Barcode Detection API is available
+        const hasNativeAPI = 'BarcodeDetector' in window;
+        console.log('[QRScanner] Native BarcodeDetector available:', hasNativeAPI);
         console.log('[QRScanner] Starting scanner with config:', cameraConfig);
+
+        // Build scan config - use type assertion for experimentalFeatures which is valid but not in TS types
+        const scanConfig = {
+          fps: 15,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1,
+          // Use native Barcode Detection API when available (Chrome/Edge Android, Safari 17.2+)
+          // This provides faster and more reliable scanning on supported devices
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
+        } as Parameters<typeof scannerRef.current.start>[1];
 
         await scannerRef.current.start(
           cameraConfig,
-          {
-            fps: 15,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1,
-          },
+          scanConfig,
           // Use a wrapper function that reads from ref to get latest handler
           (decodedText: string) => {
             handleScanRef.current(decodedText);
