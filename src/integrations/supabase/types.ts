@@ -207,6 +207,54 @@ export type Database = {
         }
         Relationships: []
       }
+      attendee_checkins: {
+        Row: {
+          attendee_id: string
+          check_in_date: string
+          checked_in_at: string
+          checked_in_by: string | null
+          created_at: string
+          event_id: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          attendee_id: string
+          check_in_date?: string
+          checked_in_at?: string
+          checked_in_by?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          attendee_id?: string
+          check_in_date?: string
+          checked_in_at?: string
+          checked_in_by?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendee_checkins_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendee_checkins_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendees: {
         Row: {
           additional_info: Json | null

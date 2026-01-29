@@ -10,7 +10,8 @@ import {
   Users,
   BadgeCheck,
   UserCircle,
-  CalendarDays
+  CalendarDays,
+  ScanLine
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EventSelector } from './EventSelector';
@@ -27,6 +28,7 @@ interface EventsDashboardSidebarProps {
 const eventNavItems = [
   { path: '/events/manage/orders', label: 'Orders', icon: ShoppingCart },
   { path: '/events/manage/attendees', label: 'Attendees', icon: Users },
+  { path: '/events/manage/checkin', label: 'Check-In', icon: ScanLine },
   { path: '/events/manage/speakers', label: 'Speakers', icon: UserCircle },
   { path: '/events/manage/agenda', label: 'Agenda', icon: CalendarDays },
 ];
