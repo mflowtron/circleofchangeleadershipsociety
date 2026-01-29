@@ -156,15 +156,15 @@ export default function Auth() {
         <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-gradient-radial from-primary/5 via-transparent to-transparent" />
       </div>
 
-      <Card className="w-full max-w-md relative z-10 shadow-medium border-border/50 animate-scale-in">
-        <CardHeader className="text-center pb-2">
-          {/* Theme Toggle - positioned in card header */}
-          <div className="absolute top-4 right-4">
-            <ThemeToggle />
-          </div>
-          <div className="mx-auto mb-6 p-4 rounded-2xl inline-block bg-transparent">
-            <img src={logo} alt="Circle of Change" className="h-14" />
-          </div>
+      <div className="w-full max-w-md relative z-10 flex flex-col items-end gap-2">
+        {/* Theme Toggle - just outside the modal */}
+        <ThemeToggle />
+        
+        <Card className="w-full shadow-medium border-border/50 animate-scale-in">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto mb-6 p-4 rounded-2xl inline-block bg-transparent">
+              <img src={logo} alt="Circle of Change" className="h-14" />
+            </div>
           <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
           <CardDescription className="text-muted-foreground">
             Circle of Change Leadership Society
@@ -248,5 +248,6 @@ export default function Auth() {
           </Tabs>
         </CardContent>
       </Card>
+      </div>
     </div>;
 }
