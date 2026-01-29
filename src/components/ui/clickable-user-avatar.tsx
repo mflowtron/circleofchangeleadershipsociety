@@ -8,6 +8,7 @@ interface ClickableUserAvatarProps {
   avatarUrl?: string | null;
   size?: 'sm' | 'md' | 'lg';
   showName?: boolean;
+  showAvatar?: boolean;
   nameClassName?: string;
   className?: string;
 }
@@ -30,6 +31,7 @@ export function ClickableUserAvatar({
   avatarUrl,
   size = 'md',
   showName = false,
+  showAvatar = true,
   nameClassName,
   className,
 }: ClickableUserAvatarProps) {
@@ -54,7 +56,7 @@ export function ClickableUserAvatar({
         to={`/profile/${userId}`} 
         className="flex items-center gap-3 group"
       >
-        {avatarElement}
+        {showAvatar && avatarElement}
         <span className={cn(
           'font-semibold text-foreground group-hover:underline',
           nameClassName
@@ -63,6 +65,10 @@ export function ClickableUserAvatar({
         </span>
       </Link>
     );
+  }
+
+  if (!showAvatar) {
+    return null;
   }
 
   return (
