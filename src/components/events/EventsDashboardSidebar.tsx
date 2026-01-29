@@ -61,25 +61,26 @@ export function EventsDashboardSidebar({
       
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-64 bg-card border-r transition-transform duration-300 ease-out md:translate-x-0 flex flex-col",
+          "fixed top-0 left-0 z-50 h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border/50 transition-transform duration-300 ease-out md:translate-x-0 flex flex-col",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
+        style={{ backgroundImage: "var(--gradient-sidebar)" }}
       >
         {/* Header */}
-        <div className="p-4 flex items-center justify-between border-b" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+        <div className="p-4 flex items-center justify-between border-b border-sidebar-border/50" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Ticket className="h-5 w-5 text-primary" />
+            <div className="p-2 rounded-lg bg-sidebar-accent">
+              <Ticket className="h-5 w-5 text-sidebar-primary" />
             </div>
             <div>
-              <h2 className="font-semibold">Events</h2>
-              <p className="text-xs text-muted-foreground">Management</p>
+              <h2 className="font-semibold text-sidebar-foreground">Events</h2>
+              <p className="text-xs text-sidebar-foreground/60">Management</p>
             </div>
           </div>
           <Button 
             variant="ghost" 
             size="icon" 
-            className="md:hidden"
+            className="md:hidden text-sidebar-foreground hover:bg-sidebar-accent"
             onClick={onClose}
           >
             <X className="h-5 w-5" />
@@ -87,15 +88,15 @@ export function EventsDashboardSidebar({
         </div>
         
         {/* Events link - always visible */}
-        <div className="p-3 border-b">
+        <div className="p-3 border-b border-sidebar-border/50">
           <Link
             to="/events/manage"
             onClick={onClose}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors mb-3",
               isActive('/events/manage', true)
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-gold"
+                : "text-sidebar-foreground/90 hover:bg-sidebar-accent"
             )}
           >
             <Calendar className="h-4 w-4" />
@@ -118,8 +119,8 @@ export function EventsDashboardSidebar({
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-gold"
+                    : "text-sidebar-foreground/90 hover:bg-sidebar-accent"
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -131,10 +132,10 @@ export function EventsDashboardSidebar({
 
         {/* Footer with switch option */}
         {showSwitchOption && (
-          <div className="p-3 border-t">
+          <div className="p-3 border-t border-sidebar-border/50">
             <Button
               variant="outline"
-              className="w-full justify-start gap-2"
+              className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border/50 text-sidebar-foreground hover:bg-sidebar-accent"
               onClick={onSwitchDashboard}
             >
               <ArrowLeftRight className="h-4 w-4" />
