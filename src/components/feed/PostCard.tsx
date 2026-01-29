@@ -79,26 +79,34 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
     <Card className="shadow-soft border-border/50 overflow-hidden hover:shadow-medium transition-shadow duration-300 max-w-full">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex gap-3 min-w-0">
             <ClickableUserAvatar
               userId={post.user_id}
               fullName={post.author.full_name}
               avatarUrl={post.author.avatar_url}
               size="lg"
-              showName
             />
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-              <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
-              <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-              {post.is_global ? (
-                <span className="flex items-center gap-1">
-                  <Globe className="h-3 w-3" /> Everyone
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
-                  <Users className="h-3 w-3" /> Chapter
-                </span>
-              )}
+            <div className="flex flex-col min-w-0">
+              <ClickableUserAvatar
+                userId={post.user_id}
+                fullName={post.author.full_name}
+                avatarUrl={post.author.avatar_url}
+                showName
+                showAvatar={false}
+              />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+                <span className="w-1 h-1 rounded-full bg-muted-foreground/50 flex-shrink-0" />
+                {post.is_global ? (
+                  <span className="flex items-center gap-1">
+                    <Globe className="h-3 w-3 flex-shrink-0" /> Everyone
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3 w-3 flex-shrink-0" /> Chapter
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           {canDelete && (
