@@ -55,6 +55,9 @@ export default function CheckIn() {
   const updateStatusFromAttendee = useCallback(() => {
     if (!scannedAttendeeId) return;
     
+    // Don't override success state - user must manually proceed to next scan
+    if (scanStatus === 'success') return;
+    
     if (loadingAttendee) {
       setScanStatus('loading');
       return;
@@ -81,7 +84,7 @@ export default function CheckIn() {
 
     // Attendee found and ready to check in - set to 'ready' state
     setScanStatus('ready' as ScanStatus);
-  }, [scannedAttendeeId, loadingAttendee, scannedAttendee, selectedEventId, existingCheckIn]);
+  }, [scannedAttendeeId, loadingAttendee, scannedAttendee, selectedEventId, existingCheckIn, scanStatus]);
 
   // Effect to update status when attendee data loads
   useEffect(() => {
