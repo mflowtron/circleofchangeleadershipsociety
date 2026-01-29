@@ -1,4 +1,4 @@
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
 
 export type QrStartPreset = {
   label: string;
@@ -41,6 +41,21 @@ function buildCameraConstraints(base: MediaTrackConstraints, preset: QrStartPres
   return constraints;
 }
 
+async function ensureScannerStopped(scanner: Html5Qrcode): Promise<void> {
+  try {
+    const state = scanner.getState();
+    if (state === Html5QrcodeScannerState.SCANNING || state === Html5QrcodeScannerState.PAUSED) {
+      console.log('[QRScanner] Stopping scanner before next attempt');
+      await scanner.stop();
+    }
+  } catch (err) {
+    // Ignore stop errors - scanner may already be stopped
+    console.log('[QRScanner] Stop attempt (may be already stopped):', err);
+  }
+  // Small delay to ensure camera resources are released
+  await new Promise(resolve => setTimeout(resolve, 100));
+}
+
 export async function startQrWithFallback(params: {
   scanner: Html5Qrcode;
   cameraBases: MediaTrackConstraints[];
@@ -56,6 +71,9 @@ export async function startQrWithFallback(params: {
   for (let baseIndex = 0; baseIndex < params.cameraBases.length; baseIndex++) {
     const base = params.cameraBases[baseIndex];
     for (const preset of presets) {
+      // Ensure scanner is stopped before each attempt to avoid state transition errors
+      await ensureScannerStopped(params.scanner);
+
       const cameraConstraints = buildCameraConstraints(base, preset);
       const scanConfig = { ...params.baseScanConfig, fps: preset.fps };
 
