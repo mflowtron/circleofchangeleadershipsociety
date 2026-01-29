@@ -1,139 +1,62 @@
 
-# Plan: Light Mode Sidebar
+# LinkedIn Profile Linking Implementation
 
 ## Overview
-
-Currently, the LMS Sidebar uses a permanently dark theme with `bg-sidebar`, `--gradient-dark`, and dark-specific CSS variables. The Events Dashboard Sidebar follows the main theme (using `bg-card`). 
-
-This plan creates a **light mode version** of the sidebars that follows the application's theme setting - appearing light when in light mode and dark when in dark mode.
-
----
-
-## Current State
-
-### LMS Sidebar (`Sidebar.tsx`)
-- Uses `bg-sidebar text-sidebar-foreground` with inline `backgroundImage: "var(--gradient-dark)"`
-- Always appears dark regardless of theme
-- Uses `logoDark` (light text logo for dark backgrounds)
-
-### Events Dashboard Sidebar (`EventsDashboardSidebar.tsx`)
-- Uses `bg-card border-r` which follows the theme
-- Already adapts to light/dark mode
-
-### CSS Variables (`index.css`)
-- `--sidebar-*` variables are defined for dark colors in both `:root` and `.dark`
-- Both modes have the same dark sidebar colors
-
----
+Add the ability for users to link their LinkedIn profile to their account. The LinkedIn URL will be displayed only on the Profile page with a clickable button/link.
 
 ## Implementation Steps
 
-### Step 1: Update CSS Variables for Light Mode Sidebar
+### 1. Database Migration
+Add a `linkedin_url` column to the `profiles` table:
+- Column type: `text`, nullable
+- No additional RLS changes needed (existing profile policies allow users to update their own profile)
 
-Modify `index.css` to provide light-themed sidebar variables for `:root` (light mode):
-
-```css
-:root {
-  /* Light mode sidebar - warm cream with subtle gold accents */
-  --sidebar-background: 40 30% 97%;
-  --sidebar-foreground: 30 15% 12%;
-  --sidebar-primary: 42 75% 50%;
-  --sidebar-primary-foreground: 40 30% 97%;
-  --sidebar-accent: 40 25% 92%;
-  --sidebar-accent-foreground: 30 15% 12%;
-  --sidebar-border: 40 20% 88%;
-  --sidebar-ring: 42 75% 50%;
-  --sidebar: 40 30% 97%;
-  
-  /* Add light gradient for sidebar */
-  --gradient-sidebar: linear-gradient(180deg, hsl(40 30% 97%) 0%, hsl(40 25% 94%) 100%);
-}
-
-.dark {
-  /* Keep existing dark sidebar colors */
-  --gradient-sidebar: linear-gradient(180deg, hsl(30 12% 8%) 0%, hsl(30 15% 5%) 100%);
-}
+```sql
+ALTER TABLE public.profiles 
+ADD COLUMN linkedin_url text;
 ```
 
-### Step 2: Update LMS Sidebar Component
+### 2. Update Profile Page UI
+Modify `src/pages/Profile.tsx` to add:
 
-Modify `Sidebar.tsx` to use theme-aware styling:
+**Display Section (Profile Header Card):**
+- Show a LinkedIn icon/button next to the user's info when they have a LinkedIn URL set
+- Button opens their LinkedIn profile in a new tab
 
-**Changes:**
-1. Replace `--gradient-dark` with `--gradient-sidebar` (theme-aware)
-2. Import both logo versions and conditionally render based on theme
-3. Update border and text colors to use sidebar tokens
+**Edit Section (Edit Profile Card):**
+- Add a new input field for LinkedIn Profile URL
+- Include placeholder text showing the expected format
+- Add the Linkedin icon from lucide-react
 
-```tsx
-// Add theme detection
-import { useTheme } from 'next-themes';
-import logoDark from '@/assets/coclc-logo-dark.png';
-import logoLight from '@/assets/coclc-logo-light.png';
+### 3. Client-Side Validation
+Implement basic URL format validation:
+- Must be a valid URL starting with `https://linkedin.com/in/` or `https://www.linkedin.com/in/`
+- Also accept `linkedin.com/in/` without https (auto-prefix it)
+- Show inline error message if format is invalid
+- Prevent form submission if validation fails
 
-export default function Sidebar() {
-  const { theme, resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
-  
-  // Use appropriate logo based on theme
-  const logo = isDark ? logoDark : logoLight;
-  
-  return (
-    <aside
-      className="... bg-sidebar text-sidebar-foreground border-r border-sidebar-border ..."
-      style={{ backgroundImage: "var(--gradient-sidebar)" }}
-    >
-      <img src={logo} alt="Circle of Change" className="h-10" />
-      {/* ... rest of component */}
-    </aside>
-  );
-}
-```
-
-### Step 3: Update Events Dashboard Sidebar
-
-Modify `EventsDashboardSidebar.tsx` to use the same sidebar tokens for consistency:
-
-```tsx
-<aside
-  className="... bg-sidebar text-sidebar-foreground border-r border-sidebar-border ..."
-  style={{ backgroundImage: "var(--gradient-sidebar)" }}
->
-```
-
-Update all internal elements to use sidebar-specific color tokens.
+### 4. Update AuthContext Types
+Update the profile type in `src/contexts/AuthContext.tsx` to include the new `linkedin_url` field so it's available throughout the app.
 
 ---
 
-## File Changes Summary
+## Technical Details
 
-| File | Change Type | Description |
-|------|-------------|-------------|
-| `src/index.css` | Modify | Add light-themed sidebar CSS variables and `--gradient-sidebar` |
-| `src/components/layout/Sidebar.tsx` | Modify | Use theme-aware gradient and logo switching |
-| `src/components/events/EventsDashboardSidebar.tsx` | Modify | Use sidebar tokens for consistency |
+### Files to Modify
+1. **Database Migration** - Add `linkedin_url` column to profiles table
+2. **`src/pages/Profile.tsx`** - Add LinkedIn input field with validation and display
+3. **`src/contexts/AuthContext.tsx`** - Add `linkedin_url` to profile type
 
----
+### Validation Logic
+```typescript
+const isValidLinkedInUrl = (url: string): boolean => {
+  if (!url) return true; // Empty is valid (optional field)
+  const pattern = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w-]+\/?$/i;
+  return pattern.test(url);
+};
+```
 
-## Visual Result
-
-### Light Mode Sidebar
-- Warm cream background with subtle gradient
-- Dark charcoal text for readability
-- Gold accent color for active states
-- Light-text logo (`coclc-logo-light.png`)
-
-### Dark Mode Sidebar
-- Deep charcoal background (unchanged)
-- Light cream text
-- Gold accent color for active states
-- Dark-text logo (`coclc-logo-dark.png`)
-
----
-
-## Technical Notes
-
-- Uses `next-themes` hook (`useTheme`) to detect current theme
-- `resolvedTheme` handles system preference detection
-- CSS variables automatically switch based on `.dark` class
-- Both sidebars will now follow the application's theme setting
-- The premium aesthetic is maintained in both modes with appropriate contrast
+### UI Components
+- Use `lucide-react`'s `Linkedin` icon
+- Input field with validation error state
+- Clickable LinkedIn button in profile header when URL is set
