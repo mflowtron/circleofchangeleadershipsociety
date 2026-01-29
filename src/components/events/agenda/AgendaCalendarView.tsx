@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AgendaCalendarItem, ROW_HEIGHT } from './AgendaCalendarItem';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { AgendaItem } from '@/hooks/useAgendaItems';
 
 interface AgendaCalendarViewProps {
@@ -129,6 +130,7 @@ export function AgendaCalendarView({
   }, [now, startHour, endHour]);
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="flex flex-col h-full">
       {/* Navigation header */}
       <div className="flex items-center justify-between mb-4">
@@ -257,5 +259,6 @@ export function AgendaCalendarView({
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
