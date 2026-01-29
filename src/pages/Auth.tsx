@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable';
@@ -14,6 +14,8 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import logoLight from '@/assets/coclc-logo-light.png';
 import logoDark from '@/assets/coclc-logo-dark.png';
 import { useTheme } from 'next-themes';
+import { isRunningAsPWA, usePWAAuthListener } from '@/hooks/usePWAAuth';
+
 export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -28,12 +30,39 @@ export default function Auth() {
     resolvedTheme
   } = useTheme();
   const logo = resolvedTheme === 'dark' ? logoDark : logoLight;
+
+  // Listen for auth session updates when running as PWA
+  usePWAAuthListener();
+
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
+    
+    // When running as PWA, open OAuth in a new window/tab
+    // The callback page will store the session for the PWA to pick up
+    if (isRunningAsPWA()) {
+      // Open auth in external browser - the callback will handle storing the session
+      const {
+        error
+      } = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/auth/callback`
+      });
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Google sign-in failed',
+          description: error.message
+        });
+        setGoogleLoading(false);
+      }
+      // Keep loading state - will be resolved when PWA picks up the session
+      return;
+    }
+
+    // Normal browser flow
     const {
       error
     } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin
+      redirect_uri: `${window.location.origin}/auth/callback`
     });
     if (error) {
       toast({

@@ -9,6 +9,7 @@ import { SidebarProvider } from "@/contexts/SidebarContext";
 import { lazy, Suspense } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import Auth from "@/pages/Auth";
+import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import { CircleLoader, FullPageLoader } from "@/components/ui/circle-loader";
 
@@ -128,6 +129,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth" element={user ? <Navigate to={getDefaultRoute()} replace /> : <Auth />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/pending-approval" element={
         !user ? (
           <Navigate to="/auth" replace />
