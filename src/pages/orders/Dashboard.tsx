@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useOrderPortal, PortalOrder } from '@/hooks/useOrderPortal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { CircleLoader } from '@/components/ui/circle-loader';
 import { OrderCard } from '@/components/orders/OrderCard';
-import { LogOut, RefreshCw, Package } from 'lucide-react';
+import { LogOut, RefreshCw, Package, Smartphone } from 'lucide-react';
 
 export default function OrderPortalDashboard() {
   const navigate = useNavigate();
@@ -41,6 +41,12 @@ export default function OrderPortalDashboard() {
             <p className="text-sm text-muted-foreground">{email}</p>
           </div>
           <div className="flex items-center gap-2">
+            <Link to="/attendee">
+              <Button variant="default" size="sm" className="gap-2">
+                <Smartphone className="h-4 w-4" />
+                Event App
+              </Button>
+            </Link>
             <Button
               variant="outline"
               size="sm"

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,8 @@ import {
   MapPin, 
   Ticket, 
   MessageSquare,
-  Users
+  Users,
+  Smartphone
 } from 'lucide-react';
 
 interface OrderCardProps {
@@ -105,6 +107,18 @@ export function OrderCard({ order, onSendMessage }: OrderCardProps) {
             </div>
 
             {/* Attendee Progress */}
+            {/* Event App Link */}
+            {order.status === 'completed' && (
+              <Link 
+                to="/attendee" 
+                className="mt-3 flex items-center gap-2 text-sm text-primary hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Smartphone className="h-4 w-4" />
+                Open Event App →
+              </Link>
+            )}
+
             {order.status === 'completed' && order.attendee_stats.total > 0 && (
               <div className="mt-3 space-y-1">
                 <div className="flex items-center justify-between text-sm">
