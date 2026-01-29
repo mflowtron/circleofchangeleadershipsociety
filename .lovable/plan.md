@@ -1,20 +1,22 @@
 
-
-# Plan: Add Mux Auto-Generated Captions with Interactive Transcript
+# Plan: Add Recording Reordering for Admins
 
 ## Overview
 
-This plan adds the ability for admins to generate captions for recordings using Mux's built-in captioning feature, and provides users with an interactive transcript tab where they can:
-- View the full transcript with timestamps
-- Click on any word/phrase to seek the video to that position
-- See the currently playing section highlighted in real-time
+This feature allows admins to change the display order of recordings on the Recordings page. The implementation will add a `sort_order` column to the database and provide an intuitive interface with both drag-and-drop and button-based reordering.
 
-## How It Works
+## User Experience
 
-Mux uses OpenAI's Whisper model to automatically transcribe video content. Once captions are generated:
-1. The captions become available as a text track on the video (enabling CC in the player)
-2. The transcript can be downloaded as VTT or plain text format
-3. The VTT file contains timed cues that we'll parse to create the clickable transcript
+**For Admins:**
+1. A new "Reorder" button appears next to "Upload Recording"
+2. Clicking it enters reorder mode where:
+   - Each recording card shows drag handles and up/down arrow buttons
+   - Cards can be dragged to reorder
+   - Changes are saved automatically as you reorder
+3. Click "Done" to exit reorder mode
+
+**For Non-Admins:**
+- Recordings appear in the admin-defined order (no reorder controls visible)
 
 ---
 
@@ -22,125 +24,127 @@ Mux uses OpenAI's Whisper model to automatically transcribe video content. Once 
 
 ### Step 1: Database Schema Update
 
-Add columns to track caption status on recordings:
+Add a `sort_order` column to the recordings table:
 
 ```sql
-ALTER TABLE recordings ADD COLUMN captions_status text DEFAULT null;
-ALTER TABLE recordings ADD COLUMN captions_track_id text DEFAULT null;
+ALTER TABLE recordings ADD COLUMN sort_order integer DEFAULT 0;
+
+-- Backfill existing recordings with order based on created_at
+WITH ordered AS (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY created_at DESC) as rn
+  FROM recordings
+)
+UPDATE recordings 
+SET sort_order = ordered.rn
+FROM ordered 
+WHERE recordings.id = ordered.id;
 ```
 
-**Possible values for `captions_status`:**
-- `null` - No captions requested
-- `generating` - Caption generation in progress  
-- `ready` - Captions are available
-- `error` - Generation failed
+This ensures existing recordings get a logical order based on when they were uploaded.
 
 ---
 
-### Step 2: Update Edge Function for Caption Generation
+### Step 2: Install Drag-and-Drop Library
 
-Extend `mux-upload` edge function with a new `generate-captions` action:
+Add `@dnd-kit/core` and `@dnd-kit/sortable` packages:
 
-**New action flow:**
-1. Admin requests caption generation for a recording
-2. Edge function calls Mux API: `POST /video/v1/assets/{ASSET_ID}/tracks/{AUDIO_TRACK_ID}/generate-subtitles`
-3. Recording's `captions_status` is set to `generating`
-
-**API call structure:**
-```text
-POST https://api.mux.com/video/v1/assets/{ASSET_ID}/tracks/{AUDIO_TRACK_ID}/generate-subtitles
-Body: { "generated_subtitles": [{ "language_code": "en", "name": "English" }] }
-```
-
-Also add a `get-asset-tracks` action to retrieve the audio track ID and check caption status.
+These provide accessible, performant drag-and-drop with built-in keyboard support and screen reader announcements.
 
 ---
 
-### Step 3: Update Webhook Handler
+### Step 3: Update Recordings Query
 
-Extend `mux-webhook` to handle the `video.asset.track.ready` event:
+Modify `fetchRecordings` in `Recordings.tsx` to order by `sort_order` instead of `created_at`:
 
-- When a track with `text_source: "generated_vod"` becomes ready
-- Update the recording's `captions_status` to `ready`
-- Store the `track_id` for transcript retrieval
-
----
-
-### Step 4: Create Transcript Fetching Hook
-
-Create `src/hooks/useTranscript.ts`:
-
-**Functionality:**
-- Fetch the VTT file from: `https://stream.mux.com/{PLAYBACK_ID}/text/{TRACK_ID}.vtt`
-- Parse VTT format into structured cue objects with start/end times and text
-- Provide the parsed cues to the UI
-
-**VTT parsing logic:**
-```text
-VTT Format:
-WEBVTT
-
-00:00:01.000 --> 00:00:04.500
-Hello and welcome to this lecture.
-
-Parsed to:
-{ startTime: 1.0, endTime: 4.5, text: "Hello and welcome to this lecture." }
+```typescript
+const { data, error } = await supabase
+  .from('recordings')
+  .select('*')
+  .in('status', ['ready', 'preparing'])
+  .order('sort_order', { ascending: true });
 ```
 
 ---
 
-### Step 5: Create Interactive Transcript Component
+### Step 4: Create Reorderable Recording Card Component
 
-Create `src/components/recordings/TranscriptViewer.tsx`:
+Create `SortableRecordingCard.tsx` that wraps `RecordingCard` with drag-and-drop functionality:
 
 **Features:**
-- Display all transcript cues in a scrollable list
-- Show timestamp for each cue (formatted as MM:SS)
-- Highlight the currently active cue based on video playback time
-- On click, seek the player to that cue's start time
-- Auto-scroll to keep the active cue visible
+- Drag handle (grip icon) on the left side
+- Up/Down arrow buttons for keyboard/button-based reordering
+- Visual feedback when dragging (opacity, shadow)
+- Only shows reorder controls when in reorder mode
 
-**Component structure:**
+---
+
+### Step 5: Update RecordingsBrowseView
+
+Modify to support reorder mode:
+
+**New Props:**
+- `isReorderMode: boolean`
+- `canReorder: boolean` (admin-only)
+- `onReorder: (fromIndex: number, toIndex: number) => void`
+
+**Reorder Mode Layout:**
 ```text
-┌─────────────────────────────────────────┐
-│ 📝 Transcript                           │
-├─────────────────────────────────────────┤
-│ [0:00] Hello and welcome to this...     │
-│ [0:04] Today we'll be discussing...     │
-│ [0:08] ▶ First, let's look at...  ◀ ACTIVE │
-│ [0:12] The key concept here is...       │
-│ [0:16] As you can see in the...         │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│ ≡  [Recording Card]                    [↑] [↓]     │
+│ ≡  [Recording Card]    ← dragging      [↑] [↓]     │
+│ ≡  [Recording Card]                    [↑] [↓]     │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Step 6: Update Recording Player View
+### Step 6: Add Reorder Mode Toggle in Recordings.tsx
 
-Modify `src/components/recordings/RecordingPlayerView.tsx`:
+Add state and UI for reorder mode:
 
-**Changes:**
-1. Add a ref to the MuxPlayer to control playback (`playerRef`)
-2. Track current playback time state
-3. Add a tabbed interface below the player:
-   - **Details** tab: Current recording details and description
-   - **Transcript** tab: Interactive transcript viewer
-   - **Resources** tab: Existing resources section
+```typescript
+const [isReorderMode, setIsReorderMode] = useState(false);
+const canReorder = role === 'admin';
+```
 
-**For admins:** Add a "Generate Captions" button that:
-- Shows when `captions_status` is null or error
-- Shows loading state when `captions_status` is "generating"
-- Is hidden when captions are ready
+**Header UI when admin:**
+```text
+[Upload Recording]  [Reorder] / [Done]
+```
 
 ---
 
-### Step 7: Player Time Synchronization
+### Step 7: Implement Reorder Save Logic
 
-The MuxPlayer exposes the underlying media element. We'll:
+When recordings are reordered:
 
-1. Access the player ref: `playerRef.current.media.nativeEl`
-2. Listen to `timeupdate` events to track current time
-3. Use `nativeEl.currentTime = seconds` to seek when clicking transcript
+1. Update local state immediately for instant UI feedback
+2. Batch update `sort_order` values in Supabase
+3. Show toast on success/error
+
+```typescript
+const handleReorder = async (fromIndex: number, toIndex: number) => {
+  // Reorder local array
+  const newOrder = [...recordings];
+  const [moved] = newOrder.splice(fromIndex, 1);
+  newOrder.splice(toIndex, 0, moved);
+  setRecordings(newOrder);
+  
+  // Update sort_order for all affected items
+  const updates = newOrder.map((rec, idx) => ({
+    id: rec.id,
+    sort_order: idx
+  }));
+  
+  // Batch update via Supabase
+  for (const update of updates) {
+    await supabase
+      .from('recordings')
+      .update({ sort_order: update.sort_order })
+      .eq('id', update.id);
+  }
+};
+```
 
 ---
 
@@ -148,78 +152,65 @@ The MuxPlayer exposes the underlying media element. We'll:
 
 | File | Change Type | Description |
 |------|-------------|-------------|
-| `recordings` table | Migration | Add `captions_status` and `captions_track_id` columns |
-| `supabase/functions/mux-upload/index.ts` | Modify | Add `generate-captions` and `get-asset-tracks` actions |
-| `supabase/functions/mux-webhook/index.ts` | Modify | Handle `video.asset.track.ready` for captions |
-| `src/hooks/useTranscript.ts` | New | Fetch and parse VTT transcript |
-| `src/components/recordings/TranscriptViewer.tsx` | New | Interactive clickable transcript component |
-| `src/components/recordings/RecordingPlayerView.tsx` | Modify | Add tabs, player ref, time tracking, caption generation button |
-| `src/components/recordings/RecordingCard.tsx` | Modify | Update Recording interface to include caption fields |
+| `recordings` table | Migration | Add `sort_order` column with backfill |
+| `package.json` | Modify | Add `@dnd-kit/core` and `@dnd-kit/sortable` |
+| `src/pages/Recordings.tsx` | Modify | Add reorder mode state, toggle button, save logic |
+| `src/components/recordings/RecordingsBrowseView.tsx` | Modify | Add reorder mode support with DnD context |
+| `src/components/recordings/SortableRecordingCard.tsx` | New | Draggable wrapper with reorder controls |
+| `src/components/recordings/RecordingCard.tsx` | Modify | Add `sort_order` to Recording interface, accept reorder props |
 
 ---
 
 ## Technical Details
 
-### VTT Parser Implementation
+### DnD-Kit Integration
 
 ```typescript
-interface TranscriptCue {
-  startTime: number;  // seconds
-  endTime: number;    // seconds  
-  text: string;
-}
+import { DndContext, closestCenter } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 
-function parseVTT(vttContent: string): TranscriptCue[] {
-  // Split by double newlines to get cue blocks
-  // Parse timestamp format: HH:MM:SS.mmm --> HH:MM:SS.mmm
-  // Extract text content
-  // Return array of cues
-}
+<DndContext onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
+  <SortableContext items={recordings.map(r => r.id)} strategy={rectSortingStrategy}>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {recordings.map((recording, index) => (
+        <SortableRecordingCard
+          key={recording.id}
+          recording={recording}
+          index={index}
+          isReorderMode={isReorderMode}
+          onMoveUp={() => handleMove(index, index - 1)}
+          onMoveDown={() => handleMove(index, index + 1)}
+          // ... other props
+        />
+      ))}
+    </div>
+  </SortableContext>
+</DndContext>
 ```
 
-### Seeking Implementation
+### Accessibility Considerations
 
-```typescript
-const handleCueClick = (cue: TranscriptCue) => {
-  const player = playerRef.current;
-  if (player?.media?.nativeEl) {
-    player.media.nativeEl.currentTime = cue.startTime;
-    player.media.nativeEl.play();
-  }
-};
-```
-
-### Active Cue Detection
-
-```typescript
-const activeCue = cues.find(
-  cue => currentTime >= cue.startTime && currentTime < cue.endTime
-);
-```
+- Up/Down buttons work without drag-and-drop for keyboard users
+- DnD-kit provides built-in keyboard navigation (Space to grab, arrows to move)
+- Screen reader announcements for drag operations
+- Focus management when entering/exiting reorder mode
 
 ---
 
-## User Experience
+## Visual States
 
-**For Admins:**
-1. Navigate to a recording in player view
-2. Click "Generate Captions" button
-3. See loading indicator while Mux processes (typically ~6 seconds per minute of video)
-4. Once ready, the Transcript tab shows the full transcript
+**Normal Mode (Grid View):**
+Recording cards appear as they do now, ordered by `sort_order`
 
-**For All Users:**
-1. Open a recording that has captions
-2. Video player now shows CC button for closed captions
-3. Click "Transcript" tab to see full transcript
-4. Click any line to jump to that point in the video
-5. Currently playing section is highlighted and auto-scrolls
+**Reorder Mode (Grid View):**
+- Subtle border/highlight around the entire grid
+- Each card shows:
+  - Grip handle on left (drag affordance)
+  - Up/Down buttons (alternative to dragging)
+- Header shows "Done" button instead of "Reorder"
+- Clicking a card does NOT open the player (navigation disabled)
 
----
-
-## Cost & Performance Notes
-
-- Mux auto-captioning is included in standard encoding costs (no extra charge)
-- Transcript fetched once and cached in component state
-- VTT files are typically small (few KB even for hour-long videos)
-- Caption generation takes approximately 0.1x video duration (1 hour video = ~6 min)
-
+**While Dragging:**
+- Dragged card has increased shadow and slight scale
+- Drop placeholder shows where card will land
+- Other cards animate to make space
