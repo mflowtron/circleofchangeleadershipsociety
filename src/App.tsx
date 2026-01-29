@@ -26,6 +26,7 @@ const Announcements = lazy(() => import("@/pages/Announcements"));
 const DashboardSelector = lazy(() => import("@/pages/DashboardSelector"));
 const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
 const LMSEvents = lazy(() => import("@/pages/LMSEvents"));
+const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 
 
 // Event pages - lazy loaded
@@ -240,6 +241,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Suspense fallback={<PageLoader />}>
               <LMSEvents />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Suspense fallback={<PageLoader />}>
+              <AdminDashboard />
             </Suspense>
           </ProtectedRoute>
         } 
