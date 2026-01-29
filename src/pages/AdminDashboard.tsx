@@ -2,6 +2,7 @@ import { StatsCards } from '@/components/admin/StatsCards';
 import { ActivityFeed } from '@/components/admin/ActivityFeed';
 import { CommunicationLogs } from '@/components/admin/CommunicationLogs';
 import { RecentUsers } from '@/components/admin/RecentUsers';
+import { SystemHealthMetrics } from '@/components/admin/SystemHealthMetrics';
 import { Activity } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -30,8 +31,9 @@ export default function AdminDashboard() {
           <ActivityFeed />
         </div>
 
-        {/* Sidebar - Communication & Users */}
+        {/* Sidebar - System Health, Communication & Users */}
         <div className="space-y-6">
+          <SystemHealthMetrics />
           <CommunicationLogs />
           <RecentUsers />
         </div>
