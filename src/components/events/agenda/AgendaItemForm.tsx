@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
+import { format, addMinutes } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -61,6 +61,7 @@ interface AgendaItemFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item?: AgendaItem | null;
+  defaultDateTime?: Date | null;
   eventId: string;
   speakers: Speaker[];
   existingTracks: string[];
@@ -83,6 +84,7 @@ export function AgendaItemForm({
   open,
   onOpenChange,
   item,
+  defaultDateTime,
   eventId,
   speakers,
   existingTracks,
@@ -95,12 +97,28 @@ export function AgendaItemForm({
     if (item?.starts_at) {
       return new Date(item.starts_at);
     }
+    if (defaultDateTime) {
+      return defaultDateTime;
+    }
     return new Date();
   };
 
-  const getDefaultTime = (dateStr?: string | null) => {
-    if (dateStr) {
-      return format(new Date(dateStr), 'HH:mm');
+  const getDefaultStartTime = () => {
+    if (item?.starts_at) {
+      return format(new Date(item.starts_at), 'HH:mm');
+    }
+    if (defaultDateTime) {
+      return format(defaultDateTime, 'HH:mm');
+    }
+    return '09:00';
+  };
+
+  const getDefaultEndTime = () => {
+    if (item?.ends_at) {
+      return format(new Date(item.ends_at), 'HH:mm');
+    }
+    if (defaultDateTime) {
+      return format(addMinutes(defaultDateTime, 30), 'HH:mm');
     }
     return '';
   };
@@ -112,15 +130,15 @@ export function AgendaItemForm({
       description: item?.description || '',
       item_type: item?.item_type || 'session',
       date: getDefaultDate(),
-      start_time: getDefaultTime(item?.starts_at) || '09:00',
-      end_time: getDefaultTime(item?.ends_at) || '',
+      start_time: getDefaultStartTime(),
+      end_time: getDefaultEndTime(),
       location: item?.location || '',
       track: item?.track || '',
       is_highlighted: item?.is_highlighted || false,
     },
   });
 
-  // Reset form when item changes
+  // Reset form when item or defaultDateTime changes
   useEffect(() => {
     if (open) {
       form.reset({
@@ -128,8 +146,8 @@ export function AgendaItemForm({
         description: item?.description || '',
         item_type: item?.item_type || 'session',
         date: getDefaultDate(),
-        start_time: getDefaultTime(item?.starts_at) || '09:00',
-        end_time: getDefaultTime(item?.ends_at) || '',
+        start_time: getDefaultStartTime(),
+        end_time: getDefaultEndTime(),
         location: item?.location || '',
         track: item?.track || '',
         is_highlighted: item?.is_highlighted || false,
@@ -147,7 +165,7 @@ export function AgendaItemForm({
         setSelectedSpeakers([]);
       }
     }
-  }, [open, item]);
+  }, [open, item, defaultDateTime]);
 
   const itemType = form.watch('item_type');
   const isSession = itemType === 'session';

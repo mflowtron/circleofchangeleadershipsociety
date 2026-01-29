@@ -48,10 +48,19 @@ export function AgendaBuilder({ eventId }: AgendaBuilderProps) {
   const [editingItem, setEditingItem] = useState<AgendaItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<AgendaItem | null>(null);
   const [defaultItemType, setDefaultItemType] = useState<AgendaItemType>('session');
+  const [defaultDateTime, setDefaultDateTime] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   const handleAddItem = (type: AgendaItemType = 'session') => {
     setDefaultItemType(type);
+    setDefaultDateTime(null);
+    setEditingItem(null);
+    setFormOpen(true);
+  };
+
+  const handleCreateAtTime = (dateTime: Date) => {
+    setDefaultDateTime(dateTime);
+    setDefaultItemType('session');
     setEditingItem(null);
     setFormOpen(true);
   };
@@ -184,6 +193,7 @@ export function AgendaBuilder({ eventId }: AgendaBuilderProps) {
           <AgendaCalendarView
             agendaItems={agendaItems}
             onEditItem={handleEditItem}
+            onCreateItem={handleCreateAtTime}
           />
         </div>
       )}
@@ -256,6 +266,7 @@ export function AgendaBuilder({ eventId }: AgendaBuilderProps) {
         open={formOpen}
         onOpenChange={setFormOpen}
         item={editingItem}
+        defaultDateTime={defaultDateTime}
         eventId={eventId}
         speakers={speakers}
         existingTracks={tracks}

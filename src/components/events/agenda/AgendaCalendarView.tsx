@@ -9,6 +9,7 @@ import type { AgendaItem } from '@/hooks/useAgendaItems';
 interface AgendaCalendarViewProps {
   agendaItems: AgendaItem[];
   onEditItem: (item: AgendaItem) => void;
+  onCreateItem: (dateTime: Date) => void;
   eventStartDate?: Date;
   startHour?: number;
   endHour?: number;
@@ -42,6 +43,7 @@ function getInitialStartDate(agendaItems: AgendaItem[], eventStartDate?: Date): 
 export function AgendaCalendarView({
   agendaItems,
   onEditItem,
+  onCreateItem,
   eventStartDate,
   startHour = 8,
   endHour = 18,
@@ -180,15 +182,20 @@ export function AgendaCalendarView({
 
                 {/* Time grid with items */}
                 <div className="relative" style={{ height: `${gridHeight}px` }}>
-                  {/* Grid lines */}
+                {/* Clickable time slots */}
                   {timeSlots.map((slot, index) => (
                     <div
-                      key={`grid-${slot.hour}-${slot.minute}`}
+                      key={`slot-${slot.hour}-${slot.minute}`}
                       className={cn(
-                        'absolute w-full border-t',
+                        'absolute w-full cursor-crosshair hover:bg-muted/50 transition-colors border-t',
                         slot.minute === 0 ? 'border-border' : 'border-border/30'
                       )}
-                      style={{ top: `${index * ROW_HEIGHT}px` }}
+                      style={{ top: `${index * ROW_HEIGHT}px`, height: `${ROW_HEIGHT}px` }}
+                      onClick={() => {
+                        const dateTime = new Date(day);
+                        dateTime.setHours(slot.hour, slot.minute, 0, 0);
+                        onCreateItem(dateTime);
+                      }}
                     />
                   ))}
 
