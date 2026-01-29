@@ -260,6 +260,22 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         )}
       />
       
+      {/* Corner bracket guide overlay */}
+      {isScanning && !scanDetected && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+          <div className="relative w-3/4 aspect-square">
+            {/* Top-left corner */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-l-4 border-t-4 border-white/80 rounded-tl-lg" />
+            {/* Top-right corner */}
+            <div className="absolute top-0 right-0 w-8 h-8 border-r-4 border-t-4 border-white/80 rounded-tr-lg" />
+            {/* Bottom-left corner */}
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-l-4 border-b-4 border-white/80 rounded-bl-lg" />
+            {/* Bottom-right corner */}
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-r-4 border-b-4 border-white/80 rounded-br-lg" />
+          </div>
+        </div>
+      )}
+      
       {/* Scan detected flash overlay */}
       {scanDetected && (
         <div className="absolute inset-0 bg-green-500/20 rounded-lg animate-pulse pointer-events-none" />
