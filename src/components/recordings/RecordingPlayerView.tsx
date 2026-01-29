@@ -205,10 +205,11 @@ export function RecordingPlayerView({
   return (
     <div className="space-y-6">
       {/* Back navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <Button variant="ghost" onClick={onBack} className="-ml-2">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Recordings
+          <span className="hidden xs:inline">Back to Recordings</span>
+          <span className="xs:hidden">Back</span>
         </Button>
         
         {/* Caption generation button for admins */}
@@ -217,16 +218,19 @@ export function RecordingPlayerView({
             variant="outline"
             onClick={handleGenerateCaptions}
             disabled={isCaptionsGenerating}
+            className="w-full sm:w-auto"
           >
             {isCaptionsGenerating ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Generating Captions...
+                <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+                <span className="hidden sm:inline">Generating Captions...</span>
+                <span className="sm:hidden">Generating...</span>
               </>
             ) : (
               <>
-                <Captions className="h-4 w-4 mr-2" />
-                Generate Captions
+                <Captions className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Generate Captions</span>
+                <span className="sm:hidden">Captions</span>
               </>
             )}
           </Button>
@@ -235,7 +239,8 @@ export function RecordingPlayerView({
         {isCaptionsGenerating && !showCaptionButton && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Generating captions...
+            <span className="hidden sm:inline">Generating captions...</span>
+            <span className="sm:hidden">Generating...</span>
           </div>
         )}
       </div>
@@ -257,24 +262,24 @@ export function RecordingPlayerView({
 
       {/* Tabbed Content */}
       <Tabs defaultValue="details" className="w-full">
-        <TabsList className="w-full justify-start">
-          <TabsTrigger value="details" className="gap-2">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="details" className="gap-1 sm:gap-2 px-2 sm:px-3">
             <Info className="h-4 w-4" />
-            Details
+            <span className="hidden xs:inline">Details</span>
           </TabsTrigger>
-          <TabsTrigger value="transcript" className="gap-2" disabled={!hasCaptions}>
+          <TabsTrigger value="transcript" className="gap-1 sm:gap-2 px-2 sm:px-3" disabled={!hasCaptions}>
             <FileText className="h-4 w-4" />
-            Transcript
+            <span className="hidden xs:inline">Transcript</span>
             {!hasCaptions && captionsStatus !== 'generating' && (
-              <span className="text-xs text-muted-foreground ml-1">(unavailable)</span>
+              <span className="text-xs text-muted-foreground ml-1 hidden sm:inline">(unavailable)</span>
             )}
             {captionsStatus === 'generating' && (
               <Loader2 className="h-3 w-3 animate-spin ml-1" />
             )}
           </TabsTrigger>
-          <TabsTrigger value="resources" className="gap-2">
+          <TabsTrigger value="resources" className="gap-1 sm:gap-2 px-2 sm:px-3">
             <FolderOpen className="h-4 w-4" />
-            Resources
+            <span className="hidden xs:inline">Resources</span>
             {resources.length > 0 && (
               <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full ml-1">
                 {resources.length}

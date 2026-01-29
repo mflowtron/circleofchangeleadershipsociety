@@ -138,17 +138,17 @@ export default function Moderation() {
             return (
               <Card key={post.id}>
                 <CardContent className="pt-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 flex-1">
-                      <Avatar>
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <Avatar className="flex-shrink-0">
                         <AvatarImage src={post.author.avatar_url || undefined} />
                         <AvatarFallback className="bg-primary text-primary-foreground">
                           {initials}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{post.author.full_name}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="font-medium truncate">{post.author.full_name}</span>
                           <span className="text-sm text-muted-foreground">
                             {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
                           </span>
@@ -156,23 +156,24 @@ export default function Moderation() {
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                           {post.is_global ? (
                             <>
-                              <Globe className="h-3 w-3" />
+                              <Globe className="h-3 w-3 flex-shrink-0" />
                               <span>Everyone</span>
                             </>
                           ) : (
                             <>
-                              <Users className="h-3 w-3" />
-                              <span>{post.chapter_name || 'Chapter'}</span>
+                              <Users className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{post.chapter_name || 'Chapter'}</span>
                             </>
                           )}
                         </div>
-                        <p className="mt-2 text-foreground">{post.content}</p>
+                        <p className="mt-2 text-foreground break-words">{post.content}</p>
                       </div>
                     </div>
                     <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => handleDelete(post.id)}
+                      className="w-full sm:w-auto flex-shrink-0"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete

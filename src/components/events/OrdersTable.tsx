@@ -25,6 +25,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import type { OrderWithItems } from '@/hooks/useOrders';
 
 interface OrdersTableProps {
@@ -124,15 +125,15 @@ export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: Or
           <p className="text-muted-foreground">No orders found</p>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
+        <ResponsiveTable className="rounded-lg border overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10" />
                 <TableHead>Order</TableHead>
-                {showEventColumn && <TableHead>Event</TableHead>}
-                <TableHead>Customer</TableHead>
-                <TableHead>Tickets</TableHead>
+                {showEventColumn && <TableHead className="hidden md:table-cell">Event</TableHead>}
+                <TableHead className="hidden sm:table-cell">Customer</TableHead>
+                <TableHead className="hidden lg:table-cell">Tickets</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
               </TableRow>
@@ -159,29 +160,35 @@ export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: Or
                         </CollapsibleTrigger>
                       </TableCell>
                       <TableCell>
-                        <div className="font-mono text-sm">{order.order_number}</div>
+                        <div className="font-mono text-sm truncate max-w-[100px] sm:max-w-none">{order.order_number}</div>
                         <div className="text-xs text-muted-foreground">
-                          {format(new Date(order.created_at), 'MMM d, yyyy h:mm a')}
+                          {format(new Date(order.created_at), 'MMM d, yyyy')}
+                          <span className="hidden sm:inline"> {format(new Date(order.created_at), 'h:mm a')}</span>
+                        </div>
+                        {/* Mobile-only: show customer name inline */}
+                        <div className="sm:hidden text-sm text-muted-foreground truncate mt-1">
+                          {order.full_name}
                         </div>
                       </TableCell>
                       {showEventColumn && (
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           <span className="text-sm truncate max-w-[200px] block">
                             {eventMap?.get(order.event_id) || 'Unknown'}
                           </span>
                         </TableCell>
                       )}
-                      <TableCell>
-                        <div className="font-medium">{order.full_name}</div>
-                        <div className="text-sm text-muted-foreground">{order.email}</div>
+                      <TableCell className="hidden sm:table-cell">
+                        <div className="font-medium truncate max-w-[150px]">{order.full_name}</div>
+                        <div className="text-sm text-muted-foreground truncate max-w-[150px]">{order.email}</div>
                       </TableCell>
-                      <TableCell>{getTotalTickets(order)}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{getTotalTickets(order)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusColors[order.status]}>
-                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                          <span className="hidden sm:inline">{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                          <span className="sm:hidden">{order.status.charAt(0).toUpperCase()}</span>
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-right font-medium whitespace-nowrap">
                         {formatCurrency(order.total_cents)}
                       </TableCell>
                     </TableRow>
@@ -286,7 +293,7 @@ export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: Or
               ))}
             </TableBody>
           </Table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

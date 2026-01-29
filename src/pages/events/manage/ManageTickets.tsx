@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { TicketTypeForm } from '@/components/events/TicketTypeForm';
 import { useEventById } from '@/hooks/useEvents';
 import { useTicketTypes, type TicketType } from '@/hooks/useTicketTypes';
@@ -90,21 +91,22 @@ export default function ManageTickets() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <Button variant="ghost" size="icon" asChild className="flex-shrink-0">
             <Link to="/events/manage">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Manage Tickets</h1>
-            <p className="text-muted-foreground">{event.title}</p>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold">Manage Tickets</h1>
+            <p className="text-muted-foreground truncate">{event.title}</p>
           </div>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Ticket Type
+        <Button onClick={handleCreate} className="w-full sm:w-auto">
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Add Ticket Type</span>
+          <span className="sm:hidden">Add Ticket</span>
         </Button>
       </div>
 
@@ -125,13 +127,13 @@ export default function ManageTickets() {
           </Button>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
+        <ResponsiveTable className="rounded-lg border overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Price</TableHead>
-                <TableHead>Sold / Available</TableHead>
+                <TableHead className="hidden sm:table-cell">Sold / Available</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -139,21 +141,26 @@ export default function ManageTickets() {
               {ticketTypes.map((ticket) => (
                 <TableRow key={ticket.id}>
                   <TableCell>
-                    <div className="font-medium">{ticket.name}</div>
+                    <div className="font-medium truncate max-w-[120px] sm:max-w-xs">{ticket.name}</div>
                     {ticket.description && (
-                      <div className="text-sm text-muted-foreground truncate max-w-xs">
+                      <div className="text-sm text-muted-foreground truncate max-w-[120px] sm:max-w-xs">
                         {ticket.description}
                       </div>
                     )}
+                    {/* Mobile-only: show sold count inline */}
+                    <div className="sm:hidden text-xs text-muted-foreground mt-1">
+                      Sold: {ticket.quantity_sold}
+                      {ticket.quantity_available ? ` / ${ticket.quantity_available}` : ''}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {ticket.price_cents === 0 ? (
                       <Badge variant="secondary">Free</Badge>
                     ) : (
-                      formatPrice(ticket.price_cents)
+                      <span className="whitespace-nowrap">{formatPrice(ticket.price_cents)}</span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     {ticket.quantity_sold}
                     {ticket.quantity_available
                       ? ` / ${ticket.quantity_available}`
@@ -199,7 +206,7 @@ export default function ManageTickets() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </ResponsiveTable>
       )}
 
       <TicketTypeForm

@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { useOrder } from '@/hooks/useOrders';
 import { useOrderAttendees, useUpdateAttendee, Attendee } from '@/hooks/useAttendees';
 import { useOrderMessages, useCreateOrderMessage } from '@/hooks/useOrderMessages';
@@ -135,19 +136,20 @@ export default function OrderDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <Link to="/events/manage/orders">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="flex-shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold font-mono">{order.order_number}</h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold font-mono truncate">{order.order_number}</h1>
           <p className="text-sm text-muted-foreground">
-            {format(new Date(order.created_at), 'MMMM d, yyyy at h:mm a')}
+            {format(new Date(order.created_at), 'MMMM d, yyyy')}
+            <span className="hidden sm:inline"> at {format(new Date(order.created_at), 'h:mm a')}</span>
           </p>
         </div>
-        <Badge variant="outline" className={statusColors[order.status]}>
+        <Badge variant="outline" className={`${statusColors[order.status]} flex-shrink-0`}>
           {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
         </Badge>
       </div>
@@ -219,21 +221,21 @@ export default function OrderDetail() {
       {/* Attendees Section */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-lg">Attendees</CardTitle>
-            <div className="flex gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Total:</span>
+            <div className="flex flex-wrap gap-2 sm:gap-4 text-sm">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <span className="text-muted-foreground text-xs sm:text-sm">Total:</span>
                 <Badge variant="secondary">{attendees.length}</Badge>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Complete:</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <span className="text-muted-foreground text-xs sm:text-sm">Complete:</span>
                 <Badge variant="default" className="bg-green-600">
                   {completeCount}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Incomplete:</span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <span className="text-muted-foreground text-xs sm:text-sm">Incomplete:</span>
                 <Badge variant="destructive">{incompleteCount}</Badge>
               </div>
             </div>
@@ -247,15 +249,15 @@ export default function OrderDetail() {
               No attendees for this order
             </p>
           ) : (
-            <div className="rounded-lg border">
+            <ResponsiveTable className="rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Status</TableHead>
-                    <TableHead>Ticket Type</TableHead>
-                    <TableHead>Attendee Name</TableHead>
-                    <TableHead>Attendee Email</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                    <TableHead className="hidden sm:table-cell">Ticket</TableHead>
+                    <TableHead>Attendee</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead className="w-[80px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -268,42 +270,52 @@ export default function OrderDetail() {
                         <TableCell>
                           {isComplete ? (
                             <Badge variant="default" className="bg-green-600">
-                              <Check className="h-3 w-3 mr-1" />
-                              Complete
+                              <Check className="h-3 w-3 sm:mr-1" />
+                              <span className="hidden sm:inline">Complete</span>
                             </Badge>
                           ) : (
                             <Badge variant="destructive">
-                              <X className="h-3 w-3 mr-1" />
-                              Incomplete
+                              <X className="h-3 w-3 sm:mr-1" />
+                              <span className="hidden sm:inline">Incomplete</span>
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell>{attendee.ticket_type?.name || '-'}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{attendee.ticket_type?.name || '-'}</TableCell>
                         <TableCell>
                           {isEditing ? (
                             <Input
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
                               placeholder="Name"
-                              className="h-8"
+                              className="h-8 min-w-[100px]"
                             />
                           ) : (
-                            <span className={!attendee.attendee_name ? 'text-muted-foreground italic' : ''}>
-                              {attendee.attendee_name || 'Not provided'}
-                            </span>
+                            <div>
+                              <span className={!attendee.attendee_name ? 'text-muted-foreground italic' : ''}>
+                                {attendee.attendee_name || 'Not provided'}
+                              </span>
+                              {/* Mobile-only: show ticket type */}
+                              <div className="sm:hidden text-xs text-muted-foreground">
+                                {attendee.ticket_type?.name || ''}
+                              </div>
+                              {/* Mobile/tablet: show email */}
+                              <div className="md:hidden text-xs text-muted-foreground truncate">
+                                {attendee.attendee_email || ''}
+                              </div>
+                            </div>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           {isEditing ? (
                             <Input
                               value={editEmail}
                               onChange={(e) => setEditEmail(e.target.value)}
                               placeholder="Email"
                               type="email"
-                              className="h-8"
+                              className="h-8 min-w-[120px]"
                             />
                           ) : (
-                            <span className={!attendee.attendee_email ? 'text-muted-foreground italic' : ''}>
+                            <span className={`truncate block max-w-[150px] ${!attendee.attendee_email ? 'text-muted-foreground italic' : ''}`}>
                               {attendee.attendee_email || 'Not provided'}
                             </span>
                           )}
@@ -337,12 +349,12 @@ export default function OrderDetail() {
                             </Button>
                           )}
                         </TableCell>
-                      </TableRow>
+                    </TableRow>
                     );
                   })}
                 </TableBody>
               </Table>
-            </div>
+            </ResponsiveTable>
           )}
         </CardContent>
       </Card>
