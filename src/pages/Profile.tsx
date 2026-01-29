@@ -8,13 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, Shield, Save, Camera, Loader2, Linkedin } from 'lucide-react';
+import { User, Mail, Shield, Save, Camera, Loader2, Linkedin, Briefcase } from 'lucide-react';
 
 export default function Profile() {
   const { profile, role, user } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
   const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedin_url || '');
+  const [headline, setHeadline] = useState(profile?.headline || '');
   const [linkedinError, setLinkedinError] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -141,7 +142,8 @@ export default function Profile() {
         .from('profiles')
         .update({ 
           full_name: fullName,
-          linkedin_url: normalizedLinkedin || null
+          linkedin_url: normalizedLinkedin || null,
+          headline: headline || null
         })
         .eq('user_id', user.id);
 
@@ -205,6 +207,9 @@ export default function Profile() {
             </div>
             <div className="text-center sm:text-left flex-1 pb-1">
               <h2 className="text-xl font-bold text-foreground">{profile?.full_name}</h2>
+              {profile?.headline && (
+                <p className="text-sm text-muted-foreground">{profile.headline}</p>
+              )}
               <p className="text-sm text-muted-foreground">{user?.email}</p>
               <p className="text-xs text-muted-foreground mt-1">Tap avatar to change photo</p>
             </div>
@@ -262,6 +267,21 @@ export default function Profile() {
                 className="h-11 bg-muted/50 border-border/50 rounded-xl text-muted-foreground"
               />
               <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="headline" className="text-sm font-medium flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Headline
+              </Label>
+              <Input
+                id="headline"
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                placeholder="e.g. Student at University of..."
+                maxLength={100}
+                className="h-11 bg-muted/30 border-border/50 rounded-xl"
+              />
+              <p className="text-xs text-muted-foreground">A short description about yourself (optional)</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="linkedin" className="text-sm font-medium flex items-center gap-2">

@@ -610,6 +610,7 @@ export type Database = {
           chapter_id: string | null
           created_at: string
           full_name: string
+          headline: string | null
           id: string
           is_approved: boolean
           linkedin_url: string | null
@@ -621,6 +622,7 @@ export type Database = {
           chapter_id?: string | null
           created_at?: string
           full_name: string
+          headline?: string | null
           id?: string
           is_approved?: boolean
           linkedin_url?: string | null
@@ -632,6 +634,7 @@ export type Database = {
           chapter_id?: string | null
           created_at?: string
           full_name?: string
+          headline?: string | null
           id?: string
           is_approved?: boolean
           linkedin_url?: string | null

@@ -13,6 +13,7 @@ interface UserProfileData {
   full_name: string;
   avatar_url: string | null;
   linkedin_url: string | null;
+  headline: string | null;
   chapter: {
     name: string;
   } | null;
@@ -51,6 +52,7 @@ export default function UserProfile() {
           full_name,
           avatar_url,
           linkedin_url,
+          headline,
           chapter:chapters(name)
         `)
         .eq('user_id', userId)
@@ -120,11 +122,15 @@ export default function UserProfile() {
               </AvatarFallback>
             </Avatar>
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <h1 className="text-2xl font-bold text-foreground">{profile.full_name}</h1>
               
+              {profile.headline && (
+                <p className="text-muted-foreground">{profile.headline}</p>
+              )}
+              
               {profile.chapter && (
-                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
                   <Users className="h-4 w-4" />
                   <span>{profile.chapter.name}</span>
                 </div>
