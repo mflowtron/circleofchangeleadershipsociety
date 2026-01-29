@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string
+          entity_title: string | null
+          entity_type: string
+          id: string
+          metadata: Json | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id: string
+          entity_title?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string
+          entity_title?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       advisor_chapters: {
         Row: {
           chapter_id: string
@@ -995,6 +1031,17 @@ export type Database = {
         Returns: boolean
       }
       is_user_approved: { Args: { _user_id: string }; Returns: boolean }
+      log_activity: {
+        Args: {
+          _action: string
+          _entity_id: string
+          _entity_title: string
+          _entity_type: string
+          _metadata?: Json
+          _user_id: string
+        }
+        Returns: undefined
+      }
       reserve_tickets: {
         Args: { _quantity: number; _ticket_type_id: string }
         Returns: boolean
