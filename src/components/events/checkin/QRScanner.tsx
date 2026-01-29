@@ -67,19 +67,27 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
     return null;
   }, []);
 
-  const handleScan = useCallback(
+  // Handle successful QR code scan
+  const handleScanSuccess = useCallback(
     (decodedText: string) => {
+      console.log('[QRScanner] Scan detected:', decodedText);
+      
       // Prevent duplicate scans
-      if (decodedText === lastScanRef.current) return;
+      if (decodedText === lastScanRef.current) {
+        console.log('[QRScanner] Duplicate scan, ignoring');
+        return;
+      }
       
       const attendeeId = extractAttendeeId(decodedText);
+      console.log('[QRScanner] Extracted attendee ID:', attendeeId);
+      
       if (attendeeId) {
         lastScanRef.current = decodedText;
         
         // Visual feedback - flash effect
         setScanDetected(true);
         
-        // Use ref to avoid dependency on onScan prop
+        // Use ref to call the latest onScan
         onScanRef.current(attendeeId);
         
         // Reset after cooldown
@@ -89,27 +97,38 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
           setScanDetected(false);
         }, 3000);
       } else {
+        console.log('[QRScanner] Invalid QR format');
         onErrorRef.current?.('Invalid QR code format');
       }
     },
-    [extractAttendeeId] // Removed onScan, onError - using refs instead
+    [extractAttendeeId]
   );
+
+  // Keep a stable ref to the scan handler for the scanner
+  const handleScanRef = useRef(handleScanSuccess);
+  useEffect(() => { handleScanRef.current = handleScanSuccess; }, [handleScanSuccess]);
 
   // Start/stop scanner based on isActive prop
   useEffect(() => {
     let mounted = true;
-    const handleScanRef = handleScan; // Capture current reference
     
     const startScanner = async () => {
-      if (!containerRef.current) return;
+      if (!containerRef.current) {
+        console.log('[QRScanner] No container ref');
+        return;
+      }
 
       try {
+        // Create scanner instance if needed
         if (!scannerRef.current) {
+          console.log('[QRScanner] Creating new Html5Qrcode instance');
           scannerRef.current = new Html5Qrcode('qr-reader');
         }
 
+        // Stop if already scanning
         const state = scannerRef.current.getState();
         if (state === Html5QrcodeScannerState.SCANNING) {
+          console.log('[QRScanner] Stopping existing scan');
           await scannerRef.current.stop();
         }
 
@@ -118,23 +137,29 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
           ? currentCamera 
           : { facingMode: "environment" };
 
+        console.log('[QRScanner] Starting scanner with config:', cameraConfig);
+
         await scannerRef.current.start(
           cameraConfig,
           {
-            fps: 15, // Increased from 10 for faster detection
+            fps: 15,
             qrbox: { width: 250, height: 250 },
             aspectRatio: 1,
           },
-          handleScanRef,
-          () => {} // Ignore errors during scanning (e.g., no QR found)
+          // Use a wrapper function that reads from ref to get latest handler
+          (decodedText: string) => {
+            handleScanRef.current(decodedText);
+          },
+          () => {} // Ignore "no QR found" errors
         );
         
         if (mounted) {
+          console.log('[QRScanner] Scanner started successfully');
           setIsScanning(true);
           setError(null);
         }
       } catch (err) {
-        console.error('Scanner start error:', err);
+        console.error('[QRScanner] Start error:', err);
         if (mounted) {
           setError('Failed to start camera');
           setIsScanning(false);
@@ -147,10 +172,11 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         try {
           const state = scannerRef.current.getState();
           if (state === Html5QrcodeScannerState.SCANNING) {
+            console.log('[QRScanner] Stopping scanner');
             await scannerRef.current.stop();
           }
         } catch (err) {
-          console.error('Scanner stop error:', err);
+          console.error('[QRScanner] Stop error:', err);
         }
         if (mounted) {
           setIsScanning(false);
@@ -168,7 +194,7 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
       mounted = false;
       stopScanner();
     };
-  }, [isActive, currentCamera, hasPermission]); // Removed handleScan from deps
+  }, [isActive, currentCamera, hasPermission]);
 
   // Cleanup on unmount
   useEffect(() => {
