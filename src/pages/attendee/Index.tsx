@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAttendee } from '@/contexts/AttendeeContext';
+import { useOrderPortal } from '@/hooks/useOrderPortal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Loader2, Mail, ArrowLeft } from 'lucide-react';
 
 export default function AttendeeLogin() {
-  const { isAuthenticated, loading, error, sendCode, verifyCode } = useAttendee();
+  const { isAuthenticated, sendCode, verifyCode } = useOrderPortal();
   
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
