@@ -133,9 +133,18 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         }
 
         // Use facingMode for faster mobile camera acquisition
+        // Request high resolution for better distance scanning
         const cameraConfig = currentCamera 
-          ? currentCamera 
-          : { facingMode: "environment" };
+          ? { 
+              deviceId: { exact: currentCamera },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            }
+          : { 
+              facingMode: "environment",
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            };
 
         // Check if native Barcode Detection API is available
         const hasNativeAPI = 'BarcodeDetector' in window;
@@ -147,10 +156,12 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         // - Higher FPS for faster detection on modern devices
         // - No qrbox restriction - scan entire viewfinder area
         // - disableFlip: false allows detection of mirrored/inverted codes
+        // - formatsToSupport limits to QR only for faster processing
         const scanConfig = {
           fps: 30, // Higher frame rate for faster detection
           aspectRatio: 1,
           disableFlip: false, // Allow scanning flipped/mirrored QR codes
+          formatsToSupport: [0], // 0 = QR_CODE only, faster processing
           // Use native Barcode Detection API when available (Chrome/Edge Android, Safari 17.2+)
           // This provides faster and more reliable scanning on supported devices
           experimentalFeatures: {
