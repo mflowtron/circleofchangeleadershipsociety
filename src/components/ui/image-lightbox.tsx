@@ -37,15 +37,22 @@ const ImageLightbox = forwardRef<HTMLImageElement, ImageLightboxProps>(
       setDragOffset({ x: 0, y: 0 });
     }, []);
 
-    const handleClose = useCallback(() => {
-      setIsClosing(true);
-      setTimeout(() => {
-        setIsOpen(false);
-        setIsClosing(false);
-        resetTransform();
-        setShowControls(true);
-      }, 250);
-    }, [resetTransform]);
+  const handleClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+      resetTransform();
+      setShowControls(true);
+    }, 250);
+  }, [resetTransform]);
+
+  const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
+    // Only close if clicking directly on the container, not the image
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  }, [handleClose]);
 
     // Auto-hide controls after 3 seconds
     const resetControlsTimeout = useCallback(() => {
@@ -319,6 +326,7 @@ const ImageLightbox = forwardRef<HTMLImageElement, ImageLightboxProps>(
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
+          onClick={handleBackgroundClick}
         >
           <img
             src={src}
@@ -342,11 +350,6 @@ const ImageLightbox = forwardRef<HTMLImageElement, ImageLightboxProps>(
           Swipe down to close
         </div>
 
-        {/* Click outside to close on desktop */}
-        <div 
-          className="absolute inset-0 -z-10 hidden sm:block"
-          onClick={handleClose}
-        />
       </div>
     );
 
