@@ -145,16 +145,10 @@ export function QRScanner({ onScan, onError, isActive, className }: QRScannerPro
         // Build scan config - use type assertion for experimentalFeatures which is valid but not in TS types
         // Optimized for reliable QR detection:
         // - Higher FPS for faster detection on modern devices
-        // - Larger qrbox for easier targeting
+        // - No qrbox restriction - scan entire viewfinder area
         // - disableFlip: false allows detection of mirrored/inverted codes
         const scanConfig = {
           fps: 30, // Higher frame rate for faster detection
-          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            // Use 80% of the smaller dimension for a larger scanning area
-            const minDimension = Math.min(viewfinderWidth, viewfinderHeight);
-            const size = Math.floor(minDimension * 0.8);
-            return { width: size, height: size };
-          },
           aspectRatio: 1,
           disableFlip: false, // Allow scanning flipped/mirrored QR codes
           // Use native Barcode Detection API when available (Chrome/Edge Android, Safari 17.2+)
