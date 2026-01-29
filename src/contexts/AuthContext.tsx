@@ -16,6 +16,7 @@ interface AuthContextType {
     avatar_url: string | null;
     chapter_id: string | null;
     is_approved: boolean;
+    linkedin_url: string | null;
   } | null;
   role: AppRole | null;
   isApproved: boolean;
@@ -47,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setTimeout(async () => {
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('id, full_name, avatar_url, chapter_id, is_approved')
+              .select('id, full_name, avatar_url, chapter_id, is_approved, linkedin_url')
               .eq('user_id', session.user.id)
               .single();
 

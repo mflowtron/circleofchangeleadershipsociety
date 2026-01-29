@@ -8,16 +8,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, Shield, Save, Camera, Loader2 } from 'lucide-react';
+import { User, Mail, Shield, Save, Camera, Loader2, Linkedin } from 'lucide-react';
 
 export default function Profile() {
   const { profile, role, user } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
+  const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedin_url || '');
+  const [linkedinError, setLinkedinError] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const isValidLinkedInUrl = (url: string): boolean => {
+    if (!url) return true; // Empty is valid (optional field)
+    const pattern = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w-]+\/?$/i;
+    return pattern.test(url);
+  };
+
+  const normalizeLinkedInUrl = (url: string): string => {
+    if (!url) return '';
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return `https://${url}`;
+    }
+    return url;
+  };
+
+  const handleLinkedinChange = (value: string) => {
+    setLinkedinUrl(value);
+    if (value && !isValidLinkedInUrl(value)) {
+      setLinkedinError('Please enter a valid LinkedIn URL (e.g., linkedin.com/in/username)');
+    } else {
+      setLinkedinError('');
+    }
+  };
 
   const initials = profile?.full_name
     ?.split(' ')
@@ -102,11 +127,22 @@ export default function Profile() {
     e.preventDefault();
     if (!user) return;
 
+    // Validate LinkedIn URL before saving
+    if (linkedinUrl && !isValidLinkedInUrl(linkedinUrl)) {
+      setLinkedinError('Please enter a valid LinkedIn URL (e.g., linkedin.com/in/username)');
+      return;
+    }
+
     setLoading(true);
     try {
+      const normalizedLinkedin = normalizeLinkedInUrl(linkedinUrl);
+      
       const { error } = await supabase
         .from('profiles')
-        .update({ full_name: fullName })
+        .update({ 
+          full_name: fullName,
+          linkedin_url: normalizedLinkedin || null
+        })
         .eq('user_id', user.id);
 
       if (error) throw error;
@@ -172,10 +208,23 @@ export default function Profile() {
               <p className="text-sm text-muted-foreground">{user?.email}</p>
               <p className="text-xs text-muted-foreground mt-1">Tap avatar to change photo</p>
             </div>
-            <Badge className={`${roleColor} px-4 py-1.5 text-sm font-medium`}>
-              <Shield className="h-3.5 w-3.5 mr-1.5" />
-              {roleLabel}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {profile?.linkedin_url && (
+                <a
+                  href={profile.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-[#0A66C2] hover:bg-[#004182] transition-colors"
+                  title="View LinkedIn Profile"
+                >
+                  <Linkedin className="h-4 w-4 text-white" />
+                </a>
+              )}
+              <Badge className={`${roleColor} px-4 py-1.5 text-sm font-medium`}>
+                <Shield className="h-3.5 w-3.5 mr-1.5" />
+                {roleLabel}
+              </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -214,7 +263,25 @@ export default function Profile() {
               />
               <p className="text-xs text-muted-foreground">Email cannot be changed</p>
             </div>
-            <Button 
+            <div className="space-y-2">
+              <Label htmlFor="linkedin" className="text-sm font-medium flex items-center gap-2">
+                <Linkedin className="h-4 w-4" />
+                LinkedIn Profile
+              </Label>
+              <Input
+                id="linkedin"
+                value={linkedinUrl}
+                onChange={(e) => handleLinkedinChange(e.target.value)}
+                placeholder="linkedin.com/in/your-username"
+                className={`h-11 bg-muted/30 border-border/50 rounded-xl ${linkedinError ? 'border-destructive' : ''}`}
+              />
+              {linkedinError ? (
+                <p className="text-xs text-destructive">{linkedinError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Add your LinkedIn profile URL (optional)</p>
+              )}
+            </div>
+            <Button
               type="submit" 
               className="w-full h-11 rounded-xl btn-gold-glow font-semibold" 
               disabled={loading}
