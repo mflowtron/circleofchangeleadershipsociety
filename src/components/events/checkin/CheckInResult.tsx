@@ -79,12 +79,24 @@ export function CheckInResult({
   }
 
   if (status === 'error') {
+    const isNotFound = errorMessage?.toLowerCase().includes('not found');
     return (
       <Card className="p-8 text-center border-destructive/50 bg-destructive/5">
         <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-destructive mb-2">Error</h3>
-        <p className="text-muted-foreground mb-6">{errorMessage || 'An error occurred'}</p>
-        <Button onClick={onScanNext}>Scan Again</Button>
+        <h3 className="text-lg font-semibold text-destructive mb-2">
+          {isNotFound ? 'Attendee Not Found' : 'Error'}
+        </h3>
+        <p className="text-muted-foreground mb-2">
+          {isNotFound 
+            ? 'This QR code does not match any registered attendee.'
+            : errorMessage || 'An error occurred'}
+        </p>
+        <p className="text-sm text-muted-foreground mb-6">
+          Please check the code and try again.
+        </p>
+        <Button onClick={onScanNext} size="lg" className="w-full">
+          Scan Again
+        </Button>
       </Card>
     );
   }
