@@ -345,7 +345,17 @@ export default function Profile() {
                   title: 'Clearing cache...',
                   description: 'The app will reload momentarily.',
                 });
-                setTimeout(() => clearAllCaches(), 500);
+                
+                // Set a fallback reload in case the async function hangs
+                const fallbackTimeout = setTimeout(() => {
+                  console.log('[PWA] Fallback reload triggered');
+                  window.location.reload();
+                }, 3000);
+                
+                // Call the async function and clear fallback on success
+                clearAllCaches().finally(() => {
+                  clearTimeout(fallbackTimeout);
+                });
               }}
               className="gap-2 shrink-0"
             >
