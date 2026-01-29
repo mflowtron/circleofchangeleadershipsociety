@@ -5,7 +5,6 @@ import type { AgendaItem, AgendaItemType } from '@/hooks/useAgendaItems';
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
@@ -71,65 +70,63 @@ export function AgendaCalendarItem({ item, startHour, endHour, onClick }: Agenda
   const isCompact = heightRows <= 2;
   
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => onClick(item)}
-            className={cn(
-              'absolute left-1 right-1 rounded-md border px-2 py-1 text-left transition-colors cursor-pointer overflow-hidden',
-              colorClass
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={() => onClick(item)}
+          className={cn(
+            'absolute left-1 right-1 rounded-md border px-2 py-1 text-left transition-colors cursor-pointer overflow-hidden',
+            colorClass
+          )}
+          style={{
+            top: `${topPosition}px`,
+            height: `${height}px`,
+            minHeight: `${ROW_HEIGHT}px`,
+          }}
+        >
+          <div className="flex items-start gap-1 h-full">
+            {!isCompact && (
+              <AgendaTypeIcon type={item.item_type} size="sm" className="flex-shrink-0 mt-0.5" />
             )}
-            style={{
-              top: `${topPosition}px`,
-              height: `${height}px`,
-              minHeight: `${ROW_HEIGHT}px`,
-            }}
-          >
-            <div className="flex items-start gap-1 h-full">
-              {!isCompact && (
-                <AgendaTypeIcon type={item.item_type} size="sm" className="flex-shrink-0 mt-0.5" />
-              )}
-              <div className="min-w-0 flex-1 overflow-hidden">
-                <p className={cn(
-                  'font-medium truncate',
-                  isCompact ? 'text-xs' : 'text-sm'
-                )}>
-                  {item.title}
-                </p>
-                {!isCompact && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {format(itemStart, 'h:mm a')} - {format(itemEnd, 'h:mm a')}
-                  </p>
-                )}
-              </div>
-            </div>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-xs">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <AgendaTypeIcon type={item.item_type} size="sm" />
-              <span className="font-semibold">{item.title}</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {format(itemStart, 'h:mm a')} - {format(itemEnd, 'h:mm a')}
-            </p>
-            {item.location && (
-              <p className="text-sm">📍 {item.location}</p>
-            )}
-            {item.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
-            )}
-            {item.speakers && item.speakers.length > 0 && (
-              <p className="text-sm">
-                🎤 {item.speakers.map(s => s.speaker?.name).filter(Boolean).join(', ')}
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className={cn(
+                'font-medium truncate',
+                isCompact ? 'text-xs' : 'text-sm'
+              )}>
+                {item.title}
               </p>
-            )}
+              {!isCompact && (
+                <p className="text-xs text-muted-foreground truncate">
+                  {format(itemStart, 'h:mm a')} - {format(itemEnd, 'h:mm a')}
+                </p>
+              )}
+            </div>
           </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-xs z-50">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <AgendaTypeIcon type={item.item_type} size="sm" />
+            <span className="font-semibold">{item.title}</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {format(itemStart, 'h:mm a')} - {format(itemEnd, 'h:mm a')}
+          </p>
+          {item.location && (
+            <p className="text-sm">📍 {item.location}</p>
+          )}
+          {item.description && (
+            <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+          )}
+          {item.speakers && item.speakers.length > 0 && (
+            <p className="text-sm">
+              🎤 {item.speakers.map(s => s.speaker?.name).filter(Boolean).join(', ')}
+            </p>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
