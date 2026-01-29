@@ -153,8 +153,8 @@ serve(async (req: Request) => {
               <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 auto 32px;">
                 <tr>
                   <td align="center">
-                    <div style="display:inline-block; background:linear-gradient(180deg, #FEFEFE 0%, #FAF9F7 100%); border:2px solid #D4A84B; border-radius:12px; padding:20px 32px;">
-                      <span style="font-size:36px; font-weight:700; letter-spacing:12px; color:#1A1814; font-family:'Courier New', monospace;">
+                    <div style="display:inline-block; background-color:#1A1814; border:2px solid #D4A84B; border-radius:12px; padding:20px 32px;">
+                      <span style="font-size:36px; font-weight:700; letter-spacing:12px; color:#D4A84B; font-family:'Courier New', monospace;">
                         ${code}
                       </span>
                     </div>
