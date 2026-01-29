@@ -1,193 +1,141 @@
 
-# QR Scanner Configuration Options
+# Server/Database Health Metrics for Admin Dashboard
 
-Here are all the configuration options available for the QR code scanner, organized by category. Your current settings are noted, and I'll present choices for each option.
+## Overview
 
----
-
-## Current Configuration Summary
-
-Your scanner is currently configured with:
-- **FPS**: 30 (high frame rate)
-- **Resolution**: 1920x1080 (Full HD)
-- **Scan Area**: Full viewfinder (no qrbox restriction)
-- **Formats**: QR codes only
-- **Native API**: Enabled when supported
-- **Flip Detection**: Enabled (can read mirrored codes)
+Add a new **System Health** section to the Admin Dashboard that displays real-time server and database performance metrics including:
+- Database query response times
+- Edge function execution times
+- API latency and error rates
+- Recent error logs
 
 ---
 
-## Configuration Options & Choices
+## Implementation Strategy
 
-### 1. Frame Rate (fps)
+Since this is a client-side application without direct server access, we'll implement this by:
 
-How many times per second the scanner analyzes frames from the camera.
-
-| Option | Current | Description |
-|--------|---------|-------------|
-| **10 FPS** | | Conservative - saves battery, works for stationary codes |
-| **15 FPS** | | Balanced - good for most use cases |
-| **30 FPS** | Yes | Fast - current setting, best for quick detection |
-| **60 FPS** | | Maximum - may drain battery faster, diminishing returns |
-
-**Trade-off**: Higher FPS = faster detection but more CPU/battery usage.
+1. **Creating an edge function** that queries the Supabase analytics logs API
+2. **Building a new hook** to fetch and cache health metrics
+3. **Adding a HealthMetrics component** with visual gauges and charts
 
 ---
 
-### 2. Camera Resolution
+## Components to Build
 
-The resolution requested from the camera. Higher = more detail for distant codes.
+### 1. New Edge Function: `get-system-health`
 
-| Option | Current | Description |
-|--------|---------|-------------|
-| **1280x720 (HD)** | | Standard - faster processing, good for close scans |
-| **1920x1080 (Full HD)** | Yes | High detail - current setting |
-| **2560x1440 (QHD)** | | Very high - better for distant codes |
-| **3840x2160 (4K)** | | Maximum - best distance detection, but slower processing |
-
-**Trade-off**: Higher resolution = better distance detection but more processing time per frame.
-
----
-
-### 3. Scan Area (qrbox)
-
-Whether to restrict scanning to a specific region of the viewfinder.
-
-| Option | Current | Description |
-|--------|---------|-------------|
-| **Full viewfinder** | Yes | Scans entire camera view - current setting |
-| **80% center box** | | Slightly restricted, faster processing |
-| **Fixed 300x300 box** | | Small center region, fastest but requires precise aim |
-| **Dynamic function** | | Calculates based on viewfinder size |
-
-**Trade-off**: Smaller scan area = faster processing but requires more precise aiming.
-
----
-
-### 4. Aspect Ratio
-
-The shape of the scanner viewfinder.
-
-| Option | Current | Description |
-|--------|---------|-------------|
-| **1:1 (Square)** | Yes | Current setting - good for QR codes |
-| **4:3** | | Traditional photo ratio |
-| **16:9** | | Widescreen - shows more horizontal area |
-
----
-
-### 5. Flip Detection (disableFlip)
-
-Whether to also check for mirrored/inverted QR codes.
-
-| Option | Current | Description |
-|--------|---------|-------------|
-| **Enabled (disableFlip: false)** | Yes | Detects normal and mirrored codes |
-| **Disabled (disableFlip: true)** | | Only normal orientation, slightly faster |
-
----
-
-### 6. Native Barcode Detection API
-
-Uses the browser's built-in barcode detector when available (Chrome/Edge Android, Safari 17.2+).
-
-| Option | Current | Description |
-|--------|---------|-------------|
-| **Enabled** | Yes | Uses native API for better performance on supported browsers |
-| **Disabled** | | Always uses JavaScript-based detection |
-
----
-
-### 7. Supported Formats
-
-Which barcode types to detect. Fewer formats = faster processing.
-
-| Option | Current | Description |
-|--------|---------|-------------|
-| **QR Code only** | Yes | Fastest - only scans QR codes |
-| **QR + Barcodes** | | Also scans UPC, EAN, Code 128, etc. |
-| **All formats** | | Maximum compatibility, slowest |
-
----
-
-### 8. Torch/Flashlight (Runtime Feature)
-
-Enable the camera flashlight for low-light scanning.
-
-| Option | Current | Description |
-|--------|---------|-------------|
-| **Add torch button** | No | Adds a flashlight toggle button |
-| **No torch** | Yes | Current - no flashlight control |
-
----
-
-### 9. Zoom Control (Runtime Feature)
-
-Allow users to digitally zoom the camera for distant codes.
-
-| Option | Current | Description |
-|--------|---------|-------------|
-| **Add zoom slider** | No | Adds a zoom control |
-| **No zoom** | Yes | Current - no zoom control |
-
----
-
-## My Recommendations for Best Distance Detection
-
-If your main goal is improving detection at a distance:
-
-1. **Keep FPS at 30** - Already optimal
-2. **Try 4K resolution (3840x2160)** - More detail for distant codes
-3. **Keep full viewfinder scanning** - Maximum detection area
-4. **Add torch button** - Helps in low light
-5. **Add zoom slider** - Users can zoom in on distant codes
-
----
-
-## Technical Notes
+This edge function will query internal analytics data:
 
 ```text
-Current scanConfig structure:
-+---------------------------+------------------+
-| Option                    | Current Value    |
-+---------------------------+------------------+
-| fps                       | 30               |
-| aspectRatio               | 1                |
-| disableFlip               | false            |
-| formatsToSupport          | [0] (QR only)    |
-| experimentalFeatures      | native API on    |
-| qrbox                     | undefined (full) |
-+---------------------------+------------------+
-
-Current cameraConfig:
-+---------------------------+------------------+
-| Option                    | Current Value    |
-+---------------------------+------------------+
-| width                     | 1920 (ideal)     |
-| height                    | 1080 (ideal)     |
-| facingMode                | environment      |
-+---------------------------+------------------+
++------------------------------------------+
+| get-system-health                        |
++------------------------------------------+
+| Queries:                                 |
+| - postgres_logs (error counts, latency)  |
+| - function_edge_logs (edge fn metrics)   |
+| - Count queries per time window          |
++------------------------------------------+
+| Returns:                                 |
+| - dbResponseTimeAvg (ms)                 |
+| - dbErrorCount (last hour)               |
+| - edgeFnAvgTime (ms)                     |
+| - edgeFnCallCount (last hour)            |
+| - recentErrors (list of 5)               |
++------------------------------------------+
 ```
+
+### 2. New Hook: `useSystemHealth`
+
+Located at `src/hooks/useSystemHealth.ts`:
+- Calls the edge function every 60 seconds
+- Returns typed health metrics data
+- Handles loading and error states
+
+### 3. New Component: `SystemHealthMetrics`
+
+Located at `src/components/admin/SystemHealthMetrics.tsx`:
+
+```text
++---------------------------+---------------------------+
+|     Database Health       |    Edge Functions         |
++---------------------------+---------------------------+
+| [Gauge] Response Time     | [Gauge] Avg Exec Time     |
+|         45ms (Good)       |         120ms (Normal)    |
+|                           |                           |
+| Errors: 0 (last hour)     | Calls: 156 (last hour)    |
++---------------------------+---------------------------+
+|           Recent Errors (if any)                      |
+| - 10:32 AM: connection timeout                        |
+| - 10:28 AM: query took >5s                            |
++-------------------------------------------------------+
+```
+
+### 4. Update Admin Dashboard Layout
+
+Add the new section between StatsCards and the main content grid.
 
 ---
 
-## Your Choices
+## File Changes Summary
 
-Please let me know which options you'd like to change:
+| File | Action |
+|------|--------|
+| `supabase/functions/get-system-health/index.ts` | Create |
+| `src/hooks/useSystemHealth.ts` | Create |
+| `src/components/admin/SystemHealthMetrics.tsx` | Create |
+| `src/components/admin/HealthGauge.tsx` | Create |
+| `src/pages/AdminDashboard.tsx` | Update |
 
-1. **FPS**: Keep at 30, or change to ___?
-Change to 60.
+---
 
-2. **Resolution**: Keep at 1080p, try 1440p, or try 4K?
-Try 4K (or whatever the best available on the device is.
+## Technical Details
 
-3. **Scan Area**: Keep full viewfinder, or add a restriction?
-Full viewfinder
+### Edge Function Query Logic
 
-4. **Add Torch Button**: Yes or No?
-No.
+The edge function will use Supabase's internal analytics API to gather:
 
-5. **Add Zoom Slider**: Yes or No?
-No.
+1. **Database metrics** from `postgres_logs`:
+   - Count errors by severity (FATAL, ERROR, WARNING)
+   - Sample connection times
+   
+2. **Edge function metrics** from `function_edge_logs`:
+   - Average execution time
+   - Total call count
+   - Error rate (non-200 status codes)
 
-Once you make your selections, I'll implement the changes.
+### Health Gauge Visualization
+
+Using the existing Recharts library for a radial gauge:
+- Green zone: 0-100ms (Excellent)
+- Yellow zone: 100-500ms (Normal)  
+- Red zone: 500ms+ (Slow)
+
+### Error Display
+
+Recent errors shown in a collapsible list with:
+- Timestamp
+- Error severity (color-coded badge)
+- Truncated message
+
+---
+
+## Database/Schema Changes
+
+**None required** - This feature reads from Supabase's internal analytics logs which are already available.
+
+---
+
+## Security Considerations
+
+- Edge function requires authentication (admin role check)
+- Uses existing RLS patterns for admin-only access
+- No sensitive data exposed in metrics
+
+---
+
+## Dependencies
+
+- Existing: `recharts` (already installed for charts)
+- Existing: `@tanstack/react-query` (for data fetching)
+- No new packages needed
