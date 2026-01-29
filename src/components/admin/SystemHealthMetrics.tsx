@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useSystemHealth } from '@/hooks/useSystemHealth';
 import { HealthGauge } from './HealthGauge';
-import { Activity, Database, Zap, AlertTriangle, ChevronDown, RefreshCw } from 'lucide-react';
+import { Activity, Database, Zap, AlertTriangle, ChevronDown, RefreshCw, Cpu, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { useState } from 'react';
@@ -68,14 +68,48 @@ export function SystemHealthMetrics() {
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Skeleton className="h-40" />
+            <Skeleton className="h-40" />
             <Skeleton className="h-40" />
             <Skeleton className="h-40" />
           </div>
         ) : (
           <>
             {/* Gauges Row */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* CPU Usage */}
+              <div className="flex flex-col items-center p-4 rounded-lg bg-muted/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <Cpu className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">CPU</span>
+                </div>
+                <HealthGauge
+                  value={data?.cpuUsage || 0}
+                  maxValue={100}
+                  label="Usage"
+                  unit="%"
+                  thresholds={{ good: 50, warning: 80 }}
+                  size="sm"
+                />
+              </div>
+
+              {/* Memory Usage */}
+              <div className="flex flex-col items-center p-4 rounded-lg bg-muted/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <HardDrive className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Memory</span>
+                </div>
+                <HealthGauge
+                  value={data?.memoryUsage || 0}
+                  maxValue={100}
+                  label="Usage"
+                  unit="%"
+                  thresholds={{ good: 60, warning: 85 }}
+                  size="sm"
+                />
+              </div>
+
               {/* Database Health */}
               <div className="flex flex-col items-center p-4 rounded-lg bg-muted/30">
                 <div className="flex items-center gap-2 mb-2">
@@ -90,7 +124,7 @@ export function SystemHealthMetrics() {
                   thresholds={{ good: 100, warning: 500 }}
                   size="sm"
                 />
-                <div className="flex gap-2 mt-2">
+                <div className="flex flex-wrap gap-1 mt-2 justify-center">
                   {(data?.dbErrorCount || 0) > 0 && (
                     <Badge variant="destructive" className="text-xs">
                       {data?.dbErrorCount} errors
@@ -123,7 +157,7 @@ export function SystemHealthMetrics() {
                   thresholds={{ good: 200, warning: 1000 }}
                   size="sm"
                 />
-                <div className="flex gap-2 mt-2">
+                <div className="flex flex-wrap gap-1 mt-2 justify-center">
                   <Badge variant="outline" className="text-xs">
                     {data?.edgeFnCallCount || 0} calls/hr
                   </Badge>

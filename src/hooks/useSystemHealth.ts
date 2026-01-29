@@ -8,6 +8,8 @@ export interface SystemHealthMetrics {
   edgeFnAvgTime: number;
   edgeFnCallCount: number;
   edgeFnErrorCount: number;
+  cpuUsage: number;
+  memoryUsage: number;
   recentErrors: Array<{
     timestamp: string;
     severity: string;
