@@ -16,7 +16,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-type ScanStatus = 'idle' | 'loading' | 'success' | 'already_checked_in' | 'error' | 'wrong_event';
+type ScanStatus = 'idle' | 'loading' | 'ready' | 'success' | 'already_checked_in' | 'error' | 'wrong_event';
 
 export default function CheckIn() {
   const { selectedEventId, hasSelection } = useEventSelection();
@@ -79,7 +79,8 @@ export default function CheckIn() {
       return;
     }
 
-    setScanStatus('idle');
+    // Attendee found and ready to check in - set to 'ready' state
+    setScanStatus('ready' as ScanStatus);
   }, [scannedAttendeeId, loadingAttendee, scannedAttendee, selectedEventId, existingCheckIn]);
 
   // Effect to update status when attendee data loads
