@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2, Send, MessageCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Link } from 'react-router-dom';
+import { ClickableUserAvatar } from '@/components/ui/clickable-user-avatar';
 
 interface CommentsSectionProps {
   postId: string;
@@ -90,16 +92,22 @@ const CommentsSection = memo(function CommentsSection({ postId }: CommentsSectio
 
             return (
               <div key={comment.id} className="flex gap-2 group">
-                <Avatar className="h-8 w-8 shrink-0 ring-2 ring-primary/10">
-                  <AvatarImage src={comment.author.avatar_url || undefined} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
+                <ClickableUserAvatar
+                  userId={comment.user_id}
+                  fullName={comment.author.full_name}
+                  avatarUrl={comment.author.avatar_url}
+                  size="sm"
+                  className="shrink-0"
+                />
                 <div className="flex-1 bg-muted/50 rounded-2xl px-4 py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm">{comment.author.full_name}</span>
+                      <Link 
+                        to={`/profile/${comment.user_id}`}
+                        className="font-semibold text-sm hover:underline"
+                      >
+                        {comment.author.full_name}
+                      </Link>
                       <span className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                       </span>

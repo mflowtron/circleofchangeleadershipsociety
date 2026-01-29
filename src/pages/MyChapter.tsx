@@ -4,10 +4,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { ClickableUserAvatar } from '@/components/ui/clickable-user-avatar';
+import { Link } from 'react-router-dom';
 
 interface ChapterMember {
   user_id: string;
@@ -19,6 +20,7 @@ interface ChapterPost {
   id: string;
   content: string;
   created_at: string;
+  user_id: string;
   author: {
     full_name: string;
     avatar_url: string | null;
@@ -96,6 +98,7 @@ export default function MyChapter() {
             id: post.id,
             content: post.content,
             created_at: post.created_at,
+            user_id: post.user_id,
             author: authorData || { full_name: 'Unknown', avatar_url: null },
           };
         })
@@ -178,43 +181,40 @@ export default function MyChapter() {
               </p>
             ) : (
               <div className="space-y-4">
-                {posts.map((post) => {
-                  const initials = post.author.full_name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .toUpperCase();
-
-                  return (
-                    <div key={post.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={post.author.avatar_url || undefined} />
-                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                          {initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{post.author.full_name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                            </span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeletePost(post.id)}
+                {posts.map((post) => (
+                  <div key={post.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                    <ClickableUserAvatar
+                      userId={post.user_id}
+                      fullName={post.author.full_name}
+                      avatarUrl={post.author.avatar_url}
+                      size="sm"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Link 
+                            to={`/profile/${post.user_id}`}
+                            className="font-medium text-sm hover:underline"
                           >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                            {post.author.full_name}
+                          </Link>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                          </span>
                         </div>
-                        <p className="text-sm mt-1">{post.content}</p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeletePost(post.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
+                      <p className="text-sm mt-1">{post.content}</p>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
@@ -235,25 +235,22 @@ export default function MyChapter() {
               </p>
             ) : (
               <div className="space-y-3">
-                {members.map((member) => {
-                  const initials = member.full_name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .toUpperCase();
-
-                  return (
-                    <div key={member.user_id} className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={member.avatar_url || undefined} />
-                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                          {initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium">{member.full_name}</span>
-                    </div>
-                  );
-                })}
+                {members.map((member) => (
+                  <div key={member.user_id} className="flex items-center gap-2">
+                    <ClickableUserAvatar
+                      userId={member.user_id}
+                      fullName={member.full_name}
+                      avatarUrl={member.avatar_url}
+                      size="sm"
+                    />
+                    <Link 
+                      to={`/profile/${member.user_id}`}
+                      className="text-sm font-medium hover:underline"
+                    >
+                      {member.full_name}
+                    </Link>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
