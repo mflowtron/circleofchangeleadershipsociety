@@ -85,7 +85,7 @@ serve(async (req) => {
     // Build line items and calculate totals
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
     let subtotalCents = 0;
-    const orderItems: { ticket_type_id: string; quantity: number; unit_price_cents: number }[] = [];
+    const orderItems: { ticket_type_id: string; quantity: number; unit_price_cents: number; name: string }[] = [];
 
     for (const selection of tickets) {
       const ticketType = ticketTypes.find(t => t.id === selection.ticket_type_id);
@@ -93,7 +93,7 @@ serve(async (req) => {
         throw new Error(`Ticket type ${selection.ticket_type_id} not found`);
       }
 
-      // Check availability
+      // Preliminary check availability (final atomic check happens before Stripe redirect)
       if (ticketType.quantity_available !== null) {
         const remaining = ticketType.quantity_available - ticketType.quantity_sold;
         if (selection.quantity > remaining) {
@@ -122,6 +122,7 @@ serve(async (req) => {
         ticket_type_id: ticketType.id,
         quantity: selection.quantity,
         unit_price_cents: ticketType.price_cents,
+        name: ticketType.name,
       });
 
       // Add to Stripe line items
@@ -202,9 +203,30 @@ serve(async (req) => {
 
     logStep("Order items created");
 
-    // Handle free orders
+    // Handle free orders - atomically reserve tickets
     if (subtotalCents === 0) {
-      // Mark order as completed immediately for free tickets
+      // Atomically reserve tickets using database function with row-level locking
+      for (const item of orderItems) {
+        const { data: reserved, error: reserveError } = await supabaseAdmin
+          .rpc('reserve_tickets', {
+            _ticket_type_id: item.ticket_type_id,
+            _quantity: item.quantity
+          });
+
+        if (reserveError || !reserved) {
+          logStep("Failed to reserve tickets", { ticketTypeId: item.ticket_type_id, error: reserveError });
+          // Cancel the order since we couldn't reserve tickets
+          await supabaseAdmin
+            .from('orders')
+            .update({ status: 'cancelled' })
+            .eq('id', order.id);
+          throw new Error(`Not enough ${item.name} tickets available`);
+        }
+      }
+
+      logStep("Tickets reserved atomically for free order");
+
+      // Mark order as completed
       await supabaseAdmin
         .from('orders')
         .update({ 
@@ -212,23 +234,6 @@ serve(async (req) => {
           completed_at: new Date().toISOString()
         })
         .eq('id', order.id);
-
-      // Update ticket quantities
-      for (const item of orderItems) {
-        // Fetch current value and update
-        const { data: ticketType } = await supabaseAdmin
-          .from('ticket_types')
-          .select('quantity_sold')
-          .eq('id', item.ticket_type_id)
-          .single();
-
-        if (ticketType) {
-          await supabaseAdmin
-            .from('ticket_types')
-            .update({ quantity_sold: ticketType.quantity_sold + item.quantity })
-            .eq('id', item.ticket_type_id);
-        }
-      }
 
       // Create attendee records for free orders
       const { data: orderItemsData } = await supabaseAdmin
@@ -274,6 +279,28 @@ serve(async (req) => {
         status: 200,
       });
     }
+
+    // For paid orders: Atomically reserve tickets BEFORE creating Stripe session
+    // This prevents race conditions where multiple users purchase the last tickets simultaneously
+    for (const item of orderItems) {
+      const { data: reserved, error: reserveError } = await supabaseAdmin
+        .rpc('reserve_tickets', {
+          _ticket_type_id: item.ticket_type_id,
+          _quantity: item.quantity
+        });
+
+      if (reserveError || !reserved) {
+        logStep("Failed to reserve tickets for paid order", { ticketTypeId: item.ticket_type_id, error: reserveError });
+        // Cancel the order since we couldn't reserve tickets
+        await supabaseAdmin
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('id', order.id);
+        throw new Error(`Not enough ${item.name} tickets available`);
+      }
+    }
+
+    logStep("Tickets reserved atomically before Stripe redirect");
 
     // Create Stripe checkout session for paid orders
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
