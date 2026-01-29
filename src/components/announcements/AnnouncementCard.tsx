@@ -1,18 +1,14 @@
-import { Megaphone, X } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Announcement } from '@/hooks/useAnnouncements';
 
 interface AnnouncementCardProps {
   announcement: Announcement;
-  onDismiss?: (id: string) => void;
-  showDismiss?: boolean;
   className?: string;
 }
 
 export default function AnnouncementCard({
   announcement,
-  onDismiss,
-  showDismiss = true,
   className,
 }: AnnouncementCardProps) {
   return (
@@ -37,16 +33,6 @@ export default function AnnouncementCard({
             {announcement.content}
           </p>
         </div>
-
-        {showDismiss && onDismiss && (
-          <button
-            onClick={() => onDismiss(announcement.id)}
-            className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            aria-label="Dismiss announcement"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
       </div>
     </div>
   );

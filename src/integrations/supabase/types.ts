@@ -323,35 +323,6 @@ export type Database = {
           },
         ]
       }
-      dismissed_announcements: {
-        Row: {
-          announcement_id: string
-          dismissed_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          announcement_id: string
-          dismissed_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          announcement_id?: string
-          dismissed_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dismissed_announcements_announcement_id_fkey"
-            columns: ["announcement_id"]
-            isOneToOne: false
-            referencedRelation: "announcements"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       events: {
         Row: {
           cover_image_url: string | null

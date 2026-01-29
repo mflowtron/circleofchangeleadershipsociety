@@ -23,21 +23,9 @@ interface CreateAnnouncementData {
 export function useAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [allAnnouncements, setAllAnnouncements] = useState<Announcement[]>([]);
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const { user, role } = useAuth();
   const { toast } = useToast();
-
-  const fetchDismissals = useCallback(async () => {
-    if (!user) return new Set<string>();
-    
-    const { data } = await supabase
-      .from('dismissed_announcements')
-      .select('announcement_id')
-      .eq('user_id', user.id);
-    
-    return new Set(data?.map(d => d.announcement_id) || []);
-  }, [user]);
 
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
@@ -62,14 +50,13 @@ export function useAnnouncements() {
 
       if (activeError) throw activeError;
 
-      // Show all active announcements (no longer filtering by dismissals)
       setAnnouncements(activeData || []);
     } catch (error) {
       console.error('Error fetching announcements:', error);
     } finally {
       setLoading(false);
     }
-  }, [fetchDismissals]);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -154,26 +141,6 @@ export function useAnnouncements() {
     fetchAnnouncements();
   };
 
-  const dismissAnnouncement = async (id: string) => {
-    if (!user) return;
-
-    const { error } = await supabase
-      .from('dismissed_announcements')
-      .insert({
-        user_id: user.id,
-        announcement_id: id,
-      });
-
-    if (error) {
-      console.error('Error dismissing announcement:', error);
-      return;
-    }
-
-    // Optimistically update UI
-    setDismissedIds(prev => new Set([...prev, id]));
-    setAnnouncements(prev => prev.filter(a => a.id !== id));
-  };
-
   return {
     announcements,
     allAnnouncements,
@@ -181,7 +148,6 @@ export function useAnnouncements() {
     createAnnouncement,
     updateAnnouncement,
     deleteAnnouncement,
-    dismissAnnouncement,
     refetch: fetchAnnouncements,
   };
 }
