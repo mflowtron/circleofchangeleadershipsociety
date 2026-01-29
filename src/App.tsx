@@ -143,9 +143,11 @@ function AppRoutes() {
         )
       } />
       <Route path="/select-dashboard" element={
-        <Suspense fallback={<PageLoader />}>
-          <DashboardSelector />
-        </Suspense>
+        <ProtectedRoute requireApproval={false}>
+          <Suspense fallback={<PageLoader />}>
+            <DashboardSelector />
+          </Suspense>
+        </ProtectedRoute>
       } />
       
       <Route path="/" element={
