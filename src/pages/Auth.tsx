@@ -150,11 +150,6 @@ export default function Auth() {
     }
   };
   return <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Theme Toggle */}
-      <div className="absolute top-4 right-4 z-20">
-        <ThemeToggle />
-      </div>
-
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-gradient-radial from-primary/5 via-transparent to-transparent" />
@@ -163,6 +158,10 @@ export default function Auth() {
 
       <Card className="w-full max-w-md relative z-10 shadow-medium border-border/50 animate-scale-in">
         <CardHeader className="text-center pb-2">
+          {/* Theme Toggle - positioned in card header */}
+          <div className="absolute top-4 right-4">
+            <ThemeToggle />
+          </div>
           <div className="mx-auto mb-6 p-4 rounded-2xl inline-block bg-transparent">
             <img src={logo} alt="Circle of Change" className="h-14" />
           </div>
