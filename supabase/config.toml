@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.toggle-attendee-bookmark]
 verify_jwt = false
+
+[functions.get-system-health]
+verify_jwt = false
