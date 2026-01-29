@@ -1,141 +1,86 @@
 
-# Server/Database Health Metrics for Admin Dashboard
+Goal
+- Stop the “Cannot transition to a new state, already under transition” camera-start failure by removing the multi-preset fallback ladder and returning the QR scanner to conservative, widely-compatible settings, while still scanning the entire frame (no qrbox crop).
 
-## Overview
+What’s happening now (root cause)
+- The current scanner start uses a looped “try many presets” strategy (startQrWithFallback). Even though it calls stop between attempts, html5-qrcode’s internal state machine can still be “transitioning” (start/stop not fully settled) when the next start begins, causing: “Cannot transition to a new state, already under transition”.
+- Additionally, the QRScanner component’s effect can re-run (isActive/currentCamera/hasPermission changes), potentially triggering overlapping start/stop sequences.
 
-Add a new **System Health** section to the Admin Dashboard that displays real-time server and database performance metrics including:
-- Database query response times
-- Edge function execution times
-- API latency and error rates
-- Recent error logs
+Proposed changes (high-level)
+1) Remove the “fancy” fallback ladder (resolution/FPS presets) entirely.
+2) Implement a single, serialized start/stop pipeline so html5-qrcode never receives start/stop calls concurrently.
+3) Use “safe defaults” for constraints and scan config:
+   - Camera constraints: prefer environment-facing camera; avoid explicit width/height constraints by default.
+   - Scan config: moderate FPS (15–20), no qrbox (scan full frame), QR-only format, keep native BarcodeDetector enabled if supported.
 
----
+Files to change
+- src/components/events/checkin/QRScanner.tsx (main change)
+- src/components/events/checkin/qrScannerFallback.ts (optional cleanup: remove if no longer used)
 
-## Implementation Strategy
+Detailed implementation plan
 
-Since this is a client-side application without direct server access, we'll implement this by:
+A) QRScanner.tsx — remove preset-based fallback logic
+- Remove imports:
+  - startQrWithFallback
+  - serializeDomError (if it only exists in qrScannerFallback after removal; otherwise replace with a local serializer)
+- Replace the “startQrWithFallback” block with a single “start” attempt using conservative settings.
 
-1. **Creating an edge function** that queries the Supabase analytics logs API
-2. **Building a new hook** to fetch and cache health metrics
-3. **Adding a HealthMetrics component** with visual gauges and charts
+B) QRScanner.tsx — add a serialization guard to prevent overlapping transitions
+- Add a ref-based “transition queue” so any start/stop request is executed strictly after the previous one finishes:
+  - Example approach:
+    - const transitionRef = useRef(Promise.resolve());
+    - function enqueue(fn) { transitionRef.current = transitionRef.current.then(fn, fn); return transitionRef.current; }
+- Use this queue inside the useEffect that reacts to isActive/currentCamera/hasPermission:
+  - If activating: enqueue(async () => { await stopIfNeeded(); await startIfIdle(); })
+  - If deactivating/unmounting: enqueue(async () => { await stopIfNeeded(); })
+- Ensure stop is awaited before any subsequent start.
+- Add a small delay (100–250ms) after stop to allow camera resources to release (this is a key stability improvement but not “fancy camera switching”).
 
----
+C) QRScanner.tsx — “safe default settings” while scanning the entire frame
+- Camera constraints (minimal & compatible):
+  - Default: { facingMode: "environment" }
+  - If the user switches cameras via the “Switch” button:
+    - Use deviceId exact for that camera: { deviceId: { exact: currentCamera } }
+- Scan config (keep whole-frame scanning):
+  - fps: 15 (or 20; 15 is the safest default across devices)
+  - formatsToSupport: [0] (QR only)
+  - disableFlip: false
+  - Remove aspectRatio: 1 (this can contribute to constraint issues and isn’t required for scanning)
+  - Do NOT set qrbox (this keeps scanning the entire frame as requested)
+  - Keep experimentalFeatures.useBarCodeDetectorIfSupported: true (this improves performance where supported and should not trigger camera restarts)
 
-## Components to Build
+D) QRScanner.tsx — add minimal, actionable logging (not noisy)
+- Log only key transition points:
+  - “requested start”, “requested stop”
+  - state before stop/start
+  - start success, stop success
+  - start error name/message (including common cases: NotAllowedError, NotFoundError, OverconstrainedError, AbortError)
+- This will help diagnose if failures are permission-related vs device/camera constraint related.
 
-### 1. New Edge Function: `get-system-health`
+E) Optional cleanup
+- If QRScanner.tsx no longer imports qrScannerFallback.ts, we can remove that file to avoid dead code (optional; keeping it unused is harmless but messy).
 
-This edge function will query internal analytics data:
+Acceptance criteria (how we’ll know it’s fixed)
+- The scanner starts reliably on typical devices without “already under transition”.
+- Switching cameras (if multiple are available) works without triggering the transition error.
+- Scanning remains full-frame (no qrbox/crop).
+- If the camera cannot start, the error message is stable and meaningful (permission denied vs no camera vs in-use).
 
-```text
-+------------------------------------------+
-| get-system-health                        |
-+------------------------------------------+
-| Queries:                                 |
-| - postgres_logs (error counts, latency)  |
-| - function_edge_logs (edge fn metrics)   |
-| - Count queries per time window          |
-+------------------------------------------+
-| Returns:                                 |
-| - dbResponseTimeAvg (ms)                 |
-| - dbErrorCount (last hour)               |
-| - edgeFnAvgTime (ms)                     |
-| - edgeFnCallCount (last hour)            |
-| - recentErrors (list of 5)               |
-+------------------------------------------+
-```
+Edge cases to consider
+- iOS Safari: deviceId constraints can be finicky; defaulting to facingMode environment is often safest until the user explicitly switches.
+- Permission flow: first-time permission prompts can delay getCameras results; avoid rapid re-start loops during that window.
+- Rapid tab switching (Scan tab → other tab → back): serialization should prevent the transition race.
 
-### 2. New Hook: `useSystemHealth`
+Questions (only if needed during implementation)
+- None required to proceed, since you explicitly want: revert fallback ladder + safe defaults + full-frame scanning.
 
-Located at `src/hooks/useSystemHealth.ts`:
-- Calls the edge function every 60 seconds
-- Returns typed health metrics data
-- Handles loading and error states
+Implementation sequence
+1) Update QRScanner.tsx to remove startQrWithFallback usage and implement serialized start/stop.
+2) Set scan config to safe defaults (fps 15, QR-only, no aspectRatio, no qrbox).
+3) Verify in preview on at least:
+   - Desktop Chrome (camera or virtual cam)
+   - Mobile Safari/Chrome if available
+4) If stable, optionally remove qrScannerFallback.ts.
 
-### 3. New Component: `SystemHealthMetrics`
-
-Located at `src/components/admin/SystemHealthMetrics.tsx`:
-
-```text
-+---------------------------+---------------------------+
-|     Database Health       |    Edge Functions         |
-+---------------------------+---------------------------+
-| [Gauge] Response Time     | [Gauge] Avg Exec Time     |
-|         45ms (Good)       |         120ms (Normal)    |
-|                           |                           |
-| Errors: 0 (last hour)     | Calls: 156 (last hour)    |
-+---------------------------+---------------------------+
-|           Recent Errors (if any)                      |
-| - 10:32 AM: connection timeout                        |
-| - 10:28 AM: query took >5s                            |
-+-------------------------------------------------------+
-```
-
-### 4. Update Admin Dashboard Layout
-
-Add the new section between StatsCards and the main content grid.
-
----
-
-## File Changes Summary
-
-| File | Action |
-|------|--------|
-| `supabase/functions/get-system-health/index.ts` | Create |
-| `src/hooks/useSystemHealth.ts` | Create |
-| `src/components/admin/SystemHealthMetrics.tsx` | Create |
-| `src/components/admin/HealthGauge.tsx` | Create |
-| `src/pages/AdminDashboard.tsx` | Update |
-
----
-
-## Technical Details
-
-### Edge Function Query Logic
-
-The edge function will use Supabase's internal analytics API to gather:
-
-1. **Database metrics** from `postgres_logs`:
-   - Count errors by severity (FATAL, ERROR, WARNING)
-   - Sample connection times
-   
-2. **Edge function metrics** from `function_edge_logs`:
-   - Average execution time
-   - Total call count
-   - Error rate (non-200 status codes)
-
-### Health Gauge Visualization
-
-Using the existing Recharts library for a radial gauge:
-- Green zone: 0-100ms (Excellent)
-- Yellow zone: 100-500ms (Normal)  
-- Red zone: 500ms+ (Slow)
-
-### Error Display
-
-Recent errors shown in a collapsible list with:
-- Timestamp
-- Error severity (color-coded badge)
-- Truncated message
-
----
-
-## Database/Schema Changes
-
-**None required** - This feature reads from Supabase's internal analytics logs which are already available.
-
----
-
-## Security Considerations
-
-- Edge function requires authentication (admin role check)
-- Uses existing RLS patterns for admin-only access
-- No sensitive data exposed in metrics
-
----
-
-## Dependencies
-
-- Existing: `recharts` (already installed for charts)
-- Existing: `@tanstack/react-query` (for data fetching)
-- No new packages needed
+Rollback plan
+- If anything regresses, we’ll restore the previous QRScanner.tsx version from project history and re-apply only the serialization guard (that guard alone often fixes the transition error without other changes).
