@@ -1,193 +1,273 @@
 
-
-# 3-Day Calendar View for Agenda
+# Admin Activity Dashboard
 
 ## Overview
 
-Create a new calendar-style view for the agenda that displays all items across 3 days with a time grid showing 15-minute intervals. This provides event organizers with a visual timeline similar to Google Calendar or Outlook, making it easier to see the full schedule at a glance and identify gaps or overlaps.
+Create a comprehensive admin-only dashboard that provides a real-time, high-level view of all platform activity. This includes recent database changes, user activity, communication logs, and key platform metrics - all in an easy-to-read format.
 
-## Design
+## Database Design
 
-### Visual Layout
+### New Table: `activity_logs`
 
-```text
-+------------------+------------------+------------------+
-|   Day 1 (Mon)    |   Day 2 (Tue)    |   Day 3 (Wed)    |
-+------------------+------------------+------------------+
-| 8:00 AM   -------|--------|---------|--------|---------|
-| 8:15 AM   -------|--------|---------|--------|---------|
-| 8:30 AM   -------|--------|---------|--------|---------|
-| 8:45 AM   -------|--------|---------|--------|---------|
-| 9:00 AM   [Session 1.....][Break   ]|--------|---------|
-| 9:15 AM   [...............]        |--------|---------|
-| 9:30 AM   [...............]        |--------|---------|
-| 9:45 AM   |--------|-------|--------|--------|---------|
-| 10:00 AM  [Keynote..........................................]
-| ...       [...............................................]
-+------------------+------------------+------------------+
-```
+This table will capture important platform activities for admin monitoring.
 
-### Key Features
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid (PK) | Unique identifier |
+| action | text | Action type: 'create', 'update', 'delete' |
+| entity_type | text | Table/entity name: 'post', 'user', 'order', 'event', etc. |
+| entity_id | uuid | ID of the affected record |
+| entity_title | text | Human-readable title/name of the entity |
+| user_id | uuid | Who performed the action (nullable for system actions) |
+| user_name | text | Cached user name for display |
+| metadata | jsonb | Additional context (old/new values, details) |
+| created_at | timestamptz | When the action occurred |
 
-1. **Time Grid**: 15-minute row intervals from configurable start (default 8:00 AM) to end (default 6:00 PM)
-2. **3-Day Columns**: Each day gets a column with date header
-3. **Item Blocks**: Agenda items render as positioned blocks spanning their duration
-4. **Color Coding**: Different background colors for item types (session, break, meal, etc.)
-5. **Clickable Items**: Click to edit, with hover showing full details
-6. **Current Time Indicator**: Red line showing current time if viewing today
-7. **Day Navigation**: Arrow buttons to shift the 3-day window forward/backward
+### RLS Policies
 
----
+- Only admins can SELECT from activity_logs
+- System triggers can INSERT (via service role)
+- No UPDATE or DELETE allowed (audit trail integrity)
 
-## Implementation
+### Database Triggers
 
-### New Components
-
-**1. `AgendaCalendarView.tsx`** - Main calendar grid component
-
-Responsibilities:
-- Render the 3-day column layout with date headers
-- Generate the 15-minute time slots as rows
-- Position agenda items absolutely within their day columns
-- Handle day navigation (previous/next 3 days)
-
-**2. `AgendaCalendarItem.tsx`** - Individual item block
-
-Responsibilities:
-- Display item title, time, and type icon
-- Calculate height based on duration (15 min = 1 row unit)
-- Apply color based on item type
-- Show tooltip with full details on hover
-- Handle click for editing
-
-**3. `AgendaCalendarTimeSlot.tsx`** - Time row component
-
-Responsibilities:
-- Display the time label (hour markers only)
-- Render horizontal grid line
-- Subtle background for alternate hours
-
-### Updates to Existing Components
-
-**`AgendaBuilder.tsx`**
-- Add toggle between "List View" and "Calendar View"
-- Pass view mode state to conditionally render AgendaCalendarView
-
-**`Agenda.tsx`**
-- No changes needed (already wraps AgendaBuilder)
+Create triggers on key tables to automatically log activity:
+- `profiles` - User registrations, approvals, updates
+- `posts` - New posts, edits, deletions
+- `comments` - New comments, deletions
+- `orders` - Order creation, status changes
+- `events` - Event creation, updates, publishing
+- `recordings` - New recordings uploaded
+- `announcements` - Announcements created/updated
 
 ---
 
-## Technical Details
+## Frontend Components
 
-### Time Slot Calculation
+### 1. Admin Dashboard Page
 
-```typescript
-// Generate time slots from 8 AM to 6 PM in 15-min intervals
-const generateTimeSlots = (startHour = 8, endHour = 18) => {
-  const slots = [];
-  for (let hour = startHour; hour < endHour; hour++) {
-    for (let minute = 0; minute < 60; minute += 15) {
-      slots.push({ hour, minute });
-    }
-  }
-  return slots;
-};
-```
+**Route:** `/admin`
 
-### Item Positioning
+A comprehensive dashboard with multiple sections:
 
-Items are positioned using CSS grid or absolute positioning:
+#### a) Quick Stats Cards
+- Total users (approved/pending)
+- Active events
+- Total orders (today/this week)
+- New posts (today)
+- Pending approvals count
 
-```typescript
-// Calculate item position and height
-const getItemStyle = (item: AgendaItem, startHour: number) => {
-  const itemStart = new Date(item.starts_at);
-  const itemEnd = item.ends_at ? new Date(item.ends_at) : addMinutes(itemStart, 30);
-  
-  // Calculate top position (row offset from start)
-  const minutesFromStart = differenceInMinutes(itemStart, setHours(itemStart, startHour));
-  const topRow = minutesFromStart / 15;
-  
-  // Calculate height (number of 15-min slots)
-  const durationMinutes = differenceInMinutes(itemEnd, itemStart);
-  const heightRows = Math.max(1, durationMinutes / 15);
-  
-  return {
-    top: `${topRow * ROW_HEIGHT}px`,
-    height: `${heightRows * ROW_HEIGHT}px`,
-  };
-};
-```
+#### b) Activity Feed (Main Section)
+A real-time scrollable feed showing recent activities:
+- Color-coded by action type (green=create, blue=update, red=delete)
+- Icons for entity types
+- Timestamp with relative time ("2 minutes ago")
+- Clickable to navigate to the relevant item
+- Filter by: entity type, action type, date range
 
-### Day Selection Logic
+#### c) Communication Logs
+Display recent order_messages with:
+- Order number and customer name
+- Message preview
+- Read/unread status
+- Quick reply option
 
-```typescript
-// Default to event start date or first agenda item date
-const getInitialStartDate = (event: Event | null, agendaItems: AgendaItem[]) => {
-  if (agendaItems.length > 0) {
-    return startOfDay(new Date(agendaItems[0].starts_at));
-  }
-  if (event?.starts_at) {
-    return startOfDay(new Date(event.starts_at));
-  }
-  return startOfDay(new Date());
-};
-```
+#### d) Recent User Activity
+- New user registrations
+- Pending approvals (quick action to approve)
+- User role changes
 
-### Color Configuration
-
-Reuse existing type colors from `AgendaTypeIcon.tsx`:
-
-```typescript
-const ITEM_TYPE_COLORS = {
-  session: 'bg-primary/20 border-primary text-primary-foreground',
-  break: 'bg-muted border-muted-foreground/30',
-  meal: 'bg-orange-500/20 border-orange-500',
-  networking: 'bg-green-500/20 border-green-500',
-  other: 'bg-purple-500/20 border-purple-500',
-};
-```
+#### e) System Health (Optional)
+- Recent errors (if any)
+- Edge function activity summary
 
 ---
 
 ## File Structure
 
 ```text
-src/components/events/agenda/
-  AgendaBuilder.tsx          # Update: Add view toggle
-  AgendaCalendarView.tsx     # New: Main calendar grid
-  AgendaCalendarItem.tsx     # New: Item block component
-  AgendaCalendarTimeSlot.tsx # New: Time row component (optional, can inline)
+src/
+  hooks/
+    useActivityLogs.ts       # Fetch and filter activity logs
+    useAdminStats.ts         # Aggregate statistics for dashboard
+  components/
+    admin/
+      ActivityFeed.tsx       # Main activity log display
+      ActivityItem.tsx       # Individual log entry
+      StatsCards.tsx         # Quick stats overview
+      CommunicationLogs.tsx  # Order messages section
+      RecentUsers.tsx        # User registrations section
+      ActivityFilters.tsx    # Filter controls
+  pages/
+    AdminDashboard.tsx       # Main dashboard page
 ```
 
 ---
 
-## User Experience Flow
+## Implementation Steps
 
-1. **Access Agenda Page**: Organizer navigates to `/events/manage/agenda`
-2. **Default View**: Shows existing list view
-3. **Toggle to Calendar**: Click "Calendar View" button
-4. **View 3 Days**: See items positioned on a time grid
-5. **Navigate Days**: Use arrows to shift the 3-day window
-6. **Edit Item**: Click any item block to open the edit dialog
-7. **Add Item**: Use existing "Add Item" button (opens form dialog)
+### Phase 1: Database Setup
+
+1. Create `activity_logs` table with all columns
+2. Add RLS policy: admins can SELECT only
+3. Create `log_activity()` function for inserting logs
+4. Create triggers on key tables:
+   - `profiles` (after INSERT/UPDATE)
+   - `posts` (after INSERT/UPDATE/DELETE)
+   - `comments` (after INSERT/DELETE)
+   - `orders` (after INSERT/UPDATE)
+   - `events` (after INSERT/UPDATE/DELETE)
+   - `recordings` (after INSERT/DELETE)
+   - `announcements` (after INSERT/UPDATE/DELETE)
+
+### Phase 2: Backend Hooks
+
+1. Create `useActivityLogs.ts` hook
+   - Fetch logs with pagination
+   - Filter by entity_type, action, date range
+   - Real-time subscription for new entries
+   - Join with profiles for user info
+
+2. Create `useAdminStats.ts` hook
+   - Aggregate counts from multiple tables
+   - Cached with React Query
+   - Quick refresh capability
+
+### Phase 3: Dashboard UI
+
+1. Create `StatsCards.tsx` - Grid of metric cards
+2. Create `ActivityItem.tsx` - Single log entry with icon, time, description
+3. Create `ActivityFeed.tsx` - Scrollable list with filters
+4. Create `CommunicationLogs.tsx` - Recent order messages
+5. Create `RecentUsers.tsx` - User activity section
+6. Create `ActivityFilters.tsx` - Filter dropdown/tabs
+7. Create `AdminDashboard.tsx` - Main page layout
+
+### Phase 4: Routing and Navigation
+
+1. Add route `/admin` with role check for 'admin' only
+2. Add "Activity" nav item to admin sidebar
 
 ---
 
-## Responsive Considerations
+## Technical Details
 
-- On smaller screens, show 1-day view with horizontal scroll option
-- Time labels stick to the left edge when scrolling horizontally
-- Item text truncates with ellipsis; full details on hover/click
+### Activity Types and Icons
+
+```typescript
+const ENTITY_CONFIG = {
+  user: { icon: User, color: 'text-blue-500', label: 'User' },
+  post: { icon: FileText, color: 'text-green-500', label: 'Post' },
+  comment: { icon: MessageSquare, color: 'text-cyan-500', label: 'Comment' },
+  order: { icon: ShoppingCart, color: 'text-orange-500', label: 'Order' },
+  event: { icon: Calendar, color: 'text-purple-500', label: 'Event' },
+  recording: { icon: Video, color: 'text-red-500', label: 'Recording' },
+  announcement: { icon: Megaphone, color: 'text-yellow-500', label: 'Announcement' },
+};
+
+const ACTION_BADGES = {
+  create: { variant: 'success', label: 'Created' },
+  update: { variant: 'info', label: 'Updated' },
+  delete: { variant: 'destructive', label: 'Deleted' },
+};
+```
+
+### Real-time Updates
+
+Subscribe to `activity_logs` table for live updates:
+
+```typescript
+const channel = supabase
+  .channel('activity-logs')
+  .on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'activity_logs',
+  }, (payload) => {
+    // Prepend new activity to the list
+  })
+  .subscribe();
+```
+
+### Trigger Example (for posts table)
+
+```sql
+CREATE OR REPLACE FUNCTION log_post_activity()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    INSERT INTO activity_logs (action, entity_type, entity_id, entity_title, user_id, user_name, metadata)
+    SELECT 'create', 'post', NEW.id, 
+           LEFT(NEW.content, 50), NEW.user_id, 
+           (SELECT full_name FROM profiles WHERE user_id = NEW.user_id),
+           jsonb_build_object('is_global', NEW.is_global);
+  ELSIF TG_OP = 'UPDATE' THEN
+    INSERT INTO activity_logs (action, entity_type, entity_id, entity_title, user_id, user_name, metadata)
+    SELECT 'update', 'post', NEW.id,
+           LEFT(NEW.content, 50), NEW.user_id,
+           (SELECT full_name FROM profiles WHERE user_id = NEW.user_id),
+           jsonb_build_object('is_global', NEW.is_global);
+  ELSIF TG_OP = 'DELETE' THEN
+    INSERT INTO activity_logs (action, entity_type, entity_id, entity_title, user_id, user_name, metadata)
+    SELECT 'delete', 'post', OLD.id,
+           LEFT(OLD.content, 50), OLD.user_id,
+           (SELECT full_name FROM profiles WHERE user_id = OLD.user_id),
+           NULL;
+  END IF;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
 
 ---
 
-## Additional Features (Optional)
+## Dashboard Layout
 
-These can be added later:
-- Drag-and-drop to reschedule items
-- Drag edges to resize item duration
-- Click on empty time slot to create new item at that time
-- Track columns for multi-track events
+```text
++------------------------------------------+
+|  Admin Activity Dashboard                |
++------------------------------------------+
+|  [Stats] [Stats] [Stats] [Stats]         |
+|  Users   Orders  Events  Pending         |
++------------------------------------------+
+|                          |               |
+|  Activity Feed           | Communication |
+|  [Filters: All ▼]        | Logs          |
+|  ----------------------  |               |
+|  🟢 John created post... | Order #1234   |
+|  🔵 Jane updated event...| Message...    |
+|  🟢 New user registered  |               |
+|  🔵 Order #1234 paid     |               |
+|  🔴 Post deleted by...   |               |
+|  ...                     |               |
+|                          +---------------+
+|                          | Recent Users  |
+|                          | 👤 John (new) |
+|                          | 👤 Jane ⏳    |
++------------------------------------------+
+```
 
+---
+
+## Security Considerations
+
+1. Route protected with `allowedRoles={['admin']}` - only admins can access
+2. RLS on `activity_logs` ensures only admins can read logs
+3. Triggers run as SECURITY DEFINER to bypass RLS for logging
+4. No sensitive data (passwords, tokens) stored in metadata
+5. User names cached at log time (no joins to auth.users)
+
+---
+
+## Sidebar Navigation Update
+
+Add to admin navigation in `Sidebar.tsx`:
+
+```typescript
+admin: [
+  { path: '/', label: 'Feed', icon: Home },
+  { path: '/admin', label: 'Activity', icon: Activity }, // NEW
+  { path: '/recordings', label: 'Recordings', icon: Video },
+  // ... rest of admin items
+]
+```
