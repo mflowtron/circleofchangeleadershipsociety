@@ -1,228 +1,106 @@
 
-# Plan: Mobile Responsiveness Audit and Fixes (320px+)
+# Plan: Light Mode Sidebar
 
 ## Overview
 
-This plan addresses mobile responsiveness issues across the entire application, ensuring the design works properly on screens as narrow as 320px (iPhone SE/5 size). The audit has identified several categories of issues that need fixing.
+Currently, the LMS Sidebar uses a permanently dark theme with `bg-sidebar`, `--gradient-dark`, and dark-specific CSS variables. The Events Dashboard Sidebar follows the main theme (using `bg-card`). 
+
+This plan creates a **light mode version** of the sidebars that follows the application's theme setting - appearing light when in light mode and dark when in dark mode.
 
 ---
 
-## Issues Identified
+## Current State
 
-### 1. Tables Overflow on Small Screens
-Multiple pages use tables that don't adapt well to narrow screens:
-- **Users.tsx** - User management tables with 4-5 columns
-- **LMSEvents.tsx** - Events management table
-- **OrdersTable.tsx** - Orders table with 6-7 columns
-- **AttendeesTable.tsx** - Attendees table with 7-8 columns
-- **ManageTickets.tsx** - Ticket types table
-- **ManageEventsIndex.tsx** - Events listing table
-- **OrderDetail.tsx** - Attendees table within order
+### LMS Sidebar (`Sidebar.tsx`)
+- Uses `bg-sidebar text-sidebar-foreground` with inline `backgroundImage: "var(--gradient-dark)"`
+- Always appears dark regardless of theme
+- Uses `logoDark` (light text logo for dark backgrounds)
 
-### 2. Header/Button Row Overflow
-Several pages have header sections with buttons that overflow on narrow screens:
-- **Recordings.tsx** - "Reorder" and "Upload Recording" buttons
-- **Attendees.tsx** - "Print Badges" and "Export CSV" buttons
-- **ManageTickets.tsx** - Header with back button and "Add Ticket Type"
-- **RecordingPlayerView.tsx** - Back button and "Generate Captions" button
+### Events Dashboard Sidebar (`EventsDashboardSidebar.tsx`)
+- Uses `bg-card border-r` which follows the theme
+- Already adapts to light/dark mode
 
-### 3. Filter/Search Sections Need Stacking
-Filter sections with multiple controls need better mobile stacking:
-- **OrdersTable.tsx** - Search + status filter
-- **AttendeesTable.tsx** - Search + ticket filter + status filter + export button
-
-### 4. Grid Layouts at 320px
-Some grid layouts may cause items to be too narrow:
-- **DashboardSelector.tsx** - 2-column grid on md+ is fine, but cards could use more breathing room
-- **RecordingsBrowseView.tsx** - Grid is already responsive
-
-### 5. Long Text Overflow
-Some text elements may overflow:
-- Order numbers (monospace font)
-- Email addresses
-- Event names in tables
-
-### 6. Tab Triggers Too Wide
-- **LMSEvents.tsx** - "Manage Events" tab text may overflow
-- **RecordingPlayerView.tsx** - Tab triggers with icons + text
+### CSS Variables (`index.css`)
+- `--sidebar-*` variables are defined for dark colors in both `:root` and `.dark`
+- Both modes have the same dark sidebar colors
 
 ---
 
 ## Implementation Steps
 
-### Step 1: Create Responsive Table Wrapper Component
+### Step 1: Update CSS Variables for Light Mode Sidebar
 
-Create a reusable component for horizontal-scrolling tables on mobile:
+Modify `index.css` to provide light-themed sidebar variables for `:root` (light mode):
 
-**File:** `src/components/ui/responsive-table.tsx`
+```css
+:root {
+  /* Light mode sidebar - warm cream with subtle gold accents */
+  --sidebar-background: 40 30% 97%;
+  --sidebar-foreground: 30 15% 12%;
+  --sidebar-primary: 42 75% 50%;
+  --sidebar-primary-foreground: 40 30% 97%;
+  --sidebar-accent: 40 25% 92%;
+  --sidebar-accent-foreground: 30 15% 12%;
+  --sidebar-border: 40 20% 88%;
+  --sidebar-ring: 42 75% 50%;
+  --sidebar: 40 30% 97%;
+  
+  /* Add light gradient for sidebar */
+  --gradient-sidebar: linear-gradient(180deg, hsl(40 30% 97%) 0%, hsl(40 25% 94%) 100%);
+}
 
-```typescript
-// Wrapper that enables horizontal scroll for tables on mobile
-// while maintaining internal scroll behavior
-```
-
-This component will:
-- Add horizontal scroll with `-webkit-overflow-scrolling: touch`
-- Show scroll indicator shadow on the right when content is clipped
-- Maintain minimum width for table readability
-
----
-
-### Step 2: Fix Users.tsx Mobile Layout
-
-**Changes:**
-- Wrap tables in responsive table component
-- Stack filter tabs vertically on mobile
-- Convert pending approvals table to card-based layout on mobile
-- Reduce padding in table cells on mobile
-
-**Mobile Card Layout for Pending Users:**
-```
-┌────────────────────────────────┐
-│ [Avatar] Name                  │
-│          Badge: Pending        │
-│ ──────────────────────────────│
-│ Role: [Select Dropdown]       │
-│ Chapter: [Select Dropdown]    │
-│           [Approve Button]    │
-└────────────────────────────────┘
-```
-
----
-
-### Step 3: Fix LMSEvents.tsx Mobile Layout
-
-**Changes:**
-- Convert manage events table to stacked cards on mobile (< 640px)
-- Shorten tab text on mobile: "Upcoming" / "Manage"
-- Stack date/time inputs in event form dialog on mobile
-- Ensure action buttons wrap properly
-
----
-
-### Step 4: Fix Orders and Attendees Tables
-
-**OrdersTable.tsx Changes:**
-- Add responsive table wrapper
-- Make search input full width on mobile
-- Stack filters vertically
-- Hide less critical columns on mobile (use CSS `hidden sm:table-cell`)
-- Show key info in expandable row
-
-**AttendeesTable.tsx Changes:**
-- Same responsive wrapper approach
-- Stack all filters vertically on mobile
-- Hide Event, Order #, Purchaser columns on mobile
-- Show essential info inline in remaining cells
-
----
-
-### Step 5: Fix Header Button Rows
-
-**Recordings.tsx:**
-```tsx
-// Change from:
-<div className="flex items-center gap-2">
-
-// To:
-<div className="flex flex-wrap items-center gap-2">
-```
-
-Also, hide button text on mobile, show only icons:
-```tsx
-<Button>
-  <ArrowUpDown className="h-4 w-4" />
-  <span className="hidden sm:inline ml-2">Reorder</span>
-</Button>
-```
-
-**Apply similar pattern to:**
-- Attendees.tsx
-- ManageTickets.tsx
-- RecordingPlayerView.tsx
-
----
-
-### Step 6: Fix Tab Triggers Width
-
-**RecordingPlayerView.tsx:**
-- Use shorter labels on mobile
-- Hide "(unavailable)" text on mobile
-- Stack icons above text if needed
-
-```tsx
-<TabsTrigger value="transcript" className="gap-1 sm:gap-2">
-  <FileText className="h-4 w-4" />
-  <span className="hidden xs:inline">Transcript</span>
-</TabsTrigger>
-```
-
----
-
-### Step 7: Add Text Truncation Utilities
-
-Ensure long text doesn't break layouts:
-
-**For order numbers:**
-```tsx
-<span className="font-mono text-sm truncate max-w-[100px] sm:max-w-none">
-  {order.order_number}
-</span>
-```
-
-**For emails:**
-```tsx
-<span className="truncate max-w-[150px] sm:max-w-none">
-  {order.email}
-</span>
-```
-
----
-
-### Step 8: Fix Moderation.tsx Delete Button
-
-The delete button sits beside the post content. On mobile, it should be moved:
-
-```tsx
-// Wrap content with flex-col on mobile
-<div className="flex flex-col sm:flex-row items-start justify-between gap-3">
-  <div className="flex items-start gap-3 flex-1 min-w-0">
-    {/* Avatar and content */}
-  </div>
-  <Button variant="destructive" size="sm" className="w-full sm:w-auto">
-    <Trash2 className="h-4 w-4 mr-2" />
-    Delete
-  </Button>
-</div>
-```
-
----
-
-### Step 9: Fix Announcement Cards Action Buttons
-
-**Announcements.tsx:**
-```tsx
-// Current: buttons inline with content
-// Fix: Stack on mobile
-<div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-2">
-```
-
----
-
-### Step 10: Add Custom 320px Breakpoint (Optional)
-
-Add an `xs` breakpoint to Tailwind for 320px-specific styles:
-
-**tailwind.config.ts:**
-```typescript
-theme: {
-  screens: {
-    'xs': '320px',
-    'sm': '640px',
-    // ... existing breakpoints
-  }
+.dark {
+  /* Keep existing dark sidebar colors */
+  --gradient-sidebar: linear-gradient(180deg, hsl(30 12% 8%) 0%, hsl(30 15% 5%) 100%);
 }
 ```
+
+### Step 2: Update LMS Sidebar Component
+
+Modify `Sidebar.tsx` to use theme-aware styling:
+
+**Changes:**
+1. Replace `--gradient-dark` with `--gradient-sidebar` (theme-aware)
+2. Import both logo versions and conditionally render based on theme
+3. Update border and text colors to use sidebar tokens
+
+```tsx
+// Add theme detection
+import { useTheme } from 'next-themes';
+import logoDark from '@/assets/coclc-logo-dark.png';
+import logoLight from '@/assets/coclc-logo-light.png';
+
+export default function Sidebar() {
+  const { theme, resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  
+  // Use appropriate logo based on theme
+  const logo = isDark ? logoDark : logoLight;
+  
+  return (
+    <aside
+      className="... bg-sidebar text-sidebar-foreground border-r border-sidebar-border ..."
+      style={{ backgroundImage: "var(--gradient-sidebar)" }}
+    >
+      <img src={logo} alt="Circle of Change" className="h-10" />
+      {/* ... rest of component */}
+    </aside>
+  );
+}
+```
+
+### Step 3: Update Events Dashboard Sidebar
+
+Modify `EventsDashboardSidebar.tsx` to use the same sidebar tokens for consistency:
+
+```tsx
+<aside
+  className="... bg-sidebar text-sidebar-foreground border-r border-sidebar-border ..."
+  style={{ backgroundImage: "var(--gradient-sidebar)" }}
+>
+```
+
+Update all internal elements to use sidebar-specific color tokens.
 
 ---
 
@@ -230,74 +108,32 @@ theme: {
 
 | File | Change Type | Description |
 |------|-------------|-------------|
-| `src/components/ui/responsive-table.tsx` | New | Reusable horizontal scroll wrapper for tables |
-| `src/pages/Users.tsx` | Modify | Add mobile card layout for pending users, wrap tables |
-| `src/pages/LMSEvents.tsx` | Modify | Convert table to cards on mobile, shorten tabs |
-| `src/pages/Moderation.tsx` | Modify | Stack delete button below content on mobile |
-| `src/pages/Announcements.tsx` | Modify | Stack action buttons on mobile |
-| `src/pages/Recordings.tsx` | Modify | Wrap buttons, use icon-only on mobile |
-| `src/pages/events/manage/Attendees.tsx` | Modify | Stack filter buttons, wrap header |
-| `src/pages/events/manage/ManageTickets.tsx` | Modify | Wrap header, responsive table |
-| `src/pages/events/manage/Index.tsx` | Modify | Responsive table, hide columns on mobile |
-| `src/pages/events/manage/Orders.tsx` | Modify | Stack header elements |
-| `src/pages/events/manage/OrderDetail.tsx` | Modify | Responsive attendee table, stack sections |
-| `src/components/events/OrdersTable.tsx` | Modify | Add responsive wrapper, hide columns, stack filters |
-| `src/components/events/AttendeesTable.tsx` | Modify | Same responsive improvements |
-| `src/components/recordings/RecordingPlayerView.tsx` | Modify | Wrap header buttons, shorter tab labels |
-| `src/components/recordings/RecordingsBrowseView.tsx` | Modify | Ensure grid is 1-column at 320px |
-| `tailwind.config.ts` | Modify | Add `xs: 320px` breakpoint |
+| `src/index.css` | Modify | Add light-themed sidebar CSS variables and `--gradient-sidebar` |
+| `src/components/layout/Sidebar.tsx` | Modify | Use theme-aware gradient and logo switching |
+| `src/components/events/EventsDashboardSidebar.tsx` | Modify | Use sidebar tokens for consistency |
 
 ---
 
-## Testing Checklist
+## Visual Result
 
-After implementation, verify each page at 320px viewport:
+### Light Mode Sidebar
+- Warm cream background with subtle gradient
+- Dark charcoal text for readability
+- Gold accent color for active states
+- Light-text logo (`coclc-logo-light.png`)
 
-- [ ] Auth page - Login/signup forms
-- [ ] Feed page - Post cards, tabs, create form
-- [ ] Recordings page - Grid, reorder mode, upload dialog
-- [ ] Recording player - Video, tabs, transcript
-- [ ] Profile page - Avatar, form fields
-- [ ] Users page - Tabs, approval table, user list
-- [ ] Chapters page - Table, dialog forms
-- [ ] Moderation page - Post cards with delete
-- [ ] MyChapter page - Grid layout, member list
-- [ ] Announcements page - Cards with action buttons
-- [ ] LMSEvents page - Event cards, management table
-- [ ] DashboardSelector - Two-column cards
-- [ ] PendingApproval - Centered card
-- [ ] Events Index (public) - Event cards grid
-- [ ] Event Detail - Sidebar layout, ticket section
-- [ ] Checkout - Form fields, ticket selector
-- [ ] Checkout Success - Order details
-- [ ] Order Attendees - Attendee forms
-- [ ] Events Manage Index - Events table
-- [ ] New/Edit Event - Form fields
-- [ ] Manage Tickets - Ticket types table
-- [ ] Orders management - Orders table with filters
-- [ ] Attendees management - Attendees table with filters
-- [ ] Order Detail - Customer info, attendees, messages
-- [ ] Order Portal Index - OTP input
-- [ ] Order Portal Dashboard - Order cards
-
----
-
-## Key Responsive Patterns to Apply
-
-1. **Tables**: Horizontal scroll wrapper + hide non-essential columns
-2. **Button groups**: `flex-wrap` + icon-only on mobile
-3. **Filter rows**: Stack vertically with `flex-col sm:flex-row`
-4. **Card actions**: Move to bottom on mobile
-5. **Long text**: `truncate` with max-width constraints
-6. **Grids**: Ensure single column at 320px
-7. **Dialogs**: Full width inputs, stacked date pickers
+### Dark Mode Sidebar
+- Deep charcoal background (unchanged)
+- Light cream text
+- Gold accent color for active states
+- Dark-text logo (`coclc-logo-dark.png`)
 
 ---
 
 ## Technical Notes
 
-- All changes use Tailwind's responsive prefixes (`sm:`, `md:`, `lg:`)
-- No JavaScript media queries needed - CSS-only approach
-- Existing `min-w-0` pattern in layouts prevents flex overflow
-- iOS safe areas are already handled via `env(safe-area-inset-*)`
-- Touch-friendly tap targets (44px min) are enforced in index.css
+- Uses `next-themes` hook (`useTheme`) to detect current theme
+- `resolvedTheme` handles system preference detection
+- CSS variables automatically switch based on `.dark` class
+- Both sidebars will now follow the application's theme setting
+- The premium aesthetic is maintained in both modes with appropriate contrast
