@@ -18,6 +18,7 @@ serve(async (req) => {
     const MUX_TOKEN_SECRET = Deno.env.get("MUX_TOKEN_SECRET");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
     if (!MUX_TOKEN_ID || !MUX_TOKEN_SECRET) {
       throw new Error("Mux credentials not configured");
@@ -25,26 +26,28 @@ serve(async (req) => {
 
     // Get auth header to verify user
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       throw new Error("No authorization header");
     }
 
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    // Create client with anon key and auth header for JWT verification
+    const supabaseAuth = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    // Verify the user's JWT
+    // Verify the user's JWT using getClaims
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError) {
-      console.error("Auth error:", userError);
-      throw new Error("Unauthorized: " + userError.message);
-    }
-    
-    if (!userData.user) {
-      throw new Error("Unauthorized: No user found");
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims) {
+      console.error("Auth error:", claimsError);
+      throw new Error("Unauthorized: " + (claimsError?.message || "Invalid token"));
     }
 
-    const userId = userData.user.id;
+    const userId = claimsData.claims.sub as string;
+
+    // Create service role client for database operations
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
     const { action, ...body } = await req.json();
 
