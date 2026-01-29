@@ -8,6 +8,7 @@ import { Heart, MessageCircle, Trash2, Globe, Users, MoreHorizontal } from 'luci
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import CommentsSection from './CommentsSection';
+import { ClickableUserAvatar } from '@/components/ui/clickable-user-avatar';
 import ImageLightbox from '@/components/ui/image-lightbox';
 import {
   DropdownMenu,
@@ -79,27 +80,25 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <Avatar className="h-11 w-11 ring-2 ring-primary/10">
-              <AvatarImage src={post.author.avatar_url || undefined} />
-              <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-semibold text-foreground">{post.author.full_name}</p>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
-                <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-                {post.is_global ? (
-                  <span className="flex items-center gap-1">
-                    <Globe className="h-3 w-3" /> Everyone
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3 w-3" /> Chapter
-                  </span>
-                )}
-              </div>
+            <ClickableUserAvatar
+              userId={post.user_id}
+              fullName={post.author.full_name}
+              avatarUrl={post.author.avatar_url}
+              size="lg"
+              showName
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+              <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+              <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+              {post.is_global ? (
+                <span className="flex items-center gap-1">
+                  <Globe className="h-3 w-3" /> Everyone
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <Users className="h-3 w-3" /> Chapter
+                </span>
+              )}
             </div>
           </div>
           {canDelete && (

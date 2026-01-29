@@ -17,6 +17,7 @@ import { CircleLoader, FullPageLoader } from "@/components/ui/circle-loader";
 const Feed = lazy(() => import("@/pages/Feed"));
 const Recordings = lazy(() => import("@/pages/Recordings"));
 const Profile = lazy(() => import("@/pages/Profile"));
+const UserProfile = lazy(() => import("@/pages/UserProfile"));
 const Users = lazy(() => import("@/pages/Users"));
 const Chapters = lazy(() => import("@/pages/Chapters"));
 const Moderation = lazy(() => import("@/pages/Moderation"));
@@ -158,6 +159,13 @@ function AppRoutes() {
         <ProtectedRoute>
           <Suspense fallback={<PageLoader />}>
             <Recordings />
+          </Suspense>
+        </ProtectedRoute>
+      } />
+      <Route path="/profile/:userId" element={
+        <ProtectedRoute>
+          <Suspense fallback={<PageLoader />}>
+            <UserProfile />
           </Suspense>
         </ProtectedRoute>
       } />
