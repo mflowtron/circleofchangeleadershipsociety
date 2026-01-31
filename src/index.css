@@ -424,3 +424,22 @@ html {
 .is-natively-app .pb-safe {
   padding-bottom: var(--natively-inset-bottom) !important;
 }
+
+/* Natively viewport fix - prevents iOS WKWebView from shifting layout after fullscreen */
+.is-natively-app html,
+.is-natively-app body {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.is-natively-app #root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}

@@ -42,6 +42,22 @@ export function NativelySafeAreaProvider({ children }: { children: React.ReactNo
     }
   }, []);
 
+  // Reset viewport when visualViewport has anomalous offsetTop
+  const checkAndResetViewport = useCallback(() => {
+    const vv = window.visualViewport;
+    if (vv && vv.offsetTop > 10) {
+      console.debug('[NativelySafeArea] Detected viewport offset anomaly:', vv.offsetTop);
+      
+      // Force scroll reset
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      
+      // Refresh insets
+      refreshInsets();
+    }
+  }, [refreshInsets]);
+
   useEffect(() => {
     try {
       const info = new NativelyInfo();
@@ -58,12 +74,23 @@ export function NativelySafeAreaProvider({ children }: { children: React.ReactNo
       refreshInsets();
 
       // Event listeners for inset refresh
-      const handleRefresh = () => refreshInsets();
+      const handleRefresh = () => {
+        refreshInsets();
+        // Also check for viewport anomalies
+        setTimeout(checkAndResetViewport, 50);
+      };
+
+      // Handle visualViewport resize (key for fullscreen exit detection)
+      const handleViewportResize = () => {
+        checkAndResetViewport();
+        refreshInsets();
+      };
 
       window.addEventListener('resize', handleRefresh);
       window.addEventListener('orientationchange', handleRefresh);
       window.addEventListener('visibilitychange', handleRefresh);
       window.addEventListener('natively:refresh-insets', handleRefresh);
+      window.visualViewport?.addEventListener('resize', handleViewportResize);
 
       // Cleanup on unmount
       return () => {
@@ -72,12 +99,13 @@ export function NativelySafeAreaProvider({ children }: { children: React.ReactNo
         window.removeEventListener('orientationchange', handleRefresh);
         window.removeEventListener('visibilitychange', handleRefresh);
         window.removeEventListener('natively:refresh-insets', handleRefresh);
+        window.visualViewport?.removeEventListener('resize', handleViewportResize);
       };
     } catch (error) {
       // Silently fail - SDK not ready or not in native environment
       console.debug('Natively safe area provider skipped:', error);
     }
-  }, [refreshInsets]);
+  }, [refreshInsets, checkAndResetViewport]);
 
   return <>{children}</>;
 }
