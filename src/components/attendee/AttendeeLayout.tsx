@@ -21,7 +21,7 @@ export function AttendeeLayout({
   const { logout, events } = useAttendee();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pt-safe">
+    <div className="min-h-screen bg-background flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
       {/* Header */}
       {showHeader && (
         <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
