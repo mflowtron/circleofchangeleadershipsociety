@@ -1,153 +1,118 @@
 
-# Fix: Mux Player Fullscreen Exit Content Shift
+Problem recap (what’s still happening)
+- In the Natively-wrapped app (not the PWA), exiting fullscreen in the Mux player causes the page to “jump” downward, leaving a large blank gap at the top.
+- We previously added `useFullscreenScrollFix`, but it’s not resolving the issue in the Natively app.
 
-## Problem Identified
+What I found in the current implementation (root causes)
+1) The fullscreen listeners often never attach in practice
+- `useFullscreenScrollFix()` tries to attach iOS listeners to `playerRef.current?.media?.nativeEl` during its first `useEffect`.
+- In `RecordingPlayerView`, `playerRef.current` is assigned inside the callback ref `handlePlayerRef`.
+- Updating `playerRef.current` does not trigger a React re-render, so the hook’s effect will not re-run when the video element becomes available.
+- Result: in many cases (especially in WebViews), `videoEl` is null at the moment we attach listeners, so `webkitbeginfullscreen` / `webkitendfullscreen` never get attached.
 
-When exiting fullscreen mode in the Mux video player on iOS (within the Natively wrapper), the page content shifts down and displays a large gap at the top. This is visible in your screenshot where there's significant empty space between the header and the "Back to Recordings" button.
+2) We’re restoring the wrong scroll position target
+- The main app layout scrolls inside the `<main className="... overflow-y-auto">` container (see `src/components/layout/AppLayout.tsx`), not necessarily on `window`.
+- The current hook only saves/restores `window.scrollY` via `window.scrollTo(...)`, which won’t fix a shift that is caused by the internal scrolling container’s `scrollTop` changing.
 
-**Root Cause:** This is a known iOS Safari/WebView bug. When a video enters fullscreen mode, iOS takes control of the viewport. Upon exit, the browser fails to properly restore the scroll position and viewport state, causing the content to appear shifted.
+3) Natively safe-area insets are “one-and-done” (can become stale after fullscreen)
+- In the PWA, `env(safe-area-inset-*)` updates dynamically as iOS changes UI chrome.
+- In the Natively wrapper, we override safe area using `--natively-inset-*` which is set once on mount in `NativelySafeAreaProvider`.
+- When iOS/WKWebView transitions in/out of fullscreen, the top inset/status bar can change. If the wrapper applies its own insets again after fullscreen exit, our CSS can effectively end up “double accounting” (native inset + our padding), creating the visible gap.
+- Since the provider doesn’t refresh insets on lifecycle/viewport changes, it can’t correct itself.
 
----
+Goal of the fix
+- Make the fullscreen fix actually run in the Natively app by reliably attaching listeners after the video element exists.
+- Restore the correct scroll container (internal `<main>` scroller) rather than only the window.
+- Re-assert/update Natively safe-area insets immediately after fullscreen exits (and on relevant lifecycle events) so the top padding doesn’t drift.
 
-## Solution
+Planned changes (code)
+A) Harden `useFullscreenScrollFix` so it works in Natively WebView
+File: `src/hooks/useFullscreenScrollFix.ts`
 
-Create a custom hook that listens for fullscreen exit events and restores the scroll position. The fix involves:
+1. Attach listeners reliably
+- Add a small “wait until available” mechanism:
+  - Poll `playerRef.current?.media?.nativeEl` via a short interval for a few seconds, or use `requestAnimationFrame` looping until found (with timeout).
+  - Once found, attach:
+    - `webkitbeginfullscreen` (save)
+    - `webkitendfullscreen` (restore)
+  - Keep the current `fullscreenchange` listener as a fallback for non-iOS browsers.
 
-1. Saving the scroll position before fullscreen begins
-2. Restoring it immediately after fullscreen ends
-3. Using iOS-specific event names (`webkitbeginfullscreen` / `webkitendfullscreen`)
+2. Save/restore BOTH:
+- window scroll: `window.scrollY`
+- nearest scroll container scroll: `scrollContainer.scrollTop`
+  - Determine scroll container at fullscreen start:
+    - Traverse up from the video element to find the closest ancestor that is scrollable (computed overflowY is `auto`/`scroll` and scrollHeight > clientHeight).
+    - If none found, fallback to `document.scrollingElement` or window.
 
----
+3. Restore in multiple passes (iOS timing quirks)
+- On fullscreen end:
+  - Trigger a layout reflow (we can keep your existing “height nudge”, but we’ll make it safer and scoped).
+  - Restore scroll in a few stages:
+    - `requestAnimationFrame` restore
+    - `setTimeout(50)` restore again
+    - `setTimeout(250)` restore again (covers late WKWebView adjustments)
 
-## Implementation Details
+4. After fullscreen exit, force “insets + layout” refresh
+- Dispatch a custom event (example: `window.dispatchEvent(new Event('natively:refresh-insets'))`)
+- Also dispatch a synthetic resize event (`window.dispatchEvent(new Event('resize'))`) because some WebViews only respond to resize for viewport recalculation.
 
-### 1. Create Fullscreen Fix Hook
+5. Add focused debug logging (temporary)
+- Only when `window.natively` exists, log:
+  - whether we found the native video element
+  - whether `webkitbeginfullscreen` / `webkitendfullscreen` fired
+  - which scroll container was chosen and its saved/restored values
+This will let us confirm in the Natively console whether the events are firing (critical for debugging).
 
-**File:** `src/hooks/useFullscreenScrollFix.ts`
+B) Update `NativelySafeAreaProvider` to refresh insets on changes
+File: `src/components/NativelySafeAreaProvider.tsx`
 
-This hook will:
-- Attach event listeners to the video element inside MuxPlayer
-- Save scroll position when entering fullscreen
-- Restore scroll position when exiting fullscreen
-- Use both standard and webkit-prefixed events for maximum compatibility
+1. Extract a `refreshInsets()` function inside the effect
+- Calls `window.natively.getInsets(...)`
+- Updates:
+  - `--natively-inset-top/right/bottom/left`
+- Keep the current try/catch behavior to avoid any blank-screen regressions.
 
-```text
-Logic flow:
-1. Get reference to MuxPlayer's internal video element
-2. Listen for 'webkitbeginfullscreen' → save window.scrollY
-3. Listen for 'webkitendfullscreen' → restore scroll position using scrollTo(0, savedPosition)
-4. Also handle standard 'fullscreenchange' for non-iOS browsers
-5. Cleanup listeners on unmount
-```
+2. Add event listeners to re-run `refreshInsets()`
+- `resize`
+- `orientationchange`
+- `visibilitychange` (when returning from fullscreen, this can fire depending on the wrapper)
+- custom event `natively:refresh-insets` (dispatched by the fullscreen hook)
 
-### 2. Integrate Into RecordingPlayerView
+3. Throttle/debounce refresh
+- Prevent excessive calls by ignoring calls within e.g. 100ms windows.
 
-**File:** `src/components/recordings/RecordingPlayerView.tsx`
+Why this specifically targets “Natively only” behavior
+- PWA: safe area comes from `env(...)` and iOS generally keeps it consistent across fullscreen transitions.
+- Natively: safe area is a JS-fed CSS variable, and fullscreen transitions can change native insets/status bar behavior without our variables updating, leading to layout drift. Refreshing insets after exit addresses that.
 
-Call the new hook, passing the player ref so it can attach listeners to the video element.
+C) (Optional but recommended) Expand the fix to Feed videos too
+- The Feed’s `PostCard` uses `<MuxPlayer />` without a ref/hook.
+- If the fullscreen-shift can also happen there in the Natively app, we should wrap MuxPlayer in a small reusable component that always applies the fullscreen fix, and use it in both:
+  - `RecordingPlayerView`
+  - `PostCard`
+This reduces “it’s fixed here but not there” inconsistencies.
 
----
+Testing plan (what I’ll verify after implementing)
+1) In the Natively app (iOS):
+- Go to Recordings -> open a recording -> enter fullscreen -> exit fullscreen.
+- Confirm:
+  - No persistent blank gap at the top
+  - Header remains flush to the top (respecting safe area)
+  - Scrolling still behaves normally (no snap-to-top surprises)
 
-## File Changes Summary
+2) In the PWA:
+- Repeat the same flow to ensure no regressions.
 
-| File | Action | Description |
-|------|--------|-------------|
-| `src/hooks/useFullscreenScrollFix.ts` | Create | Hook to fix iOS fullscreen scroll issue |
-| `src/components/recordings/RecordingPlayerView.tsx` | Update | Integrate the fullscreen scroll fix hook |
+3) If we apply the optional Feed change:
+- Open a post video -> fullscreen -> exit -> confirm no shift.
 
----
+Risks / tradeoffs
+- Polling for the native video element is slightly “hacky,” but it’s a common, reliable approach when refs update outside React state.
+- Re-applying scroll restoration multiple times is intentionally defensive against WKWebView’s delayed viewport adjustments.
+- Refreshing insets on resize/visibility changes should be safe, but we’ll throttle calls to avoid performance issues.
 
-## Technical Details
-
-### iOS-Specific Events
-
-iOS Safari uses proprietary events for fullscreen video:
-- `webkitbeginfullscreen` - fired when video enters fullscreen
-- `webkitendfullscreen` - fired when video exits fullscreen
-
-These are different from the standard `fullscreenchange` event and are specific to iOS.
-
-### Hook Implementation
-
-```text
-export function useFullscreenScrollFix(playerRef: React.RefObject<MuxPlayerElement | null>) {
-  const scrollPositionRef = useRef(0);
-
-  useEffect(() => {
-    // Get the native video element from MuxPlayer
-    const videoEl = playerRef.current?.media?.nativeEl;
-    if (!videoEl) return;
-
-    const handleFullscreenStart = () => {
-      // Save current scroll position before entering fullscreen
-      scrollPositionRef.current = window.scrollY;
-    };
-
-    const handleFullscreenEnd = () => {
-      // Restore scroll position after exiting fullscreen
-      // Use requestAnimationFrame to ensure DOM has settled
-      requestAnimationFrame(() => {
-        window.scrollTo(0, scrollPositionRef.current);
-      });
-    };
-
-    // iOS-specific events
-    videoEl.addEventListener('webkitbeginfullscreen', handleFullscreenStart);
-    videoEl.addEventListener('webkitendfullscreen', handleFullscreenEnd);
-
-    // Standard fullscreen event (for other browsers)
-    document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement) {
-        handleFullscreenEnd();
-      } else {
-        handleFullscreenStart();
-      }
-    });
-
-    return () => {
-      videoEl.removeEventListener('webkitbeginfullscreen', handleFullscreenStart);
-      videoEl.removeEventListener('webkitendfullscreen', handleFullscreenEnd);
-    };
-  }, [playerRef]);
-}
-```
-
-### Integration in RecordingPlayerView
-
-```text
-// In RecordingPlayerView.tsx
-import { useFullscreenScrollFix } from '@/hooks/useFullscreenScrollFix';
-
-// After playerRef declaration
-useFullscreenScrollFix(playerRef);
-```
-
----
-
-## Alternative Approach
-
-If the scroll restoration alone doesn't fully solve the issue (some iOS versions have additional viewport quirks), an additional fix can be added:
-
-```text
-const handleFullscreenEnd = () => {
-  // Force viewport recalculation
-  document.body.style.height = '100.1%';
-  requestAnimationFrame(() => {
-    document.body.style.height = '';
-    window.scrollTo(0, scrollPositionRef.current);
-  });
-};
-```
-
----
-
-## Testing Considerations
-
-After implementation:
-1. Open the Recordings page in the Natively iOS wrapper
-2. Select a recording to open the player view
-3. Tap the fullscreen button on the Mux player
-4. Exit fullscreen using the iOS done/minimize button
-5. Verify content is not shifted down
-6. Verify scroll position is preserved
-7. Test on web browser to ensure no regressions
+Implementation sequence (so we don’t break things)
+1) Update `useFullscreenScrollFix` to reliably attach and to restore the correct scroll container.
+2) Update `NativelySafeAreaProvider` to refresh insets + listen for the custom refresh event.
+3) (Optional) Add a reusable MuxPlayer wrapper and use it in Feed posts.
+4) Test in Natively and in PWA, and keep temporary debug logs until confirmed fixed, then remove/reduce them.
