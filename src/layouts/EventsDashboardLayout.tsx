@@ -32,20 +32,25 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
 
   return (
     <EventSelectionProvider>
-      <div className="min-h-screen bg-background flex overflow-x-hidden">
-        <EventsDashboardSidebar 
-          isOpen={sidebarOpen} 
-          onClose={() => setSidebarOpen(false)}
-          onSwitchDashboard={handleSwitchDashboard}
-          showSwitchOption={hasLMSAccess}
-        />
-        <div className="flex-1 flex flex-col md:ml-64 min-w-0">
-          <EventsDashboardHeader onMenuClick={() => setSidebarOpen(true)} />
-          <main className="flex-1 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
-            <div className="animate-fade-up">
-              {children}
-            </div>
-          </main>
+      <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
+        {/* Safe area spacer for notched devices */}
+        <div className="min-h-safe-top bg-background shrink-0" />
+        
+        <div className="flex-1 flex">
+          <EventsDashboardSidebar 
+            isOpen={sidebarOpen} 
+            onClose={() => setSidebarOpen(false)}
+            onSwitchDashboard={handleSwitchDashboard}
+            showSwitchOption={hasLMSAccess}
+          />
+          <div className="flex-1 flex flex-col md:ml-64 min-w-0">
+            <EventsDashboardHeader onMenuClick={() => setSidebarOpen(true)} />
+            <main className="flex-1 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
+              <div className="animate-fade-up">
+                {children}
+              </div>
+            </main>
+          </div>
         </div>
       </div>
     </EventSelectionProvider>

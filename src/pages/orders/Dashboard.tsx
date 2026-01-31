@@ -32,7 +32,10 @@ export default function OrderPortalDashboard() {
   const totalUnreadMessages = orders.reduce((sum, order) => sum + order.unread_messages, 0);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Safe area spacer for notched devices */}
+      <div className="min-h-safe-top bg-background shrink-0" />
+      
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">

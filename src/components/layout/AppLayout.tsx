@@ -33,15 +33,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <Sidebar />
-      <div className="flex-1 flex flex-col md:ml-72">
-        <Header />
-        <main className="flex-1 p-4 md:p-8 overflow-x-hidden overflow-y-auto">
-          <div className="animate-fade-up">
-            {children}
-          </div>
-        </main>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Safe area spacer for notched devices */}
+      <div className="min-h-safe-top bg-background shrink-0" />
+      
+      <div className="flex-1 flex">
+        <Sidebar />
+        <div className="flex-1 flex flex-col md:ml-72">
+          <Header />
+          <main className="flex-1 p-4 md:p-8 overflow-x-hidden overflow-y-auto">
+            <div className="animate-fade-up">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
       <InstallBanner />
     </div>

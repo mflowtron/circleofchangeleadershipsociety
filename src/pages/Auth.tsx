@@ -149,7 +149,11 @@ export default function Auth() {
       setLoading(false);
     }
   };
-  return <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+  return <div className="min-h-screen bg-background flex flex-col">
+      {/* Safe area spacer for notched devices */}
+      <div className="min-h-safe-top bg-background shrink-0" />
+      
+      <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-gradient-radial from-primary/5 via-transparent to-transparent" />
@@ -248,6 +252,7 @@ export default function Auth() {
           </Tabs>
         </CardContent>
       </Card>
+      </div>
       </div>
     </div>;
 }
