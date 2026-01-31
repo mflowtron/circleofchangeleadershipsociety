@@ -27,11 +27,11 @@ export function useNativelyThemeSync() {
       if (resolvedTheme === 'dark') {
         // Dark theme: light icons on dark background
         natively.setAppStatusBarStyle('LIGHT');
-        natively.setAppBackgroundColor('#161412');
+        natively.setAppBackgroundColor('#1F1C1A'); // Card/header color
       } else {
         // Light theme: dark icons on light background
         natively.setAppStatusBarStyle('DARK');
-        natively.setAppBackgroundColor('#F9F8F5');
+        natively.setAppBackgroundColor('#FFFDFB'); // Card/header color
       }
     } catch (error) {
       // Silently fail - SDK not ready or not in native environment
