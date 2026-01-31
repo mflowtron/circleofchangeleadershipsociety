@@ -1,7 +1,6 @@
 import { useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 import type MuxPlayerElement from '@mux/mux-player';
-import { useFullscreenScrollFix } from '@/hooks/useFullscreenScrollFix';
 import { cn } from '@/lib/utils';
 
 type MuxPlayerProps = React.ComponentProps<typeof MuxPlayer>;
@@ -19,9 +18,6 @@ interface MuxPlayerWithFixProps extends MuxPlayerProps {
 const MuxPlayerWithFix = forwardRef<MuxPlayerElement, MuxPlayerWithFixProps>(
   ({ className, ...props }, ref) => {
     const internalRef = useRef<MuxPlayerElement | null>(null);
-
-    // Apply the fullscreen scroll fix
-    useFullscreenScrollFix(internalRef);
 
     // Combine internal ref with forwarded ref
     const handleRef = useCallback((el: MuxPlayerElement | null) => {

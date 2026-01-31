@@ -477,3 +477,9 @@ html.is-natively-app [data-sonner-toaster] {
   max-width: 200px;
   line-height: 1.4;
 }
+
+/* Viewport reset helper for Natively fullscreen fix - forces GPU layer recalculation */
+.natively-viewport-reset {
+  transform: translateZ(0);
+  will-change: transform;
+}

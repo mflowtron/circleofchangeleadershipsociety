@@ -11,7 +11,6 @@ import { ResourceUploadDialog } from './ResourceUploadDialog';
 import { TranscriptViewer } from './TranscriptViewer';
 import { useRecordingResources } from '@/hooks/useRecordingResources';
 import { useTranscript, TranscriptCue } from '@/hooks/useTranscript';
-import { useFullscreenScrollFix } from '@/hooks/useFullscreenScrollFix';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -33,9 +32,6 @@ export function RecordingPlayerView({
   const [captionsTrackId, setCaptionsTrackId] = useState<string | null>(recording.captions_track_id ?? null);
   
   const playerRef = useRef<MuxPlayerElement | null>(null);
-  
-  // Fix iOS fullscreen exit scroll issue
-  useFullscreenScrollFix(playerRef);
   
   const { resources, loading: resourcesLoading, uploading, uploadResource, deleteResource } = useRecordingResources(recording.id);
   const { cues, loading: transcriptLoading, error: transcriptError } = useTranscript(
