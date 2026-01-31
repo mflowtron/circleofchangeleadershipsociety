@@ -11,72 +11,34 @@ function nativelyLog(...args: unknown[]) {
 }
 
 /**
- * Aggressive viewport reset for iOS WKWebView fullscreen exit issues.
- * This handles cases where visualViewport.offsetTop becomes non-zero.
+ * Dispatches fullscreen exit event for the NativelySafeAreaProvider to handle.
  */
-function resetViewport() {
-  nativelyLog('Executing aggressive viewport reset');
+function dispatchFullscreenExit() {
+  nativelyLog('Dispatching fullscreen exit events');
+  window.dispatchEvent(new Event('natively:fullscreen-exit'));
+  window.dispatchEvent(new Event('natively:refresh-insets'));
+}
 
-  // Force a reflow by toggling overflow
-  const html = document.documentElement;
-  const originalOverflow = html.style.overflow;
-  html.style.overflow = 'hidden';
-  void html.offsetHeight; // Force reflow
-  html.style.overflow = originalOverflow;
-
-  // Reset all scroll positions
+/**
+ * Minimal scroll reset - just resets to top without negative offsets.
+ */
+function resetScroll() {
   window.scrollTo(0, 0);
   document.documentElement.scrollTop = 0;
   document.body.scrollTop = 0;
-
-  // Find and reset any scrollable containers
-  const scrollContainers = document.querySelectorAll('[class*="overflow-y-auto"], [class*="overflow-auto"]');
-  scrollContainers.forEach((container) => {
-    if (container instanceof HTMLElement) {
-      container.scrollTop = 0;
-    }
-  });
-
-  // Check visualViewport offset and try to compensate
-  const vv = window.visualViewport;
-  if (vv && vv.offsetTop > 0) {
-    nativelyLog('visualViewport.offsetTop detected:', vv.offsetTop);
-    // Try negative scroll to compensate
-    window.scrollTo(0, -vv.offsetTop);
-  }
-
-  // Dispatch events to refresh Natively insets
-  window.dispatchEvent(new Event('natively:refresh-insets'));
-  window.dispatchEvent(new Event('resize'));
 }
 
 /**
- * Multi-pass reset to handle WKWebView async timing quirks.
- */
-function multiPassReset() {
-  // Immediate
-  resetViewport();
-  
-  // Delayed passes
-  setTimeout(resetViewport, 50);
-  setTimeout(resetViewport, 200);
-  setTimeout(resetViewport, 500);
-}
-
-/**
- * Fixes iOS Safari/WebView bug where exiting fullscreen video causes content shift.
+ * Hook to detect fullscreen exit and signal the NativelySafeAreaProvider.
  * 
- * This enhanced version:
- * 1. Monitors visualViewport.offsetTop for anomalies
- * 2. Listens to multiple event sources (webkit, standard, visibility, viewport)
- * 3. Performs aggressive DOM reset with multi-pass timing
- * 4. Uses a sentinel element to detect viewport misalignment
+ * The actual viewport compensation is handled by NativelySafeAreaProvider.
+ * This hook's job is just to detect fullscreen exit from multiple sources
+ * and dispatch the appropriate events.
  */
 export function useFullscreenScrollFix(playerRef: RefObject<MuxPlayerElement | null>) {
   const wasInFullscreenRef = useRef(false);
   const listenersAttachedRef = useRef(false);
   const videoElRef = useRef<HTMLVideoElement | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // Only run in Natively app
@@ -88,26 +50,6 @@ export function useFullscreenScrollFix(playerRef: RefObject<MuxPlayerElement | n
     let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
     const cleanupFunctions: (() => void)[] = [];
 
-    // Create sentinel element to detect viewport misalignment
-    const sentinel = document.createElement('div');
-    sentinel.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;pointer-events:none;visibility:hidden;';
-    document.body.appendChild(sentinel);
-    sentinelRef.current = sentinel;
-    cleanupFunctions.push(() => {
-      sentinel.remove();
-      sentinelRef.current = null;
-    });
-
-    const checkSentinel = (): boolean => {
-      if (!sentinelRef.current) return false;
-      const rect = sentinelRef.current.getBoundingClientRect();
-      const misaligned = rect.top !== 0;
-      if (misaligned) {
-        nativelyLog('Sentinel detected misalignment:', rect.top);
-      }
-      return misaligned;
-    };
-
     const getVideoElement = (): HTMLVideoElement | null => {
       return playerRef.current?.media?.nativeEl ?? null;
     };
@@ -118,22 +60,23 @@ export function useFullscreenScrollFix(playerRef: RefObject<MuxPlayerElement | n
     };
 
     const handleFullscreenEnd = () => {
-      nativelyLog('Fullscreen ended - triggering reset');
+      nativelyLog('Fullscreen ended (webkit event)');
       if (wasInFullscreenRef.current) {
         wasInFullscreenRef.current = false;
-        multiPassReset();
+        resetScroll();
+        dispatchFullscreenExit();
       }
     };
 
-    // Handle visualViewport changes
-    const handleViewportResize = () => {
-      const vv = window.visualViewport;
-      if (!vv) return;
-
-      // Check if we just exited fullscreen and have an offset
-      if (vv.offsetTop > 10 || checkSentinel()) {
-        nativelyLog('Viewport anomaly detected after resize, offsetTop:', vv.offsetTop);
-        multiPassReset();
+    // Handle standard fullscreen change
+    const handleDocumentFullscreenChange = () => {
+      if (document.fullscreenElement) {
+        handleFullscreenStart();
+      } else if (wasInFullscreenRef.current) {
+        nativelyLog('Fullscreen ended (standard event)');
+        wasInFullscreenRef.current = false;
+        resetScroll();
+        dispatchFullscreenExit();
       }
     };
 
@@ -142,16 +85,8 @@ export function useFullscreenScrollFix(playerRef: RefObject<MuxPlayerElement | n
       if (document.visibilityState === 'visible' && wasInFullscreenRef.current) {
         nativelyLog('Visibility restored after fullscreen');
         wasInFullscreenRef.current = false;
-        multiPassReset();
-      }
-    };
-
-    // Handle standard fullscreen change
-    const handleDocumentFullscreenChange = () => {
-      if (document.fullscreenElement) {
-        handleFullscreenStart();
-      } else {
-        handleFullscreenEnd();
+        resetScroll();
+        dispatchFullscreenExit();
       }
     };
 
@@ -177,12 +112,10 @@ export function useFullscreenScrollFix(playerRef: RefObject<MuxPlayerElement | n
     // Attach global listeners
     document.addEventListener('fullscreenchange', handleDocumentFullscreenChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.visualViewport?.addEventListener('resize', handleViewportResize);
 
     cleanupFunctions.push(() => {
       document.removeEventListener('fullscreenchange', handleDocumentFullscreenChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.visualViewport?.removeEventListener('resize', handleViewportResize);
     });
 
     // Poll for video element
