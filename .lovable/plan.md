@@ -1,112 +1,116 @@
-# Enhanced Content Moderation System
+
+# Natively App Deployment Preparation
 
 ## Overview
 
-Transform the moderation page into an intelligent, AI-powered content moderation platform that:
-1. Displays ALL posts regardless of visibility settings
-2. Uses AI to detect potentially inappropriate content for a professional community
-3. Provides filtering between flagged and all content
-4. Scans uploaded images and videos for questionable material
+This plan addresses the safe area issues visible in the Natively previewer and prepares the app for native deployment to the Apple App Store and Google Play Store via Natively (buildnatively.com).
+
+## Problem Analysis
+
+Based on the screenshot provided, the header content (hamburger menu, logo, theme toggle, avatar) is being clipped at the top because the safe area inset is not being properly respected. The app renders content behind the iOS status bar/notch.
+
+### Current State Issues
+
+1. **Header.tsx** uses `sticky top-0` with inline `paddingTop: max(0.75rem, env(safe-area-inset-top))` - but this only adds padding inside the header, the header still sticks at `top: 0` which is above the safe area
+2. **EventsDashboardHeader.tsx** uses `pt-safe` class but same `sticky top-0` issue
+3. **EventsLayout.tsx** has no safe area handling at all
+4. **Orders Dashboard** has no safe area handling
+5. The `viewport-fit=cover` meta tag is already present in `index.html` (good), but CSS implementations are inconsistent
+
+### Root Cause
+
+When Natively has "Safe Area" set to **Disabled** (which allows full-screen WebView), the web app must handle safe areas via CSS. The current approach of adding `padding-top` to the header content doesn't work because `sticky top-0` still positions the header at the absolute top of the viewport - behind the notch/status bar.
 
 ---
 
-## Architecture
+## Solution Architecture
+
+### Approach 1: App-Level Safe Area Wrapper (Recommended)
+
+Instead of handling safe areas in each individual header/footer component, create a consistent safe area wrapper at the app layout level that pushes content down from the top and up from the bottom.
 
 ```text
-+------------------+     +----------------------+     +------------------+
-|   Moderation     |     |   moderate-content   |     |   Lovable AI     |
-|   Page UI        | --> |   Edge Function      | --> |   (Gemini)       |
-+------------------+     +----------------------+     +------------------+
-        |                         |                          |
-        v                         v                          v
-+------------------+     +----------------------+     +------------------+
-| Filter Tabs:     |     | - Text Analysis      |     | Image/Text       |
-| - All Posts      |     | - Image Moderation   |     | Analysis         |
-| - Flagged        |     | - Video Multi-Frame  |     +------------------+
-| - Auto-Flagged   |     |   Analysis           |
-+------------------+     +----------------------+
++------------------------------------------+
+|  [status bar / notch area - bg-background] |  <-- Safe area spacer (env padding)
++------------------------------------------+
+|  [Header - sticky within content area]    |
++------------------------------------------+
+|  [Main Content - scrollable]              |
++------------------------------------------+
+|  [Bottom nav/actions - if any]            |
++------------------------------------------+
+|  [home indicator area - bg-background]    |  <-- Safe area spacer (env padding)
++------------------------------------------+
 ```
+
+### Key Changes
+
+1. **Add comprehensive safe area utility classes** - Extend Tailwind/CSS to include all four safe area directions
+2. **Create a root safe area container** - Wrap the entire app in a container that handles safe areas consistently
+3. **Update all layout components** - Ensure headers use `top-[env(safe-area-inset-top)]` or exist within a properly padded container
+4. **Add left/right safe area handling** - For landscape orientation on notched devices
 
 ---
 
 ## Implementation Plan
 
-### 1. Database Schema Updates
+### 1. Enhance CSS Safe Area Utilities
 
-Add moderation tracking columns to the `posts` table:
+Update `src/index.css` to include comprehensive safe area classes:
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| `moderation_status` | enum | 'pending', 'approved', 'flagged', 'auto_flagged' |
-| `moderation_score` | float | AI confidence score (0-1) |
-| `moderation_reasons` | text[] | Array of flagged categories |
-| `moderated_at` | timestamp | When last moderated |
-| `moderated_by` | uuid | Admin who reviewed (null for auto) |
+| Class | Purpose |
+|-------|---------|
+| `.safe-top` | Adds `padding-top: env(safe-area-inset-top)` |
+| `.safe-bottom` | Adds `padding-bottom: env(safe-area-inset-bottom)` |
+| `.safe-left` | Adds `padding-left: env(safe-area-inset-left)` |
+| `.safe-right` | Adds `padding-right: env(safe-area-inset-right)` |
+| `.safe-x` | Adds left + right padding |
+| `.safe-y` | Adds top + bottom padding |
+| `.safe-all` | Adds all four paddings |
+| `.top-safe` | Sets `top: env(safe-area-inset-top)` for sticky positioning |
 
-### 2. New Edge Function: `moderate-content`
+### 2. Update AppLayout Component
 
-Creates a backend function that:
-- Receives post content (text, image URL, video URL)
-- Calls Lovable AI (Gemini 2.5 Flash) for content analysis
-- Returns moderation verdict and reasons
+Modify `src/components/layout/AppLayout.tsx` to:
+- Add a background-colored safe area spacer at the top of the viewport
+- Ensure the header sticks below the safe area, not at `top: 0`
 
-**Content Analysis Categories:**
-- Profanity and vulgar language
-- Discriminatory or hateful speech
-- Sexual or suggestive content
-- Violence or threats
-- Spam or promotional content
-- Off-topic non-professional content
-- Personal attacks or harassment
+### 3. Update Header Component
 
-### 3. Automatic Flagging Criteria
+Modify `src/components/layout/Header.tsx`:
+- Remove inline `paddingTop` style
+- Use `sticky top-safe` instead of `sticky top-0` to position header below safe area
+- OR keep at `top-0` if wrapped in a container with safe area padding
 
-Content is **auto-flagged** (moderation_status = 'auto_flagged') when:
+### 4. Update All Other Layouts
 
-| Trigger | Threshold |
-|---------|-----------|
-| AI confidence score | >= 0.8 (80% likely inappropriate) |
-| Explicit profanity detected | Any match from blocklist |
-| NSFW image classification | >= 0.7 confidence |
-| Hate speech indicators | >= 0.75 confidence |
+| Layout File | Changes Required |
+|-------------|------------------|
+| `EventsDashboardLayout.tsx` | Add safe area container wrapper |
+| `EventsDashboardHeader.tsx` | Update positioning to respect safe areas |
+| `EventsDashboardSidebar.tsx` | Keep existing inline style (already handles safe area) |
+| `EventsLayout.tsx` | Add safe area padding to header |
+| `AttendeeLayout.tsx` | Verify `pt-safe` class is working correctly |
+| `Sidebar.tsx` | Keep existing inline style (already handles safe area) |
+| `Auth.tsx` | Add safe area padding for standalone screens |
+| `orders/Index.tsx` | Add safe area handling |
+| `orders/Dashboard.tsx` | Add safe area padding to header |
 
-Content is **flagged for review** (moderation_status = 'flagged') when:
-- AI confidence score is 0.5-0.8 (needs human review)
-- Contains external links (potential spam)
-- First post from a new user
+### 5. Add Natively SDK Detection (Optional Enhancement)
 
-### 4. Image and Video Scanning Process
+Create a utility to detect if the app is running inside Natively's WebView:
 
-**Image Scanning:**
-- Uses Lovable AI's multimodal capability (Gemini 2.5 Flash)
-- Sends image URL to AI for visual content analysis
-- Checks for: nudity, violence, inappropriate symbols, spam text overlay
+```typescript
+// src/utils/nativelyUtils.ts
+export function isRunningInNatively(): boolean {
+  return typeof window !== 'undefined' && 
+         (window.navigator.userAgent.includes('Natively') ||
+          // Check for Natively's injected objects
+          'natively' in window);
+}
+```
 
-**Video Scanning (Multi-Thumbnail Analysis):**
-- Videos use Mux for hosting (already integrated)
-- Extract multiple thumbnails at different points in the video using Mux's thumbnail API with the `time` parameter:
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=0` (start of video)
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=25%` (25% through)
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=50%` (midpoint)
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=75%` (75% through)
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=-1` (near end of video)
-- Analyze ALL extracted thumbnails using the same image scanning pipeline
-- Each thumbnail is individually scored; the **highest severity score** across all thumbnails determines the final video moderation verdict
-- If ANY single thumbnail is flagged, the entire video is flagged
-- The moderation reasons from all thumbnails are merged into a combined set
-- This multi-frame approach catches inappropriate content that may appear at any point in the video, not just at the default thumbnail position
-
-### 5. Updated Moderation Page UI
-
-**New Features:**
-- Tab navigation: "All Posts" | "Needs Review" | "Auto-Flagged"
-- Post cards show:
-  - Moderation status badge (color-coded)
-  - AI confidence score
-  - Flagged reasons as tags
-  - Image/video preview with media indicator
-- Action buttons: "Approve", "Delete", "Re-scan"
-- Stats summary: Total posts, flagged count, auto-flagged count
+This allows conditional behavior for native-specific features.
 
 ---
 
@@ -114,99 +118,99 @@ Content is **flagged for review** (moderation_status = 'flagged') when:
 
 | File | Action | Description |
 |------|--------|-------------|
-| Database migration | Create | Add moderation columns to posts table |
-| `supabase/functions/moderate-content/index.ts` | Create | AI content moderation edge function |
-| `src/hooks/useModerationPosts.ts` | Create | Fetch and manage moderated posts |
-| `src/components/moderation/ModerationPostCard.tsx` | Create | Enhanced post card with moderation info |
-| `src/components/moderation/ModerationFilters.tsx` | Create | Tab navigation and stats |
-| `src/pages/Moderation.tsx` | Update | Integrate new components |
-| `supabase/config.toml` | Update | Add moderate-content function |
+| `src/index.css` | Update | Add comprehensive safe area utility classes |
+| `src/components/layout/AppLayout.tsx` | Update | Add safe area wrapper around content |
+| `src/components/layout/Header.tsx` | Update | Remove inline paddingTop, use proper positioning |
+| `src/layouts/EventsDashboardLayout.tsx` | Update | Add safe area wrapper |
+| `src/components/events/EventsDashboardHeader.tsx` | Update | Fix safe area positioning |
+| `src/layouts/EventsLayout.tsx` | Update | Add safe area handling to header |
+| `src/components/attendee/AttendeeLayout.tsx` | Update | Verify and fix safe area implementation |
+| `src/pages/Auth.tsx` | Update | Add safe area handling |
+| `src/pages/orders/Index.tsx` | Update | Add safe area handling |
+| `src/pages/orders/Dashboard.tsx` | Update | Add safe area handling |
+| `tailwind.config.ts` | Update | Add custom spacing values for safe areas |
 
 ---
 
 ## Technical Details
 
-### Edge Function: `moderate-content`
+### CSS Safe Area Pattern
 
-```text
-POST /functions/v1/moderate-content
-Body: {
-  postId: string,
-  content: string,
-  imageUrl?: string,
-  videoUrl?: string  // Mux playback ID
+The key fix is using CSS to position sticky elements at `top: env(safe-area-inset-top)` instead of `top: 0`:
+
+```css
+/* Before - breaks with notch */
+.header {
+  position: sticky;
+  top: 0;
+  padding-top: max(0.75rem, env(safe-area-inset-top));
 }
 
-Response: {
-  status: 'approved' | 'flagged' | 'auto_flagged',
-  score: number,  // 0-1 confidence
-  reasons: string[],  // e.g., ['profanity', 'off_topic']
-  imageAnalysis?: { safe: boolean, categories: string[] },
-  videoThumbnailAnalysis?: {
-    safe: boolean,
-    categories: string[],
-    thumbnailResults: [
-      { time: string, safe: boolean, score: number, categories: string[] }
-    ],
-    worstScore: number  // highest severity score across all thumbnails
+/* After - works with notch */
+.header {
+  position: sticky;
+  top: env(safe-area-inset-top, 0);
+  padding-top: 0.75rem;
+}
+```
+
+Alternatively, wrap the entire scrollable area in a container with padding:
+
+```css
+.app-container {
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.header {
+  position: sticky;
+  top: 0; /* Now top: 0 is relative to the padded container */
+}
+```
+
+### Tailwind Configuration
+
+Add custom utilities for dynamic safe area positioning:
+
+```typescript
+// tailwind.config.ts
+extend: {
+  spacing: {
+    'safe-top': 'env(safe-area-inset-top, 0px)',
+    'safe-bottom': 'env(safe-area-inset-bottom, 0px)',
+    'safe-left': 'env(safe-area-inset-left, 0px)',
+    'safe-right': 'env(safe-area-inset-right, 0px)',
   }
 }
 ```
 
-### AI Prompt Strategy
-
-The moderation prompt will be structured to:
-1. Analyze text for professional appropriateness
-2. Check for policy violations
-3. Return structured JSON with categories and confidence
-
-Example system prompt:
-```
-You are a content moderator for a professional leadership community.
-Analyze the following content and determine if it's appropriate.
-This community is for professional development, leadership topics, 
-and career advancement discussions.
-
-Flag content that contains:
-- Profanity or vulgar language
-- Discriminatory or hateful speech
-- Sexual or suggestive material
-- Violence or threats
-- Spam or irrelevant promotional content
-- Personal attacks
-- Content unrelated to professional topics
-```
-
-### Image Analysis
-
-For images, Lovable AI (Gemini) can process image URLs directly:
-- Pass image URL in the message content
-- AI returns visual content classification
-- Categories: safe, suggestive, violent, spam, inappropriate
+This enables classes like `top-safe-top` and `pb-safe-bottom`.
 
 ---
 
-## Security Considerations
+## Natively Configuration Recommendations
 
-- Edge function validates admin role before allowing moderation actions
-- All moderation decisions logged in activity_logs for audit trail
-- AI analysis happens server-side only (no client exposure)
-- Rate limiting on moderation scans to prevent abuse
+When setting up the app in Natively's dashboard, recommend these settings:
 
----
-
-## User Experience Flow
-
-1. **Post Creation**: When a post is created, trigger background moderation scan
-2. **Immediate Display**: Post appears in feed while scan runs (async)
-3. **Auto-Flag**: If auto-flagged, post is hidden from feed until review
-4. **Admin Dashboard**: Admins see flagged posts with one-click actions
-5. **Audit Trail**: All moderation actions logged
+| Setting | Recommended Value | Reason |
+|---------|-------------------|--------|
+| Safe Area | **Disabled** | Let the web app handle safe areas for more control |
+| Status Bar Style | **Light** or **Dark** | Match your app's theme |
+| App Background Color | Match your header color (`#D4A842` for gold theme) | Shows behind content during load |
+| Swipe Navigation | **Disabled** | Your app has its own navigation |
+| Pull To Refresh | **Disabled** | Your app has custom pull-to-refresh |
 
 ---
 
-## Dependencies
+## Testing Checklist
 
-- **Existing**: Lovable AI (LOVABLE_API_KEY already configured)
-- **No new packages required**
-- **Uses**: Gemini 2.5 Flash (multimodal for text + images)
+After implementation, verify these scenarios in Natively Previewer:
+
+- [ ] Header content is fully visible on iPhone with notch (14 Pro, 15 Pro, etc.)
+- [ ] Header content is visible on iPhone SE (no notch, smaller safe area)
+- [ ] Bottom navigation doesn't overlap with home indicator
+- [ ] Sidebar opens without clipping
+- [ ] Login/Auth screen handles safe areas
+- [ ] Attendee app layout works correctly
+- [ ] Public events pages display properly
+- [ ] Landscape orientation doesn't clip content on sides
