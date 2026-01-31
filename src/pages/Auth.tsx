@@ -149,10 +149,7 @@ export default function Auth() {
       setLoading(false);
     }
   };
-  return <div className="min-h-screen bg-background flex flex-col">
-      {/* Safe area spacer for notched devices */}
-      <div className="min-h-safe-top bg-background shrink-0" />
-      
+  return <div className="min-h-screen bg-background flex flex-col pt-safe">
       <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">

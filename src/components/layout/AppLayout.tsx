@@ -33,10 +33,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Safe area spacer for notched devices */}
-      <div className="min-h-safe-top bg-background shrink-0" />
-      
+    <div className="min-h-screen bg-background flex flex-col pt-safe">
       <div className="flex-1 flex">
         <Sidebar />
         <div className="flex-1 flex flex-col md:ml-72">

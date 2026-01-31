@@ -109,13 +109,11 @@ export default function Sidebar() {
       {/* Mobile overlay */}
       {isOpen && <div className="fixed inset-0 bg-foreground/60 backdrop-blur-sm z-40 md:hidden animate-fade-in" onClick={() => setIsOpen(false)} />}
       
-      <aside className={cn("fixed top-0 left-0 z-50 h-full w-72 bg-sidebar text-sidebar-foreground border-r border-sidebar-border/50 transition-transform duration-300 ease-out md:translate-x-0 flex flex-col", isOpen ? "translate-x-0" : "-translate-x-full")} style={{
+      <aside className={cn("fixed top-0 left-0 z-50 h-full w-72 bg-sidebar text-sidebar-foreground border-r border-sidebar-border/50 transition-transform duration-300 ease-out md:translate-x-0 flex flex-col pt-safe", isOpen ? "translate-x-0" : "-translate-x-full")} style={{
       backgroundImage: "var(--gradient-sidebar)"
     }}>
         {/* Header */}
-        <div className="p-5 flex items-center justify-between border-b border-sidebar-border/50" style={{
-        paddingTop: 'max(1.25rem, env(safe-area-inset-top))'
-      }}>
+        <div className="p-5 flex items-center justify-between border-b border-sidebar-border/50">
           <div className="flex items-center gap-3">
             <img src={logo} alt="Circle of Change" className="h-10" />
           </div>

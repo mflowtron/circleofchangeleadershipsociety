@@ -32,10 +32,7 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
 
   return (
     <EventSelectionProvider>
-      <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
-        {/* Safe area spacer for notched devices */}
-        <div className="min-h-safe-top bg-background shrink-0" />
-        
+      <div className="min-h-screen bg-background flex flex-col overflow-x-hidden pt-safe">
         <div className="flex-1 flex">
           <EventsDashboardSidebar 
             isOpen={sidebarOpen} 
