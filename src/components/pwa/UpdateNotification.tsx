@@ -87,7 +87,7 @@ export function UpdateNotification() {
   if (!showBanner) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed z-50 mx-auto max-w-md animate-in slide-in-from-bottom-4 duration-300" style={{ bottom: 'max(1rem, var(--safe-inset-bottom, env(safe-area-inset-bottom)))', left: '1rem', right: '1rem' }}>
       <div className="flex items-center justify-between gap-3 rounded-lg border bg-card p-4 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
