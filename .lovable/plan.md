@@ -1,50 +1,142 @@
 
 
-# Fix: Status Bar Not Syncing with Theme
+# Simplify Safe Area Handling via Natively Dashboard
 
-## Problem Identified
+## Overview
 
-The status bar in the Natively app is not updating when the theme changes. Looking at your screenshot, the app is in light mode but the status bar shows light/white text (invisible against the light background).
+Replace the complex CSS-based safe area management with Natively's built-in Safe Area toggle. This approach lets Natively handle safe areas at the native layer, eliminating the need for JavaScript inset calculations and CSS variable overrides.
 
-**Root Cause:** The code is calling the wrong method name.
+## Current vs. Proposed Approach
 
-| Current (Wrong) | Correct |
-|-----------------|---------|
-| `setAppStatusBarStyleIOS()` | `setAppStatusBarStyle()` |
+| Aspect | Current (Complex) | Proposed (Simple) |
+|--------|-------------------|-------------------|
+| Safe Area Source | `window.natively.getInsets()` + CSS variables | Natively handles natively |
+| Code Required | `NativelySafeAreaProvider`, CSS overrides, per-component styles | Just enable dashboard toggle |
+| Background Color | CSS variables | `setAppBackgroundColor()` (already implemented) |
+| Maintenance | High - scattered across many files | Low - single dashboard setting |
 
-The Natively documentation example has a typo, but the actual SDK type definitions confirm the correct method is `setAppStatusBarStyle(style: string)`.
+## What Natively's Safe Area Does
 
----
+When **Safe Area is Enabled** in the Natively dashboard:
+- The native layer automatically adds safe area padding (status bar, home indicator)
+- The safe area background color is controlled by the `App Background Color` setting (which we already sync via `setAppBackgroundColor()` in our theme hook)
+- Your web content starts below the status bar and above the home indicator
 
-## Solution
-
-Update `src/hooks/useNativelyThemeSync.ts` to use the correct method name.
-
-### Current Code (Line 29 and 33)
-```typescript
-natively.setAppStatusBarStyleIOS('LIGHT');  // Wrong method name
-natively.setAppStatusBarStyleIOS('DARK');   // Wrong method name
-```
-
-### Fixed Code
-```typescript
-natively.setAppStatusBarStyle('LIGHT');  // Correct method name
-natively.setAppStatusBarStyle('DARK');   // Correct method name
-```
+When **Safe Area is Disabled** (current setting):
+- Content goes edge-to-edge (fullscreen)
+- Your web app must handle safe areas via CSS
 
 ---
 
-## File Changes
+## Implementation Plan
 
-| File | Change |
+### Step 1: Enable Safe Area in Natively Dashboard
+
+This is a manual step you need to do in the Natively dashboard:
+
+1. Go to your Natively project dashboard
+2. Navigate to **Appearance > Style**
+3. Find the **Safe Area** toggle
+4. **Enable** it
+
+This makes Natively automatically handle safe area insets at the native layer.
+
+### Step 2: Remove NativelySafeAreaProvider
+
+**File:** `src/components/NativelySafeAreaProvider.tsx`
+
+Delete this file entirely. It's no longer needed since Natively handles safe areas natively.
+
+### Step 3: Update main.tsx
+
+**File:** `src/main.tsx`
+
+Remove the `NativelySafeAreaProvider` wrapper:
+
+```text
+Before:
+import { NativelySafeAreaProvider } from "./components/NativelySafeAreaProvider";
+
+createRoot(document.getElementById("root")!).render(
+  <NativelySafeAreaProvider>
+    <App />
+    <UpdateNotification />
+  </NativelySafeAreaProvider>
+);
+
+After:
+createRoot(document.getElementById("root")!).render(
+  <>
+    <App />
+    <UpdateNotification />
+  </>
+);
+```
+
+### Step 4: Clean Up CSS Variables
+
+**File:** `src/index.css`
+
+Remove the Natively-specific safe area CSS:
+
+Lines to remove:
+- Lines 11-15: `--natively-inset-*` variable declarations
+- Lines 412-426: `.is-natively-app` class and its overrides
+
+Keep the standard `env(safe-area-inset-*)` utilities for PWA/web contexts.
+
+### Step 5: Update Components Using Inline Safe Area Styles
+
+Several components use inline styles with `--safe-inset-*` or `--natively-inset-*`. These should be simplified to use standard Tailwind safe area utilities which rely on `env()`:
+
+| Component | Current | After |
+|-----------|---------|-------|
+| `EventsDashboardSidebar.tsx` | `style={{ paddingTop: 'max(1rem, var(--safe-inset-top...))' }}` | `className="pt-safe"` + inline fallback |
+| `Sidebar.tsx` | Same pattern | Same simplification |
+| `Header.tsx` | Same pattern | Same simplification |
+
+For components already using `pt-safe` or `pb-safe` classes, no changes needed - they'll work with standard `env()` values.
+
+---
+
+## File Changes Summary
+
+| File | Action |
 |------|--------|
-| `src/hooks/useNativelyThemeSync.ts` | Replace `setAppStatusBarStyleIOS` with `setAppStatusBarStyle` (2 occurrences) |
+| `src/components/NativelySafeAreaProvider.tsx` | Delete |
+| `src/main.tsx` | Remove provider wrapper |
+| `src/index.css` | Remove Natively-specific CSS variables and overrides |
+| `src/components/events/EventsDashboardSidebar.tsx` | Simplify inline safe area style |
+| `src/components/layout/Sidebar.tsx` | Simplify inline safe area style |
+| `src/components/layout/Header.tsx` | Simplify inline safe area style |
 
 ---
 
-## Expected Behavior After Fix
+## What Stays the Same
 
-- **Light mode**: Status bar shows dark text/icons (readable on light background)
-- **Dark mode**: Status bar shows light text/icons (readable on dark background)
-- **Theme toggle**: Status bar updates immediately when switching themes
+- **Theme sync hook** (`useNativelyThemeSync.ts`) - This remains! It's still needed to:
+  - Sync status bar style with theme
+  - Sync `setAppBackgroundColor()` which controls the safe area background color
+
+- **Standard safe area utilities** (`pt-safe`, `pb-safe`) - These still work for PWA and web contexts using standard `env(safe-area-inset-*)` values
+
+---
+
+## Manual Step Required
+
+Before implementing code changes, you must enable Safe Area in the Natively dashboard:
+
+**Natively Dashboard > Appearance > Style > Safe Area = Enabled**
+
+This is a dashboard configuration, not a code change.
+
+---
+
+## Benefits
+
+1. **Simpler codebase** - No JavaScript inset calculations, fewer CSS overrides
+2. **Native performance** - Safe areas handled at the native layer, not via CSS hacks
+3. **Consistent behavior** - Natively manages safe areas the same way across all devices
+4. **Easier maintenance** - Single toggle instead of scattered code across 15+ files
+5. **Better theming** - Background color already syncs via existing `useNativelyThemeSync` hook
 
