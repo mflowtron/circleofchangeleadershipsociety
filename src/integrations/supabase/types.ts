@@ -752,6 +752,13 @@ export type Database = {
           image_url: string | null
           is_global: boolean
           link_url: string | null
+          moderated_at: string | null
+          moderated_by: string | null
+          moderation_reasons: string[] | null
+          moderation_score: number | null
+          moderation_status:
+            | Database["public"]["Enums"]["moderation_status"]
+            | null
           updated_at: string
           user_id: string
           video_aspect_ratio: string | null
@@ -765,6 +772,13 @@ export type Database = {
           image_url?: string | null
           is_global?: boolean
           link_url?: string | null
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_reasons?: string[] | null
+          moderation_score?: number | null
+          moderation_status?:
+            | Database["public"]["Enums"]["moderation_status"]
+            | null
           updated_at?: string
           user_id: string
           video_aspect_ratio?: string | null
@@ -778,6 +792,13 @@ export type Database = {
           image_url?: string | null
           is_global?: boolean
           link_url?: string | null
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_reasons?: string[] | null
+          moderation_score?: number | null
+          moderation_status?:
+            | Database["public"]["Enums"]["moderation_status"]
+            | null
           updated_at?: string
           user_id?: string
           video_aspect_ratio?: string | null
@@ -1137,6 +1158,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "advisor" | "student" | "event_organizer"
+      moderation_status: "pending" | "approved" | "flagged" | "auto_flagged"
       order_status: "pending" | "completed" | "cancelled" | "refunded"
     }
     CompositeTypes: {
@@ -1266,6 +1288,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "advisor", "student", "event_organizer"],
+      moderation_status: ["pending", "approved", "flagged", "auto_flagged"],
       order_status: ["pending", "completed", "cancelled", "refunded"],
     },
   },
