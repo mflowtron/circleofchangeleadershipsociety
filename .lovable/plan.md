@@ -1,175 +1,230 @@
 
-Goal
-- Stop the “entire page (header + everything) shifts down with a blank gap at the top” bug after exiting fullscreen video in the iOS Natively wrapper.
-- Make the fix resilient even when iOS/WKWebView does not reliably fire webkit fullscreen events.
 
-What the screenshot + your answers indicate
-- The entire layout is being displaced (not just extra header padding).
-- The displacement persists until the screen is re-opened.
-- This strongly points to a WKWebView viewport-origin/visualViewport desync (and/or a “stuck” offset) after native fullscreen exit.
+# Fix Layout Shift After Fullscreen Exit - Approach 2 (Visibility-Based Detection)
 
-Key finding in current code (why our previous “CSS anchor” likely did nothing)
-- We add the class to the <html> element: document.documentElement.classList.add('is-natively-app')
-- But our CSS currently tries to style “.is-natively-app html, .is-natively-app body”
-  - That selector does NOT match because there is no <html> inside <html>.
-  - So the “position: fixed” anchoring rules were never applied.
-- Fixing this selector is necessary, but may still not be sufficient by itself.
+## Problem Summary
 
-Strategy (next iteration)
-We’ll implement a “Viewport Compensation Layer” that:
-1) Corrects the broken CSS selector so any intended anchoring applies in Natively.
-2) Actively measures the viewport misalignment and applies a compensating translateY to the React root AND portal layers when the shift occurs (so the whole UI snaps back without needing a page/screen reopen).
-3) Centralizes the logic in one place (the NativelySafeAreaProvider) to avoid overlapping competing monitors (currently we have logic in main.tsx and in the fullscreen hook).
+When exiting fullscreen video in the Recordings player within the Natively iOS app, the entire page layout (including header) shifts down significantly and stays stuck until the app is force-closed. Previous attempts using:
+- `fullscreenchange` / `webkitfullscreenchange` events
+- `webkitendfullscreen` on video element
+- `visualViewport.offsetTop` monitoring
+- CSS compensation with `translateY`
 
-Planned changes
+...have all failed to resolve the issue. This indicates that:
+1. The native fullscreen transition bypasses web fullscreen events entirely
+2. The WKWebView is not reliably firing expected events after native video fullscreen exits
 
-A) Fix the Natively CSS selector and add a controlled compensation variable
-File: src/index.css
+---
 
-1) Correct the selector so it actually applies to the html/body when html has the class:
-- Replace:
-  - .is-natively-app html,
-  - .is-natively-app body
-- With:
-  - html.is-natively-app,
-  - html.is-natively-app body
-- And likewise ensure the #root selector is scoped correctly:
-  - html.is-natively-app #root { ... }
+## New Strategy
 
-2) Add a CSS variable for viewport compensation:
-- On html.is-natively-app set:
-  - --natively-viewport-compensation-y: 0px;
+Since native fullscreen transitions happen outside the web context, we need to:
 
-3) Apply that compensation to BOTH:
-- #root (the full React app)
-- common portal roots (Radix portals) so dialogs/toasts/lightboxes stay aligned too
-  - e.g. body > div[data-radix-portal]
-  - and any known toast container (Sonner) if it’s mounted outside #root
-This avoids the “app is fixed but dialogs float in the wrong place” problem.
+1. **Detect fullscreen exit indirectly** via the Page Visibility API - when native video takes over, the WebView page becomes "hidden", and when it returns, `visibilitychange` fires with `visible` state
 
-Resulting behavior:
-- When we detect the viewport is shifted down by N px, we set:
-  - --natively-viewport-compensation-y: -Npx
-- The entire UI visually re-aligns instantly.
+2. **Use the Natively loading screen** to mask the viewport reset so users don't see any visual glitch during the fix
 
-B) Move “viewport anomaly detection” into NativelySafeAreaProvider (single source of truth)
-File: src/components/NativelySafeAreaProvider.tsx
+3. **Force aggressive viewport recalculation** using viewport meta tag manipulation, which is a known WebView trick to force the rendering engine to re-evaluate layout dimensions
 
-1) Add a lightweight “sentinel” fixed element
-- A hidden 1x1 fixed element at top:0 left:0
-- This is used to measure if the coordinate space is misaligned:
-  - rect.top should be 0
-  - if rect.top > ~1, we’re shifted
+---
 
-2) Implement a monitor function that computes an offset and applies compensation
-Compute offset using:
-- Primary: window.visualViewport?.offsetTop (when available and meaningful)
-- Secondary: sentinel.getBoundingClientRect().top (catches cases where offsetTop is 0 but the page is still visually displaced)
-Pick the most reliable positive offset and clamp it to a safe range (e.g. 0..200) to avoid wild jumps.
+## Implementation Plan
 
-Apply it by setting:
-- document.documentElement.style.setProperty('--natively-viewport-compensation-y', `${-offset}px`)
+### Step 1: Create New Hook File
 
-3) When to run the monitor
-- Always attach listeners only when running in Natively (same gate you already have).
-- Listen to:
-  - visualViewport resize
-  - visualViewport scroll (some WKWebView issues manifest as “scroll” events)
-  - orientationchange
-  - visibilitychange
-  - a custom event we dispatch after fullscreen exit (see section C)
-- Additionally, after fullscreen exit is detected, run an “active settle window” for ~1–2 seconds:
-  - rAF loop or short interval (e.g. every 50ms) to keep applying the compensation while WKWebView finishes its delayed layout adjustments.
+**File:** `src/hooks/useFullscreenLayoutFix.ts` (new file, replacing `useFullscreenScrollFix.ts`)
 
-4) Keep inset refreshing, but decouple it from the viewport compensation
-- Continue refreshing insets, but the key is: even if insets are correct, we still compensate viewport shift.
-- The monitor should run even if natively.getInsets fails or returns unchanged values.
+The hook will:
 
-C) Make fullscreen hook signal “fullscreen exit” reliably (don’t depend on webkitendfullscreen firing)
-File: src/hooks/useFullscreenScrollFix.ts
+1. **Only run in Natively app** - exit early if `browserInfo.isNativeApp` is false
 
-We already listen to multiple sources, but we’ll adjust responsibilities:
+2. **Primary detection: Page Visibility API**
+   - Track when page goes hidden (fullscreen started)
+   - When page becomes visible again AND was previously hidden, trigger the reset
+   - This works because native video fullscreen causes the WebView to become "hidden"
 
-1) On any probable “fullscreen ended” signal, dispatch a single event:
-- window.dispatchEvent(new Event('natively:fullscreen-exit'))
-- Also dispatch the existing:
-  - natively:refresh-insets
-This lets the Provider do the heavy lifting (compensation + settle window).
+3. **Secondary detection: Resize events**
+   - WebView often fires a resize when returning from native fullscreen
+   - Use 300ms debounce to prevent triggering on normal layout changes
 
-2) Reduce risky “scrollTo negative offset” behavior
-- Keep a minimal scroll restoration if needed, but prioritize the new compensation approach.
-- Excessive scroll resets can be counterproductive when the bug is not actually scroll position, but viewport origin.
+4. **Tertiary fallback: Standard fullscreen events**
+   - Keep `fullscreenchange` and `webkitfullscreenchange` as fallbacks
 
-D) Remove or gate the global viewport monitor in main.tsx (avoid conflicts)
-File: src/main.tsx
+5. **Reset viewport function**
+   - Show Natively loading screen briefly (`showLoadingScreen(true)`) to mask the reset
+   - Force scroll to top, then restore original position
+   - Toggle a CSS class that forces GPU layer recalculation
+   - Manipulate viewport meta tag to force layout re-evaluation
+   - Toggle html element height/overflow to force reflow
+   - Refresh safe area insets
+   - Re-apply theme sync for status bar
 
-Right now we have a visualViewport listener globally (even outside Natively) and it can compete with the provider and hook.
-Plan:
-- Remove it entirely, or gate it strictly behind the same “is native app” detection and then delegate to the provider via events.
-Preferred:
-- Remove it and let NativelySafeAreaProvider own all viewport correction logic.
+```typescript
+// Key structure of the reset function:
+function resetViewport() {
+  const scrollY = window.scrollY;
+  
+  // 1. Force scroll reset
+  window.scrollTo(0, 0);
+  
+  // 2. Toggle CSS class for GPU layer recalculation
+  document.body.classList.add('natively-viewport-reset');
+  
+  // 3. Viewport meta tag manipulation trick
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport) {
+    const originalContent = viewport.getAttribute('content') || '';
+    viewport.setAttribute('content', originalContent + ', maximum-scale=1');
+    requestAnimationFrame(() => {
+      viewport.setAttribute('content', originalContent);
+    });
+  }
+  
+  // 4. Force reflow via height/overflow toggle
+  const html = document.documentElement;
+  html.style.height = 'auto';
+  html.style.overflow = 'hidden';
+  
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      html.style.height = '';
+      html.style.overflow = '';
+      document.body.classList.remove('natively-viewport-reset');
+      
+      // Restore scroll position
+      window.scrollTo(0, scrollY);
+      
+      // Refresh insets and dispatch events
+      window.dispatchEvent(new Event('natively:refresh-insets'));
+    });
+  });
+}
+```
 
-E) Add an optional on-device debug overlay (to confirm the root cause quickly)
-Files:
-- src/components/NativelySafeAreaProvider.tsx (implementation)
-- src/index.css (minimal styles)
+---
 
-Behavior:
-- Only shows when a flag is set, e.g. localStorage.setItem('debugViewport', '1')
-- Displays:
-  - visualViewport.offsetTop
-  - sentinel rect.top
-  - current --natively-viewport-compensation-y
-  - current --natively-inset-top
-This will let us confirm in the Natively environment whether we’re compensating the exact amount and whether the shift is stable.
+### Step 2: Add CSS for Reset Class
 
-Testing plan (exact steps)
-1) In Natively iOS:
-- Open Recordings player
-- Enter fullscreen
-- Exit fullscreen
-Expected:
-- No persistent top gap
-- If the shift happens for a split second, the UI snaps back within ~0–300ms (settle window keeps correcting)
+**File:** `src/index.css`
 
-2) Repeat quickly multiple times
-- Enter/exit fullscreen 3–5 times
-Expected:
-- No accumulating offset
+Add a utility class that forces GPU layer recalculation:
 
-3) Open a dialog/toast after the bug would usually occur
-Expected:
-- Portals are aligned (because portal containers get the same translate compensation)
+```css
+/* Viewport reset helper for Natively fullscreen fix */
+.natively-viewport-reset {
+  transform: translateZ(0);
+  will-change: transform;
+}
+```
 
-4) PWA sanity check
-Expected:
-- No changes (since html.is-natively-app won’t be present, and provider logic won’t run)
+---
 
-Why this should work when prior attempts didn’t
-- The previous “anchor” CSS was effectively a no-op due to selector mismatch.
-- We’ve been trying to “scroll/reset” a bug that’s fundamentally a viewport-origin misalignment.
-- The new approach compensates visually for the misalignment directly, and does it from a central, always-mounted provider with an active settle window after fullscreen exit.
+### Step 3: Wire Up the Hook at App Root
 
-Files to be changed (summary)
-- src/index.css
-  - Fix selector: html.is-natively-app …
-  - Add/apply --natively-viewport-compensation-y to #root and portal layers
-- src/components/NativelySafeAreaProvider.tsx
-  - Add sentinel + monitor + settle window
-  - Listen for natively:fullscreen-exit and viewport events
-  - Optional debug overlay
-- src/hooks/useFullscreenScrollFix.ts
-  - Dispatch natively:fullscreen-exit on any exit signal
-  - De-emphasize negative scroll hacks in favor of compensation
-- src/main.tsx
-  - Remove or strictly gate the global viewport monitor to avoid conflicting behavior
+**File:** `src/App.tsx`
 
-Risk/edge cases
-- Applying transforms can affect fixed/sticky behavior; we mitigate by applying the transform to the same root containers that own the UI and common portals so everything stays consistent.
-- If the underlying bug stops producing a measurable offset, the monitor will keep compensation at 0 and do nothing.
-- The debug overlay is optional and off by default.
+Add the hook call in the `AppContent` component (which already calls `useNativelyThemeSync`):
 
-Acceptance criteria
-- After fullscreen exit in Recordings player on Natively iOS, the header is flush to the top with no persistent blank area.
-- Issue does not require screen reopen to resolve.
-- PWA behavior remains unchanged.
+```typescript
+import { useFullscreenLayoutFix } from './hooks/useFullscreenLayoutFix';
+
+function AppContent() {
+  useNativelyThemeSync();
+  useFullscreenLayoutFix(); // Add this
+  // ... rest of component
+}
+```
+
+---
+
+### Step 4: Update MuxPlayerWithFix Component
+
+**File:** `src/components/video/MuxPlayerWithFix.tsx`
+
+Remove the old `useFullscreenScrollFix` hook since the new approach is global and doesn't need a player reference:
+
+```typescript
+// Remove this import and usage:
+// import { useFullscreenScrollFix } from '@/hooks/useFullscreenScrollFix';
+// useFullscreenScrollFix(internalRef);
+```
+
+---
+
+### Step 5: Clean Up Old Files
+
+**File:** `src/hooks/useFullscreenScrollFix.ts`
+
+Either delete this file or keep it as deprecated. The new `useFullscreenLayoutFix.ts` will replace it.
+
+---
+
+### Step 6: Simplify NativelySafeAreaProvider
+
+**File:** `src/components/NativelySafeAreaProvider.tsx`
+
+Keep the inset management and viewport compensation logic, but remove the settle window complexity if the new approach works. The provider should still:
+- Listen for `natively:refresh-insets` events
+- Set CSS custom properties for safe areas
+- Maintain the sentinel element for debugging
+
+---
+
+## File Changes Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/hooks/useFullscreenLayoutFix.ts` | Create | New hook using Visibility API + resize detection + loading screen masking |
+| `src/hooks/useFullscreenScrollFix.ts` | Delete | Old approach that didn't work |
+| `src/index.css` | Update | Add `.natively-viewport-reset` CSS class |
+| `src/App.tsx` | Update | Wire up `useFullscreenLayoutFix` in AppContent |
+| `src/components/video/MuxPlayerWithFix.tsx` | Update | Remove old hook usage |
+
+---
+
+## Technical Details
+
+### Why Visibility API Works
+
+When the native video player takes over fullscreen:
+1. iOS creates a native fullscreen video layer outside the WebView
+2. The WebView page effectively becomes "hidden"
+3. When the user exits fullscreen, the WebView becomes "visible" again
+4. The `visibilitychange` event fires reliably, unlike webkit fullscreen events
+
+### Why Viewport Meta Manipulation Works
+
+WKWebView caches the viewport dimensions. By temporarily changing the viewport meta content and restoring it in the next frame:
+1. WebView is forced to re-parse the viewport rules
+2. This triggers a complete layout recalculation
+3. The stuck offset gets cleared as a side effect
+
+### Loading Screen Masking
+
+Using `natively.showLoadingScreen(true)` with `autoHide=true`:
+- Shows a native loading overlay
+- Automatically hides once the page stabilizes
+- Masks any visual glitches during the reset
+
+---
+
+## Testing Plan
+
+1. **In Natively iOS app:**
+   - Open Recordings player
+   - Play a video and enter fullscreen
+   - Exit fullscreen
+   - **Expected:** Header stays at top with no gap
+
+2. **Repeat multiple times:**
+   - Enter/exit fullscreen 3-5 times rapidly
+   - **Expected:** No accumulating offset
+
+3. **PWA sanity check:**
+   - Test the same flow in PWA mode
+   - **Expected:** No changes, no errors (hook exits early)
+
+4. **Normal browsing:**
+   - Navigate around the app
+   - **Expected:** Resize debounce doesn't trigger false positives
+
