@@ -10,7 +10,7 @@ interface HealthGaugeProps {
     good: number;
     warning: number;
   };
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
 }
 
 export function HealthGauge({
@@ -44,9 +44,10 @@ export function HealthGauge({
   ];
 
   const sizeClasses = {
-    sm: { container: 'h-24 w-24', text: 'text-lg', label: 'text-xs' },
-    md: { container: 'h-32 w-32', text: 'text-2xl', label: 'text-sm' },
-    lg: { container: 'h-40 w-40', text: 'text-3xl', label: 'text-base' }
+    xs: { container: 'h-16 w-16', text: 'text-sm', label: 'text-[10px]' },
+    sm: { container: 'h-20 w-20', text: 'text-base', label: 'text-xs' },
+    md: { container: 'h-28 w-28', text: 'text-xl', label: 'text-sm' },
+    lg: { container: 'h-36 w-36', text: 'text-2xl', label: 'text-base' }
   };
 
   return (

@@ -76,13 +76,13 @@ export function SystemHealthMetrics() {
           </div>
         ) : (
           <>
-            {/* Gauges Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Gauges Grid - Responsive layout */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {/* CPU Usage */}
-              <div className="flex flex-col items-center p-4 rounded-lg bg-muted/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <Cpu className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">CPU</span>
+              <div className="flex flex-col items-center p-3 rounded-xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Cpu className="h-3.5 w-3.5 text-primary/70" />
+                  <span className="text-xs font-medium text-muted-foreground">CPU</span>
                 </div>
                 <HealthGauge
                   value={data?.cpuUsage || 0}
@@ -90,15 +90,15 @@ export function SystemHealthMetrics() {
                   label="Usage"
                   unit="%"
                   thresholds={{ good: 50, warning: 80 }}
-                  size="sm"
+                  size="xs"
                 />
               </div>
 
               {/* Memory Usage */}
-              <div className="flex flex-col items-center p-4 rounded-lg bg-muted/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <HardDrive className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Memory</span>
+              <div className="flex flex-col items-center p-3 rounded-xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <HardDrive className="h-3.5 w-3.5 text-primary/70" />
+                  <span className="text-xs font-medium text-muted-foreground">Memory</span>
                 </div>
                 <HealthGauge
                   value={data?.memoryUsage || 0}
@@ -106,64 +106,58 @@ export function SystemHealthMetrics() {
                   label="Usage"
                   unit="%"
                   thresholds={{ good: 60, warning: 85 }}
-                  size="sm"
+                  size="xs"
                 />
               </div>
 
               {/* Database Health */}
-              <div className="flex flex-col items-center p-4 rounded-lg bg-muted/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <Database className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Database</span>
+              <div className="flex flex-col items-center p-3 rounded-xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Database className="h-3.5 w-3.5 text-primary/70" />
+                  <span className="text-xs font-medium text-muted-foreground">Database</span>
                 </div>
                 <HealthGauge
                   value={data?.dbResponseTimeAvg || 0}
                   maxValue={1000}
-                  label="Response Time"
+                  label="Response"
                   unit="ms"
                   thresholds={{ good: 100, warning: 500 }}
-                  size="sm"
+                  size="xs"
                 />
-                <div className="flex flex-wrap gap-1 mt-2 justify-center">
-                  {(data?.dbErrorCount || 0) > 0 && (
-                    <Badge variant="destructive" className="text-xs">
+                <div className="flex flex-wrap gap-1 mt-1.5 justify-center">
+                  {(data?.dbErrorCount || 0) > 0 ? (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
                       {data?.dbErrorCount} errors
                     </Badge>
-                  )}
-                  {(data?.dbWarningCount || 0) > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {data?.dbWarningCount} warnings
-                    </Badge>
-                  )}
-                  {(data?.dbErrorCount || 0) === 0 && (data?.dbWarningCount || 0) === 0 && (
-                    <Badge variant="outline" className="text-xs bg-chart-2/10 text-chart-2 border-chart-2/30">
-                      No issues
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-chart-2/10 text-chart-2 border-chart-2/30">
+                      Healthy
                     </Badge>
                   )}
                 </div>
               </div>
 
               {/* Edge Functions Health */}
-              <div className="flex flex-col items-center p-4 rounded-lg bg-muted/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Edge Functions</span>
+              <div className="flex flex-col items-center p-3 rounded-xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Zap className="h-3.5 w-3.5 text-primary/70" />
+                  <span className="text-xs font-medium text-muted-foreground">Functions</span>
                 </div>
                 <HealthGauge
                   value={data?.edgeFnAvgTime || 0}
                   maxValue={2000}
-                  label="Avg Exec Time"
+                  label="Exec Time"
                   unit="ms"
                   thresholds={{ good: 200, warning: 1000 }}
-                  size="sm"
+                  size="xs"
                 />
-                <div className="flex flex-wrap gap-1 mt-2 justify-center">
-                  <Badge variant="outline" className="text-xs">
-                    {data?.edgeFnCallCount || 0} calls/hr
+                <div className="flex flex-wrap gap-1 mt-1.5 justify-center">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    {data?.edgeFnCallCount || 0}/hr
                   </Badge>
                   {(data?.edgeFnErrorCount || 0) > 0 && (
-                    <Badge variant="destructive" className="text-xs">
-                      {data?.edgeFnErrorCount} errors
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                      {data?.edgeFnErrorCount} err
                     </Badge>
                   )}
                 </div>
