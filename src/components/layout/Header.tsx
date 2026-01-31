@@ -28,7 +28,7 @@ export default function Header() {
   const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Member';
 
   return (
-    <header className="sticky top-safe z-30 floating-header px-4 md:px-6 py-3 flex items-center justify-between">
+    <header className="sticky top-0 z-30 floating-header px-4 md:px-6 py-3 flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"

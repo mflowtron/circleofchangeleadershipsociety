@@ -33,17 +33,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <div className="flex-1 flex">
-        <Sidebar />
-        <div className="flex-1 flex flex-col md:ml-72">
-          <Header />
-          <main className="flex-1 p-4 md:p-8 overflow-x-hidden overflow-y-auto">
-            <div className="animate-fade-up">
-              {children}
-            </div>
-          </main>
-        </div>
+    <div className="min-h-screen bg-background flex">
+      <Sidebar />
+      <div className="flex-1 flex flex-col md:ml-72">
+        <Header />
+        <main className="flex-1 p-4 md:p-8 overflow-x-hidden overflow-y-auto">
+          <div className="animate-fade-up">
+            {children}
+          </div>
+        </main>
       </div>
       <InstallBanner />
     </div>

@@ -86,8 +86,7 @@ export default function OrderPortalIndex() {
   const displayError = localError || error;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pt-safe">
-      <div className="flex-1 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Manage Your Orders</CardTitle>
@@ -194,7 +193,6 @@ export default function OrderPortalIndex() {
           )}
         </CardContent>
       </Card>
-      </div>
     </div>
   );
 }

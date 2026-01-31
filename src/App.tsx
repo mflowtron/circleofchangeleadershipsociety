@@ -12,8 +12,6 @@ import Auth from "@/pages/Auth";
 import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import { CircleLoader, FullPageLoader } from "@/components/ui/circle-loader";
-import { useNativelyStatusBar } from "@/hooks/useNativelyStatusBar";
-import { SafeAreaDebug } from "@/components/debug/SafeAreaDebug";
 
 // Lazy load pages for better initial bundle size
 const Feed = lazy(() => import("@/pages/Feed"));
@@ -114,9 +112,6 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
 
 function AppRoutes() {
   const { user, loading, hasLMSAccess, hasEventsAccess, hasDualAccess, isApproved } = useAuth();
-  
-  // Sync status bar style with theme when running in Natively
-  useNativelyStatusBar();
 
   if (loading) {
     return <FullPageLoader />;
@@ -478,7 +473,6 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <SafeAreaDebug />
               <AppRoutes />
             </BrowserRouter>
           </SidebarProvider>
