@@ -45,7 +45,7 @@ export function CommunicationLogs() {
   });
 
   return (
-    <Card className="h-full">
+    <Card className="shrink-0">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Mail className="h-4 w-4" />
