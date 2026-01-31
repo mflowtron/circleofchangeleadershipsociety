@@ -12,6 +12,7 @@ import Auth from "@/pages/Auth";
 import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import { CircleLoader, FullPageLoader } from "@/components/ui/circle-loader";
+import { useNativelyThemeSync } from "@/hooks/useNativelyThemeSync";
 
 // Lazy load pages for better initial bundle size
 const Feed = lazy(() => import("@/pages/Feed"));
@@ -464,17 +465,27 @@ function AppRoutes() {
   );
 }
 
+// Inner component that has access to ThemeProvider context
+function AppContent() {
+  useNativelyThemeSync();
+  return (
+    <>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <TooltipProvider>
         <AuthProvider>
           <SidebarProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
+            <AppContent />
           </SidebarProvider>
         </AuthProvider>
       </TooltipProvider>
