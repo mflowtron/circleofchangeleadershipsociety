@@ -24,15 +24,15 @@ export default function AdminDashboard() {
       {/* Stats Cards */}
       <StatsCards />
 
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Activity Feed - Takes 2 columns */}
-        <div className="lg:col-span-2">
+      {/* Main Content Grid - Fixed height container */}
+      <div className="grid gap-6 lg:grid-cols-3 lg:h-[calc(100vh-220px)]">
+        {/* Activity Feed - Takes 2 columns, scrolls internally */}
+        <div className="lg:col-span-2 min-h-[400px] lg:min-h-0">
           <ActivityFeed />
         </div>
 
-        {/* Sidebar - System Health, Communication & Users */}
-        <div className="space-y-6">
+        {/* Sidebar - Self-aligned widgets with internal scroll */}
+        <div className="flex flex-col gap-6 lg:overflow-y-auto lg:pr-1">
           <SystemHealthMetrics />
           <CommunicationLogs />
           <RecentUsers />
