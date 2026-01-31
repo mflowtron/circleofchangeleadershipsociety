@@ -22,9 +22,12 @@ export function AttendeeLayout({
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Safe area spacer for notched devices */}
+      <div className="min-h-safe-top bg-background shrink-0" />
+      
       {/* Header with safe area */}
       {showHeader && (
-        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border pt-safe">
+        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
           <div className="flex items-center justify-between h-14 px-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {title && (
