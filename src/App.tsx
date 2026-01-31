@@ -13,7 +13,6 @@ import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import { CircleLoader, FullPageLoader } from "@/components/ui/circle-loader";
 import { useNativelyThemeSync } from "@/hooks/useNativelyThemeSync";
-import { useFullscreenLayoutFix } from "@/hooks/useFullscreenLayoutFix";
 
 // Lazy load pages for better initial bundle size
 const Feed = lazy(() => import("@/pages/Feed"));
@@ -469,7 +468,6 @@ function AppRoutes() {
 // Inner component that has access to ThemeProvider context
 function AppContent() {
   useNativelyThemeSync();
-  useFullscreenLayoutFix();
   return (
     <>
       <Toaster />

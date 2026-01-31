@@ -17,8 +17,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-// Lazy load MuxPlayerWithFix since it's a heavy component
-const MuxPlayerWithFix = lazy(() => import('@/components/video/MuxPlayerWithFix'));
+// Lazy load MuxPlayer since it's a heavy component
+const MuxPlayer = lazy(() => import('@mux/mux-player-react'));
 
 interface PostCardProps {
   post: Post;
@@ -154,7 +154,7 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
                 isVerticalVideo ? "max-w-[320px] aspect-[9/16] relative z-10" : "w-full aspect-video"
               )} />
             }>
-              <MuxPlayerWithFix
+              <MuxPlayer
                 playbackId={post.video_url}
                 metadata={{
                   video_title: `Post by ${post.author.full_name}`,
