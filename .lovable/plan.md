@@ -1,187 +1,124 @@
 
 
-# Natively Theme Sync Implementation Plan
+# Fix: Natively Previewer Blank Screen
 
-## Overview
+## Problem Identified
 
-Create a `useNativelyThemeSync` hook that dynamically syncs the native status bar style and app background color with the app's current theme (light/dark). This ensures the status bar icons remain readable against the app's background when running inside the Natively wrapper.
+The app shows a blank white screen in the Natively previewer because the `NativelyInfo` class instantiation and `browserInfo()` method calls can throw errors when the Natively SDK isn't fully initialized. Since these calls happen during the React component lifecycle without try-catch blocks, any error crashes the entire React app.
 
-## Current State Analysis
+**Affected files:**
+- `src/hooks/useNativelyThemeSync.ts` - No error handling around `NativelyInfo` calls
+- `src/components/NativelySafeAreaProvider.tsx` - No error handling around `NativelyInfo` calls
 
-**Theme Management:**
-- Uses `next-themes` library with `ThemeProvider` wrapping the app
-- Theme is controlled via `useTheme()` hook from `next-themes`
-- `resolvedTheme` provides the actual theme ("light" or "dark") after system preference resolution
-- Theme toggle component at `src/components/ui/theme-toggle.tsx`
+## Solution
 
-**Background Colors (from CSS):**
-- Light mode: `--background: 40 30% 97%` (HSL) = `#F9F8F5` (warm cream)
-- Dark mode: `--background: 30 12% 8%` (HSL) = `#161413` (deep charcoal)
-
-**Existing Natively Integration:**
-- `NativelySafeAreaProvider` already detects native context
-- Uses `NativelyInfo` from `natively` package
-- Adds `is-natively-app` class to document
-- Accesses SDK via `window.natively`
-
-**Natively SDK Methods:**
-```text
-window.natively.setAppStatusBarStyleIOS(style)
-// style: "DARK" (dark icons for light bg), "LIGHT" (light icons for dark bg), "NONE" (hidden)
-
-window.natively.setAppBackgroundColor(color)
-// color: hex string like "#FFFFFF"
-```
+Wrap all Natively SDK calls in try-catch blocks to gracefully handle any initialization errors. This ensures the app continues to function even if the SDK isn't ready or throws an error.
 
 ---
 
-## Implementation Details
+## File Changes
 
-### 1. Create useNativelyThemeSync Hook
+### 1. Update `src/hooks/useNativelyThemeSync.ts`
 
-**File:** `src/hooks/useNativelyThemeSync.ts`
+Add try-catch around the entire SDK interaction:
 
-The hook will:
-- Use `useTheme()` from `next-themes` to get `resolvedTheme`
-- Check if running in Natively using `NativelyInfo`
-- Call SDK methods whenever theme changes
-- Run on initial mount to set correct status bar immediately
+```typescript
+'use client';
 
-```text
-Logic flow:
-1. On mount and theme change, check isNativeApp
-2. If not native, do nothing
-3. If native:
-   - Light theme -> setAppStatusBarStyleIOS("DARK") + setAppBackgroundColor("#F9F8F5")
-   - Dark theme -> setAppStatusBarStyleIOS("LIGHT") + setAppBackgroundColor("#161413")
-```
+import { useEffect } from 'react';
+import { useTheme } from 'next-themes';
+import { NativelyInfo } from 'natively';
 
-### 2. Integrate Hook in App
-
-**File:** `src/App.tsx`
-
-Call the hook inside the main App component, after the ThemeProvider so `useTheme()` has access to context:
-
-```text
-const App = () => {
-  useNativelyThemeSync(); // Add this line
-  return (
-    <QueryClientProvider client={queryClient}>
-      ...
-    </QueryClientProvider>
-  );
-};
-```
-
-Note: The hook must be called inside a component that is wrapped by ThemeProvider.
-
-### 3. Alternative Integration Approach
-
-Since the hook needs `useTheme()` context, and `App` component is the one that provides `ThemeProvider`, we have two options:
-
-**Option A:** Create a wrapper component inside ThemeProvider
-**Option B:** Integrate into NativelySafeAreaProvider (requires restructuring)
-
-Option A is cleaner - create a small `ThemeSyncWrapper` inside App that calls the hook.
-
----
-
-## File Changes Summary
-
-| File | Action | Description |
-|------|--------|-------------|
-| `src/hooks/useNativelyThemeSync.ts` | Create | Hook that syncs theme with native status bar |
-| `src/App.tsx` | Update | Add wrapper component that calls the hook |
-
----
-
-## Technical Details
-
-### HSL to Hex Conversion
-
-The CSS variables use HSL format. Converting to hex:
-
-**Light mode background:** `hsl(40, 30%, 97%)`
-- Calculation: R=249, G=248, B=245
-- Hex: `#F9F8F5`
-
-**Dark mode background:** `hsl(30, 12%, 8%)`
-- Calculation: R=22, G=20, B=18
-- Hex: `#161412`
-
-### Hook Implementation Pattern
-
-```text
 export function useNativelyThemeSync() {
   const { resolvedTheme } = useTheme();
 
   useEffect(() => {
-    const info = new NativelyInfo();
-    if (!info.browserInfo().isNativeApp) return;
-    if (!resolvedTheme) return; // Theme not yet resolved
+    try {
+      const info = new NativelyInfo();
+      if (!info.browserInfo().isNativeApp) return;
+      if (!resolvedTheme) return;
 
-    const natively = (window as any).natively;
-    if (!natively) return;
+      const natively = (window as any).natively;
+      if (!natively) return;
 
-    if (resolvedTheme === 'dark') {
-      natively.setAppStatusBarStyleIOS('LIGHT'); // Light icons on dark bg
-      natively.setAppBackgroundColor('#161412');
-    } else {
-      natively.setAppStatusBarStyleIOS('DARK');  // Dark icons on light bg
-      natively.setAppBackgroundColor('#F9F8F5');
+      if (resolvedTheme === 'dark') {
+        natively.setAppStatusBarStyleIOS('LIGHT');
+        natively.setAppBackgroundColor('#161412');
+      } else {
+        natively.setAppStatusBarStyleIOS('DARK');
+        natively.setAppBackgroundColor('#F9F8F5');
+      }
+    } catch (error) {
+      // Silently fail - SDK not ready or not in native environment
+      console.debug('Natively theme sync skipped:', error);
     }
   }, [resolvedTheme]);
 }
 ```
 
-### App.tsx Integration Pattern
+### 2. Update `src/components/NativelySafeAreaProvider.tsx`
 
-```text
-// Create inner component that has access to ThemeProvider context
-function AppContent() {
-  useNativelyThemeSync();
-  return (
-    <>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </>
-  );
+Add try-catch around SDK initialization:
+
+```typescript
+'use client';
+
+import { useEffect } from 'react';
+import { NativelyInfo } from 'natively';
+
+interface NativelyInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <TooltipProvider>
-        <AuthProvider>
-          <SidebarProvider>
-            <AppContent /> {/* Moved here */}
-          </SidebarProvider>
-        </AuthProvider>
-      </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+export function NativelySafeAreaProvider({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    try {
+      const info = new NativelyInfo();
+      const browserInfo = info.browserInfo();
+
+      if (!browserInfo.isNativeApp) return;
+
+      document.documentElement.classList.add('is-natively-app');
+
+      if (typeof window !== 'undefined' && 'natively' in window) {
+        (window as any).natively.getInsets((resp: NativelyInsets) => {
+          document.documentElement.style.setProperty('--natively-inset-top', `${resp.top}px`);
+          document.documentElement.style.setProperty('--natively-inset-right', `${resp.right}px`);
+          document.documentElement.style.setProperty('--natively-inset-bottom', `${resp.bottom}px`);
+          document.documentElement.style.setProperty('--natively-inset-left', `${resp.left}px`);
+        });
+      }
+
+      return () => {
+        document.documentElement.classList.remove('is-natively-app');
+      };
+    } catch (error) {
+      // Silently fail - SDK not ready or not in native environment
+      console.debug('Natively safe area provider skipped:', error);
+    }
+  }, []);
+
+  return <>{children}</>;
+}
 ```
 
 ---
 
-## Safety Guarantees
+## Why This Fixes the Issue
 
-1. **Web unaffected**: All SDK calls gated behind `isNativeApp` check
-2. **Graceful handling**: Returns early if `resolvedTheme` is undefined (during hydration)
-3. **No errors on web**: SDK methods only called when `window.natively` exists
-4. **Reactive updates**: Theme changes trigger immediate status bar update via `useEffect` dependency
+1. **Graceful degradation**: If the Natively SDK throws any error during initialization, the app continues to render normally
+2. **No visual impact**: The app falls back to standard browser behavior (CSS `env()` safe areas, default status bar)
+3. **Debug logging**: Errors are logged to console for debugging without crashing the app
+4. **Web compatibility preserved**: The try-catch has no effect on the regular web version since the early return still happens for non-native apps
 
 ---
 
-## Testing Considerations
+## Testing After Fix
 
-After implementation:
-1. Verify web app is unaffected - no console errors, theme toggle works
-2. In Natively iOS wrapper: toggle theme and verify status bar icons update
-3. In Natively Android wrapper: same verification
-4. Test system theme preference changes propagate correctly
+1. **Natively Previewer**: App should load and display content instead of blank screen
+2. **Web Browser**: No change in behavior - app works normally
+3. **Actual Native App**: Safe areas and theme sync should still work when SDK is properly initialized
 
