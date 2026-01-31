@@ -149,7 +149,7 @@ export default function Auth() {
       setLoading(false);
     }
   };
-  return <div className="min-h-screen bg-background flex flex-col pt-safe">
+  return <div className="min-h-screen bg-background flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
       <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">

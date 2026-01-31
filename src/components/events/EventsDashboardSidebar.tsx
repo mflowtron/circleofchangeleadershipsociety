@@ -67,10 +67,13 @@ export function EventsDashboardSidebar({
       
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border/50 transition-transform duration-300 ease-out md:translate-x-0 flex flex-col pt-safe",
+          "fixed top-0 left-0 z-50 h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border/50 transition-transform duration-300 ease-out md:translate-x-0 flex flex-col",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
-        style={{ backgroundImage: "var(--gradient-sidebar)" }}
+        style={{ 
+          backgroundImage: "var(--gradient-sidebar)",
+          paddingTop: "env(safe-area-inset-top, 0px)"
+        }}
       >
         {/* Header */}
         <div className="p-4 flex items-center justify-between border-b border-sidebar-border/50">

@@ -32,7 +32,7 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
 
   return (
     <EventSelectionProvider>
-      <div className="min-h-screen bg-background flex flex-col overflow-x-hidden pt-safe">
+      <div className="min-h-screen bg-background flex flex-col overflow-x-hidden" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="flex-1 flex">
           <EventsDashboardSidebar 
             isOpen={sidebarOpen} 
