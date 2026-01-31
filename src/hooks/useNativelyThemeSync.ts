@@ -26,11 +26,11 @@ export function useNativelyThemeSync() {
 
       if (resolvedTheme === 'dark') {
         // Dark theme: light icons on dark background
-        natively.setAppStatusBarStyleIOS('LIGHT');
+        natively.setAppStatusBarStyle('LIGHT');
         natively.setAppBackgroundColor('#161412');
       } else {
         // Light theme: dark icons on light background
-        natively.setAppStatusBarStyleIOS('DARK');
+        natively.setAppStatusBarStyle('DARK');
         natively.setAppBackgroundColor('#F9F8F5');
       }
     } catch (error) {
