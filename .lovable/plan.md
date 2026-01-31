@@ -1,112 +1,125 @@
-# Enhanced Content Moderation System
+
+# Natively Safe Area Insets Implementation Plan
 
 ## Overview
 
-Transform the moderation page into an intelligent, AI-powered content moderation platform that:
-1. Displays ALL posts regardless of visibility settings
-2. Uses AI to detect potentially inappropriate content for a professional community
-3. Provides filtering between flagged and all content
-4. Scans uploaded images and videos for questionable material
+Implement a `NativelySafeAreaProvider` component that integrates with the Natively JavaScript SDK to retrieve device safe area insets and apply them via CSS custom properties. This ensures the app properly handles notches, status bars, and home indicators when running inside the Natively native wrapper on iOS and Android.
+
+## Current State Analysis
+
+The app currently uses browser-based `env(safe-area-inset-*)` CSS functions for safe area handling. The following elements already have safe area considerations:
+
+**Headers (Sticky):**
+- `Header.tsx` - Uses inline style `env(safe-area-inset-top)`
+- `EventsDashboardHeader.tsx` - Uses `pt-safe` class
+- `AttendeeLayout.tsx` header - Uses `pt-safe` class
+
+**Sidebars (Fixed):**
+- `Sidebar.tsx` - Uses inline style `env(safe-area-inset-top)`
+- `EventsDashboardSidebar.tsx` - Uses inline style `env(safe-area-inset-top)`
+
+**Bottom Navigation (Fixed):**
+- `BottomNavigation.tsx` - Uses `pb-safe` class
+
+**Floating Elements (Fixed):**
+- `InstallBanner.tsx` - Uses `pb-safe` class
+- `UpdateNotification.tsx` - Fixed bottom-4 (needs update)
+
+**Modals/Overlays (Fixed):**
+- `image-lightbox.tsx` - Uses inline `env(safe-area-inset-*)` styles
+- `drawer.tsx` - Fixed bottom-0 (needs update)
+- `toast.tsx` - Fixed top-0 (needs update)
+- `sheet.tsx` - Fixed positioning (needs update)
 
 ---
 
-## Architecture
+## Implementation Details
+
+### 1. Install Natively Package
+
+The `natively` npm package needs to be installed as a dependency.
+
+### 2. Create NativelySafeAreaProvider Component
+
+**File:** `src/components/NativelySafeAreaProvider.tsx`
+
+Based on the Natively SDK documentation, the implementation will:
+- Import `NativelyInfo` from the `natively` package
+- Check `browserInfo().isNativeApp` to detect native context
+- Call `window.natively.getInsets()` to retrieve inset values
+- Set CSS custom properties on `document.documentElement`
+- Add `is-natively-app` class to enable CSS targeting
 
 ```text
-+------------------+     +----------------------+     +------------------+
-|   Moderation     |     |   moderate-content   |     |   Lovable AI     |
-|   Page UI        | --> |   Edge Function      | --> |   (Gemini)       |
-+------------------+     +----------------------+     +------------------+
-        |                         |                          |
-        v                         v                          v
-+------------------+     +----------------------+     +------------------+
-| Filter Tabs:     |     | - Text Analysis      |     | Image/Text       |
-| - All Posts      |     | - Image Moderation   |     | Analysis         |
-| - Flagged        |     | - Video Multi-Frame  |     +------------------+
-| - Auto-Flagged   |     |   Analysis           |
-+------------------+     +----------------------+
+API Usage:
+- Detection: new NativelyInfo().browserInfo().isNativeApp
+- Insets: window.natively.getInsets(callback)
+- Response: { top, bottom, left, right } in pixels
 ```
 
----
+### 3. Update Global CSS
 
-## Implementation Plan
+**File:** `src/index.css`
 
-### 1. Database Schema Updates
+Add CSS custom property defaults and Natively-specific override rules:
 
-Add moderation tracking columns to the `posts` table:
+```text
+:root {
+  --natively-inset-top: 0px;
+  --natively-inset-right: 0px;
+  --natively-inset-bottom: 0px;
+  --natively-inset-left: 0px;
+}
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| `moderation_status` | enum | 'pending', 'approved', 'flagged', 'auto_flagged' |
-| `moderation_score` | float | AI confidence score (0-1) |
-| `moderation_reasons` | text[] | Array of flagged categories |
-| `moderated_at` | timestamp | When last moderated |
-| `moderated_by` | uuid | Admin who reviewed (null for auto) |
+/* When running in Natively, the existing .pt-safe and .pb-safe 
+   classes will be overridden to use Natively insets instead of 
+   browser env() values */
 
-### 2. New Edge Function: `moderate-content`
+.is-natively-app .pt-safe {
+  padding-top: var(--natively-inset-top) !important;
+}
 
-Creates a backend function that:
-- Receives post content (text, image URL, video URL)
-- Calls Lovable AI (Gemini 2.5 Flash) for content analysis
-- Returns moderation verdict and reasons
+.is-natively-app .pb-safe {
+  padding-bottom: var(--natively-inset-bottom) !important;
+}
+```
 
-**Content Analysis Categories:**
-- Profanity and vulgar language
-- Discriminatory or hateful speech
-- Sexual or suggestive content
-- Violence or threats
-- Spam or promotional content
-- Off-topic non-professional content
-- Personal attacks or harassment
+### 4. Wrap App with Provider
 
-### 3. Automatic Flagging Criteria
+**File:** `src/main.tsx`
 
-Content is **auto-flagged** (moderation_status = 'auto_flagged') when:
+Wrap the entire application with the provider to ensure insets are available before any rendering:
 
-| Trigger | Threshold |
-|---------|-----------|
-| AI confidence score | >= 0.8 (80% likely inappropriate) |
-| Explicit profanity detected | Any match from blocklist |
-| NSFW image classification | >= 0.7 confidence |
-| Hate speech indicators | >= 0.75 confidence |
+```text
+<NativelySafeAreaProvider>
+  <App />
+  <UpdateNotification />
+</NativelySafeAreaProvider>
+```
 
-Content is **flagged for review** (moderation_status = 'flagged') when:
-- AI confidence score is 0.5-0.8 (needs human review)
-- Contains external links (potential spam)
-- First post from a new user
+### 5. Update Fixed/Sticky Elements
 
-### 4. Image and Video Scanning Process
+Each fixed or sticky element needs to reference Natively insets when running in the native app. The approach varies by element type:
 
-**Image Scanning:**
-- Uses Lovable AI's multimodal capability (Gemini 2.5 Flash)
-- Sends image URL to AI for visual content analysis
-- Checks for: nudity, violence, inappropriate symbols, spam text overlay
+**Elements Using Existing Safe Area Classes (pt-safe, pb-safe):**
+These will automatically work via the CSS overrides in step 3:
+- EventsDashboardHeader
+- AttendeeLayout header
+- BottomNavigation
+- InstallBanner
 
-**Video Scanning (Multi-Thumbnail Analysis):**
-- Videos use Mux for hosting (already integrated)
-- Extract multiple thumbnails at different points in the video using Mux's thumbnail API with the `time` parameter:
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=0` (start of video)
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=25%` (25% through)
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=50%` (midpoint)
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=75%` (75% through)
-  - `https://image.mux.com/{playback_id}/thumbnail.png?time=-1` (near end of video)
-- Analyze ALL extracted thumbnails using the same image scanning pipeline
-- Each thumbnail is individually scored; the **highest severity score** across all thumbnails determines the final video moderation verdict
-- If ANY single thumbnail is flagged, the entire video is flagged
-- The moderation reasons from all thumbnails are merged into a combined set
-- This multi-frame approach catches inappropriate content that may appear at any point in the video, not just at the default thumbnail position
+**Elements Using Inline Styles with env():**
+Need conditional logic or dual CSS rules:
+- Header.tsx - Update inline style to use CSS variable
+- Sidebar.tsx - Update inline style to use CSS variable
+- EventsDashboardSidebar.tsx - Update inline style to use CSS variable
+- image-lightbox.tsx - Update inline styles to use CSS variables
 
-### 5. Updated Moderation Page UI
-
-**New Features:**
-- Tab navigation: "All Posts" | "Needs Review" | "Auto-Flagged"
-- Post cards show:
-  - Moderation status badge (color-coded)
-  - AI confidence score
-  - Flagged reasons as tags
-  - Image/video preview with media indicator
-- Action buttons: "Approve", "Delete", "Re-scan"
-- Stats summary: Total posts, flagged count, auto-flagged count
+**Elements Missing Safe Area Handling:**
+- UpdateNotification.tsx - Add bottom inset handling
+- drawer.tsx - Add bottom inset for DrawerContent
+- toast.tsx - Add top/bottom inset for ToastViewport
+- sheet.tsx - Add insets based on side (top, bottom, left, right)
 
 ---
 
@@ -114,99 +127,76 @@ Content is **flagged for review** (moderation_status = 'flagged') when:
 
 | File | Action | Description |
 |------|--------|-------------|
-| Database migration | Create | Add moderation columns to posts table |
-| `supabase/functions/moderate-content/index.ts` | Create | AI content moderation edge function |
-| `src/hooks/useModerationPosts.ts` | Create | Fetch and manage moderated posts |
-| `src/components/moderation/ModerationPostCard.tsx` | Create | Enhanced post card with moderation info |
-| `src/components/moderation/ModerationFilters.tsx` | Create | Tab navigation and stats |
-| `src/pages/Moderation.tsx` | Update | Integrate new components |
-| `supabase/config.toml` | Update | Add moderate-content function |
+| `package.json` | Update | Add `natively` dependency |
+| `src/components/NativelySafeAreaProvider.tsx` | Create | Provider component with SDK integration |
+| `src/index.css` | Update | Add CSS custom property defaults and Natively overrides |
+| `src/main.tsx` | Update | Wrap app with NativelySafeAreaProvider |
+| `src/components/layout/Header.tsx` | Update | Use CSS variable instead of inline env() |
+| `src/components/layout/Sidebar.tsx` | Update | Use CSS variable instead of inline env() |
+| `src/components/events/EventsDashboardSidebar.tsx` | Update | Use CSS variable instead of inline env() |
+| `src/components/events/EventsDashboardHeader.tsx` | Update | Add Natively-aware styling |
+| `src/components/pwa/UpdateNotification.tsx` | Update | Add bottom inset handling |
+| `src/components/ui/drawer.tsx` | Update | Add bottom inset for content |
+| `src/components/ui/toast.tsx` | Update | Add top/bottom insets for viewport |
+| `src/components/ui/sheet.tsx` | Update | Add directional insets |
+| `src/components/ui/image-lightbox.tsx` | Update | Use CSS variables for positioning |
+| `src/components/attendee/BottomNavigation.tsx` | Update | Ensure Natively compatibility |
+| `src/components/attendee/AttendeeLayout.tsx` | Update | Ensure Natively compatibility |
 
 ---
 
-## Technical Details
+## Technical Approach
 
-### Edge Function: `moderate-content`
+### CSS Variable Strategy
+
+Rather than duplicating logic in every component, we use a layered CSS approach:
+
+1. **Default values**: CSS custom properties default to `0px`
+2. **Natively overrides**: When `is-natively-app` class is present, safe area classes use Natively variables
+3. **Fallback chain**: Components use CSS variables that work in both contexts
 
 ```text
-POST /functions/v1/moderate-content
-Body: {
-  postId: string,
-  content: string,
-  imageUrl?: string,
-  videoUrl?: string  // Mux playback ID
+/* Safe area utility that works in both contexts */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
 }
 
-Response: {
-  status: 'approved' | 'flagged' | 'auto_flagged',
-  score: number,  // 0-1 confidence
-  reasons: string[],  // e.g., ['profanity', 'off_topic']
-  imageAnalysis?: { safe: boolean, categories: string[] },
-  videoThumbnailAnalysis?: {
-    safe: boolean,
-    categories: string[],
-    thumbnailResults: [
-      { time: string, safe: boolean, score: number, categories: string[] }
-    ],
-    worstScore: number  // highest severity score across all thumbnails
-  }
+.is-natively-app .safe-top {
+  padding-top: var(--natively-inset-top);
 }
 ```
 
-### AI Prompt Strategy
+### Component Updates Pattern
 
-The moderation prompt will be structured to:
-1. Analyze text for professional appropriateness
-2. Check for policy violations
-3. Return structured JSON with categories and confidence
+For components with inline styles, convert to use CSS variables:
 
-Example system prompt:
-```
-You are a content moderator for a professional leadership community.
-Analyze the following content and determine if it's appropriate.
-This community is for professional development, leadership topics, 
-and career advancement discussions.
-
-Flag content that contains:
-- Profanity or vulgar language
-- Discriminatory or hateful speech
-- Sexual or suggestive material
-- Violence or threats
-- Spam or irrelevant promotional content
-- Personal attacks
-- Content unrelated to professional topics
+**Before:**
+```text
+style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
 ```
 
-### Image Analysis
+**After:**
+```text
+style={{ paddingTop: 'max(0.75rem, var(--safe-inset-top, env(safe-area-inset-top)))' }}
+```
 
-For images, Lovable AI (Gemini) can process image URLs directly:
-- Pass image URL in the message content
-- AI returns visual content classification
-- Categories: safe, suggestive, violent, spam, inappropriate
-
----
-
-## Security Considerations
-
-- Edge function validates admin role before allowing moderation actions
-- All moderation decisions logged in activity_logs for audit trail
-- AI analysis happens server-side only (no client exposure)
-- Rate limiting on moderation scans to prevent abuse
+The CSS will set `--safe-inset-top` to the Natively value when in native context.
 
 ---
 
-## User Experience Flow
+## Safety Guarantees
 
-1. **Post Creation**: When a post is created, trigger background moderation scan
-2. **Immediate Display**: Post appears in feed while scan runs (async)
-3. **Auto-Flag**: If auto-flagged, post is hidden from feed until review
-4. **Admin Dashboard**: Admins see flagged posts with one-click actions
-5. **Audit Trail**: All moderation actions logged
+1. **Web unaffected**: All changes are gated behind `isNativeApp` check and `is-natively-app` class
+2. **No layout shift**: CSS variables default to `0px` before SDK callback fires
+3. **Early initialization**: Provider runs in useEffect immediately on mount
+4. **Graceful degradation**: If SDK fails, defaults remain at `0px`
 
 ---
 
-## Dependencies
+## Testing Considerations
 
-- **Existing**: Lovable AI (LOVABLE_API_KEY already configured)
-- **No new packages required**
-- **Uses**: Gemini 2.5 Flash (multimodal for text + images)
+After implementation, test on:
+1. Web browser - Verify no visual changes
+2. iOS native app (Natively) - Verify insets apply to notch/home indicator
+3. Android native app (Natively) - Verify insets apply to status bar/navigation bar
+4. Orientation changes - Insets should update when device rotates
