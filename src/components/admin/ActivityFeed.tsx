@@ -84,13 +84,13 @@ export function ActivityFeed() {
         </div>
       </CardHeader>
       
-      <CardContent className="flex-1 overflow-hidden p-0">
+      <CardContent className="flex-1 min-h-0 p-0">
         {isLoading ? (
           <div className="flex items-center justify-center h-48">
             <CircleLoader size="sm" />
           </div>
         ) : logs && logs.length > 0 ? (
-          <ScrollArea className="h-[500px] px-4">
+          <ScrollArea className="h-full px-4">
             <div className="space-y-1 pb-4">
               {logs.map(log => (
                 <ActivityItem key={log.id} log={log} />
