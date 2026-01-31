@@ -33,7 +33,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+    <div className="min-h-screen bg-background flex flex-col">
       <div className="flex-1 flex">
         <Sidebar />
         <div className="flex-1 flex flex-col md:ml-72">
