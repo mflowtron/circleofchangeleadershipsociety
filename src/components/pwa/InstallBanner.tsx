@@ -9,7 +9,7 @@ export default function InstallBanner() {
   if (!canInstall) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pb-safe animate-fade-up">
+    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 animate-fade-up">
       <div className="max-w-lg mx-auto bg-card border border-border rounded-2xl shadow-medium p-4">
         <div className="flex items-start gap-3">
           <div className="shrink-0 w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">

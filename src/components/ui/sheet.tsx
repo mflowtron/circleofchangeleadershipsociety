@@ -47,30 +47,6 @@ const sheetVariants = cva(
   },
 );
 
-// Helper to get safe area styles for each side
-const getSafeAreaPadding = (side: "top" | "bottom" | "left" | "right" | null | undefined) => {
-  switch (side) {
-    case "top":
-      return { paddingTop: 'var(--safe-inset-top, env(safe-area-inset-top, 0px))' };
-    case "bottom":
-      return { paddingBottom: 'var(--safe-inset-bottom, env(safe-area-inset-bottom, 0px))' };
-    case "left":
-      return { 
-        paddingTop: 'var(--safe-inset-top, env(safe-area-inset-top, 0px))',
-        paddingLeft: 'var(--safe-inset-left, env(safe-area-inset-left, 0px))',
-        paddingBottom: 'var(--safe-inset-bottom, env(safe-area-inset-bottom, 0px))'
-      };
-    case "right":
-      return { 
-        paddingTop: 'var(--safe-inset-top, env(safe-area-inset-top, 0px))',
-        paddingRight: 'var(--safe-inset-right, env(safe-area-inset-right, 0px))',
-        paddingBottom: 'var(--safe-inset-bottom, env(safe-area-inset-bottom, 0px))'
-      };
-    default:
-      return {};
-  }
-};
-
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {}
@@ -82,7 +58,6 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
       <SheetPrimitive.Content 
         ref={ref} 
         className={cn(sheetVariants({ side }), "p-6", className)} 
-        style={getSafeAreaPadding(side)}
         {...props}
       >
         {children}

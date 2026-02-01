@@ -73,7 +73,7 @@ export function EventsDashboardSidebar({
         style={{ backgroundImage: "var(--gradient-sidebar)" }}
       >
         {/* Header */}
-        <div className="p-4 pt-safe flex items-center justify-between border-b border-sidebar-border/50">
+        <div className="p-4 flex items-center justify-between border-b border-sidebar-border/50">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-sidebar-accent">
               <Ticket className="h-5 w-5 text-sidebar-primary" />
