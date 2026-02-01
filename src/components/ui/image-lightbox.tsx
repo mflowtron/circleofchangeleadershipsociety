@@ -293,13 +293,9 @@ const ImageLightbox = forwardRef<HTMLImageElement, ImageLightboxProps>(
         <button
           onClick={handleClose}
           className={cn(
-            "absolute z-30 w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center transition-all duration-300",
+            "absolute z-30 w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center transition-all duration-300 top-4 left-4",
             showControls ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
           )}
-          style={{ 
-            top: 'max(1rem, var(--safe-inset-top, env(safe-area-inset-top)))',
-            left: 'max(1rem, var(--safe-inset-left, env(safe-area-inset-left)))'
-          }}
         >
           <X className="h-5 w-5 text-white" />
         </button>
@@ -307,12 +303,9 @@ const ImageLightbox = forwardRef<HTMLImageElement, ImageLightboxProps>(
         {/* Zoom indicator - subtle */}
         {transform.scale > 1 && (
           <div className={cn(
-            "absolute z-30 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 text-xs font-medium text-white transition-opacity duration-300",
+            "absolute z-30 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 text-xs font-medium text-white transition-opacity duration-300 top-4 right-4",
             showControls ? "opacity-100" : "opacity-0"
-          )} style={{ 
-            top: 'max(1rem, var(--safe-inset-top, env(safe-area-inset-top)))',
-            right: 'max(1rem, var(--safe-inset-right, env(safe-area-inset-right)))'
-          }}>
+          )}>
             {Math.round(transform.scale * 100)}%
           </div>
         )}
@@ -344,9 +337,9 @@ const ImageLightbox = forwardRef<HTMLImageElement, ImageLightboxProps>(
 
         {/* Swipe hint - only show briefly on first open */}
         <div className={cn(
-          "absolute left-1/2 -translate-x-1/2 z-20 text-white/60 text-xs font-medium transition-opacity duration-500 pointer-events-none",
+          "absolute left-1/2 -translate-x-1/2 z-20 text-white/60 text-xs font-medium transition-opacity duration-500 pointer-events-none bottom-8",
           showControls ? "opacity-100" : "opacity-0"
-        )} style={{ bottom: 'max(2rem, var(--safe-inset-bottom, env(safe-area-inset-bottom)))' }}>
+        )}>
           Swipe down to close
         </div>
 

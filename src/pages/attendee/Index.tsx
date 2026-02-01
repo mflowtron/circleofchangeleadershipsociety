@@ -68,7 +68,7 @@ export default function AttendeeLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 pt-safe pb-safe">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <Card>
           <CardHeader className="text-center">
