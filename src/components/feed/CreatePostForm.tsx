@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import MuxUploader from '@mux/mux-uploader-react';
+import MuxUploader, { MuxUploaderDrop, MuxUploaderFileSelect } from '@mux/mux-uploader-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Send, ImagePlus, Video, X, Globe, Users, Loader2, CheckCircle } from 'lucide-react';
+import { Send, ImagePlus, Video, X, Globe, Users, Loader2, CheckCircle, FileUp } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +39,7 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
   const [videoUploadId, setVideoUploadId] = useState<string | null>(null);
   const [videoPlaybackId, setVideoPlaybackId] = useState<string | null>(null);
   const [videoStatus, setVideoStatus] = useState<'idle' | 'preparing' | 'uploading' | 'processing' | 'ready'>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
   const initials = profile?.full_name
@@ -78,9 +80,15 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
     setVideoUploadUrl(null);
     setVideoUploadId(null);
     setVideoStatus('idle');
+    setUploadProgress(0);
     if (statusCheckInterval.current) {
       clearInterval(statusCheckInterval.current);
     }
+  };
+
+  const handleUploadProgress = (e: unknown) => {
+    const progress = (e as CustomEvent<number>).detail;
+    setUploadProgress(Math.round(progress));
   };
 
   const openVideoUpload = async () => {
@@ -332,16 +340,65 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
                 </p>
               </div>
             ) : videoUploadUrl ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Upload your video file. Supported formats: MP4, MOV, MKV, WEBM
-                </p>
+              <div className="space-y-4">
+                {/* Hidden MuxUploader that powers everything */}
                 <MuxUploader
+                  id="post-video-uploader"
                   endpoint={videoUploadUrl}
                   onSuccess={handleVideoUploadSuccess}
-                  className="w-full"
+                  onUploadStart={() => setVideoStatus('uploading')}
+                  onProgress={handleUploadProgress}
+                  noDrop
+                  noProgress
+                  noStatus
+                  className="hidden"
                 />
-              </>
+                
+                {/* Custom styled drop zone */}
+                <MuxUploaderDrop
+                  muxUploader="post-video-uploader"
+                  className="border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer
+                    border-border hover:border-primary/50 hover:bg-primary/5
+                    [&[active]]:border-primary [&[active]]:bg-primary/10"
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Video className="h-7 w-7 text-primary" />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">
+                        Drag and drop your video here
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        or
+                      </p>
+                    </div>
+                    
+                    <MuxUploaderFileSelect muxUploader="post-video-uploader">
+                      <Button type="button" variant="outline" className="gap-2">
+                        <FileUp className="h-4 w-4" />
+                        Select Video
+                      </Button>
+                    </MuxUploaderFileSelect>
+                    
+                    <p className="text-xs text-muted-foreground mt-2">
+                      MP4, MOV, MKV, WEBM supported
+                    </p>
+                  </div>
+                </MuxUploaderDrop>
+                
+                {/* Upload progress indicator */}
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Uploading...</span>
+                      <span className="font-medium text-foreground">{uploadProgress}%</span>
+                    </div>
+                    <Progress value={uploadProgress} className="h-2" />
+                  </div>
+                )}
+              </div>
             ) : null}
           </div>
         </DialogContent>
