@@ -1,22 +1,12 @@
 import { useState, useRef } from 'react';
-import MuxUploader, { MuxUploaderDrop, MuxUploaderFileSelect } from '@mux/mux-uploader-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Send, ImagePlus, Video, X, Globe, Users, Loader2, CheckCircle, FileUp, Play } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
+import { Send, ImagePlus, Video, X, Globe, Users, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import VideoReadyPreview from './VideoReadyPreview';
+import VideoUploadDialog from './VideoUploadDialog';
 
 interface CreatePostFormProps {
   onSubmit: (content: string, isGlobal: boolean, imageFile?: File, videoPlaybackId?: string) => Promise<void>;
@@ -31,16 +21,11 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { profile } = useAuth();
-  const { toast } = useToast();
 
-  // Video upload state
+  // Video state
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
-  const [videoUploadUrl, setVideoUploadUrl] = useState<string | null>(null);
-  const [videoUploadId, setVideoUploadId] = useState<string | null>(null);
   const [videoPlaybackId, setVideoPlaybackId] = useState<string | null>(null);
-  const [videoStatus, setVideoStatus] = useState<'idle' | 'preparing' | 'uploading' | 'uploaded' | 'processing' | 'ready'>('idle');
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const [isVideoProcessing, setIsVideoProcessing] = useState(false);
 
   const initials = profile?.full_name
     ?.split(' ')
@@ -77,96 +62,19 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
 
   const removeVideo = () => {
     setVideoPlaybackId(null);
-    setVideoUploadUrl(null);
-    setVideoUploadId(null);
-    setVideoStatus('idle');
-    setUploadProgress(0);
-    if (statusCheckInterval.current) {
-      clearInterval(statusCheckInterval.current);
-    }
+    setIsVideoProcessing(false);
   };
 
-  const handleUploadProgress = (e: unknown) => {
-    const progress = (e as CustomEvent<number>).detail;
-    setUploadProgress(Math.round(progress));
-  };
-
-  const openVideoUpload = async () => {
+  const openVideoUpload = () => {
     // Clear image if adding video
     if (imageFile) {
       removeImage();
     }
-    
     setVideoDialogOpen(true);
-    setVideoStatus('preparing');
-
-    try {
-      const response = await supabase.functions.invoke('mux-upload', {
-        body: { action: 'post-video-upload' },
-      });
-
-      if (response.error) throw new Error(response.error.message);
-
-      setVideoUploadUrl(response.data.upload_url);
-      setVideoUploadId(response.data.upload_id);
-      setVideoStatus('idle');
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error preparing upload',
-        description: error.message,
-      });
-      setVideoDialogOpen(false);
-      setVideoStatus('idle');
-    }
   };
 
-  const checkVideoStatus = async () => {
-    if (!videoUploadId) return;
-
-    try {
-      const response = await supabase.functions.invoke('mux-upload', {
-        body: {
-          action: 'check-post-video',
-          upload_id: videoUploadId,
-        },
-      });
-
-      if (response.error) throw new Error(response.error.message);
-
-      const { status, playback_id } = response.data;
-
-      if (status === 'ready' && playback_id) {
-        if (statusCheckInterval.current) {
-          clearInterval(statusCheckInterval.current);
-        }
-        setVideoPlaybackId(playback_id);
-        setVideoStatus('ready');
-        setVideoDialogOpen(false);
-        toast({
-          title: 'Video ready!',
-          description: 'Your video has been processed and is ready to post.',
-        });
-      }
-    } catch (error: any) {
-      console.error('Video status check error:', error);
-    }
-  };
-
-  const handleVideoUploadSuccess = () => {
-    // First show upload complete state
-    setVideoStatus('uploaded');
-    
-    // After a brief moment, transition to processing
-    setTimeout(() => {
-      setVideoStatus('processing');
-      toast({
-        title: 'Video uploaded',
-        description: 'Processing your video...',
-      });
-      // Start polling for video readiness
-      statusCheckInterval.current = setInterval(checkVideoStatus, 3000);
-    }, 1500);
+  const handleVideoReady = (playbackId: string) => {
+    setVideoPlaybackId(playbackId);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -221,39 +129,10 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
             )}
 
             {videoPlaybackId && (
-              <div className="relative inline-block ml-13">
-                <div className="flex items-center gap-3 p-2 pr-3 rounded-xl bg-primary/10 border border-primary/20">
-                  {/* Video thumbnail preview */}
-                  <div className="relative w-20 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                    <img
-                      src={`https://image.mux.com/${videoPlaybackId}/thumbnail.png?width=160&height=112&fit_mode=smartcrop`}
-                      alt="Video preview"
-                      className="w-full h-full object-cover"
-                    />
-                    {/* Play icon overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                      <div className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center">
-                        <Play className="h-3 w-3 text-foreground fill-current ml-0.5" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">Video ready</p>
-                    <p className="text-xs text-muted-foreground">Your video will be attached to this post</p>
-                  </div>
-                  
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-                    onClick={removeVideo}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+              <VideoReadyPreview 
+                playbackId={videoPlaybackId} 
+                onRemove={removeVideo} 
+              />
             )}
 
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
@@ -270,7 +149,7 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
                   variant="ghost"
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={!!videoPlaybackId || videoStatus === 'processing'}
+                  disabled={!!videoPlaybackId || isVideoProcessing}
                   className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg px-2"
                 >
                   <ImagePlus className="h-4 w-4" />
@@ -282,15 +161,15 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
                   variant="ghost"
                   size="sm"
                   onClick={openVideoUpload}
-                  disabled={!!imageFile || !!videoPlaybackId || videoStatus === 'processing'}
+                  disabled={!!imageFile || !!videoPlaybackId || isVideoProcessing}
                   className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg px-2"
                 >
-                  {videoStatus === 'processing' ? (
+                  {isVideoProcessing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Video className="h-4 w-4" />
                   )}
-                  <span className="hidden sm:inline ml-1.5">{videoStatus === 'processing' ? 'Processing...' : 'Video'}</span>
+                  <span className="hidden sm:inline ml-1.5">{isVideoProcessing ? 'Processing...' : 'Video'}</span>
                 </Button>
                 
                 {hasChapter && (
@@ -314,7 +193,7 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
               <Button 
                 type="submit" 
                 size="sm"
-                disabled={!content.trim() || loading || videoStatus === 'processing'}
+                disabled={!content.trim() || loading || isVideoProcessing}
                 className="btn-gold-glow rounded-xl px-4"
               >
                 {loading ? (
@@ -331,110 +210,12 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
         </CardContent>
       </Card>
 
-      <Dialog open={videoDialogOpen} onOpenChange={(open) => {
-        if (!open && videoStatus !== 'processing') {
-          setVideoDialogOpen(false);
-          if (!videoPlaybackId) {
-            removeVideo();
-          }
-        }
-      }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Upload Video</DialogTitle>
-          </DialogHeader>
-          
-          <div className="py-4 space-y-4">
-            {videoStatus === 'preparing' ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : videoStatus === 'uploaded' ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 animate-scale-in animate-pulse-gold">
-                  <CheckCircle className="h-8 w-8 text-primary animate-[bounce-check_0.5s_ease-out_0.1s_both]" />
-                </div>
-                <p className="font-medium text-foreground">
-                  Upload complete!
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Starting video processing...
-                </p>
-              </div>
-            ) : videoStatus === 'processing' ? (
-              <div className="text-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground">
-                  Processing your video... This may take a few minutes.
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  You can close this dialog - we'll notify you when it's ready.
-                </p>
-              </div>
-            ) : videoUploadUrl ? (
-              <div className="space-y-4">
-                {/* Hidden MuxUploader that powers everything */}
-                <MuxUploader
-                  id="post-video-uploader"
-                  endpoint={videoUploadUrl}
-                  onSuccess={handleVideoUploadSuccess}
-                  onUploadStart={() => setVideoStatus('uploading')}
-                  onProgress={handleUploadProgress}
-                  noDrop
-                  noProgress
-                  noStatus
-                  className="hidden"
-                />
-                
-                {/* Custom styled drop zone */}
-                <MuxUploaderDrop
-                  muxUploader="post-video-uploader"
-                  className="border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer
-                    border-border hover:border-primary/50 hover:bg-primary/5
-                    [&[active]]:border-primary [&[active]]:bg-primary/10"
-                >
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Video className="h-7 w-7 text-primary" />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">
-                        Drag and drop your video here
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        or
-                      </p>
-                    </div>
-                    
-                    <MuxUploaderFileSelect muxUploader="post-video-uploader">
-                      <Button type="button" variant="outline" className="gap-2">
-                        <FileUp className="h-4 w-4" />
-                        Select Video
-                      </Button>
-                    </MuxUploaderFileSelect>
-                    
-                    <p className="text-xs text-muted-foreground mt-2">
-                      MP4, MOV, MKV, WEBM supported
-                    </p>
-                  </div>
-                </MuxUploaderDrop>
-                
-                {/* Upload progress indicator */}
-                {uploadProgress > 0 && uploadProgress < 100 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Uploading...</span>
-                      <span className="font-medium text-foreground">{uploadProgress}%</span>
-                    </div>
-                    <Progress value={uploadProgress} className="h-2" />
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <VideoUploadDialog
+        open={videoDialogOpen}
+        onOpenChange={setVideoDialogOpen}
+        onVideoReady={handleVideoReady}
+        onProcessingChange={setIsVideoProcessing}
+      />
     </>
   );
 }
