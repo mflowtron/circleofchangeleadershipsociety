@@ -38,7 +38,7 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
   const [videoUploadUrl, setVideoUploadUrl] = useState<string | null>(null);
   const [videoUploadId, setVideoUploadId] = useState<string | null>(null);
   const [videoPlaybackId, setVideoPlaybackId] = useState<string | null>(null);
-  const [videoStatus, setVideoStatus] = useState<'idle' | 'preparing' | 'uploading' | 'processing' | 'ready'>('idle');
+  const [videoStatus, setVideoStatus] = useState<'idle' | 'preparing' | 'uploading' | 'uploaded' | 'processing' | 'ready'>('idle');
   const [uploadProgress, setUploadProgress] = useState(0);
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -154,14 +154,19 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
   };
 
   const handleVideoUploadSuccess = () => {
-    setVideoStatus('processing');
-    toast({
-      title: 'Video uploaded',
-      description: 'Processing your video...',
-    });
-
-    // Start polling for video readiness
-    statusCheckInterval.current = setInterval(checkVideoStatus, 3000);
+    // First show upload complete state
+    setVideoStatus('uploaded');
+    
+    // After a brief moment, transition to processing
+    setTimeout(() => {
+      setVideoStatus('processing');
+      toast({
+        title: 'Video uploaded',
+        description: 'Processing your video...',
+      });
+      // Start polling for video readiness
+      statusCheckInterval.current = setInterval(checkVideoStatus, 3000);
+    }, 1500);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -328,6 +333,18 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
             {videoStatus === 'preparing' ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : videoStatus === 'uploaded' ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="h-8 w-8 text-primary" />
+                </div>
+                <p className="font-medium text-foreground">
+                  Upload complete!
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Starting video processing...
+                </p>
               </div>
             ) : videoStatus === 'processing' ? (
               <div className="text-center py-8">
