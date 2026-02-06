@@ -1,139 +1,128 @@
 
 
-# Add Video Thumbnail Preview to "Video Ready" Box
+# Refactor CreatePostForm.tsx - Extract Video Components
 
 ## Overview
 
-Replace the current "Video ready" text-only indicator with a visually rich preview that includes the actual video thumbnail from Mux. This gives users immediate visual confirmation of which video will be attached to their post.
+Extract the video upload dialog and video ready preview into separate reusable components. This improves code organization, maintainability, and makes each component easier to test and modify independently.
 
 ## Current State
 
-The current "Video ready" box shows:
-- A CheckCircle icon
-- "Video ready" text
-- "Your video will be attached to this post" description
-- A remove button
+`CreatePostForm.tsx` is 440 lines and contains:
+- Main post form logic
+- Image upload handling
+- Video upload state management
+- Video upload dialog UI (80+ lines)
+- Video ready preview UI (35+ lines)
 
-## Proposed Design
-
-Redesign the indicator to feature:
-- A thumbnail preview of the uploaded video (from Mux CDN)
-- A small play icon overlay on the thumbnail
-- The success text and remove button
+## Proposed Structure
 
 ```text
-+------------------------------------------+
-|  +--------+                              |
-|  |  [▶]   |  Video ready                |  [X]
-|  | thumb  |  Your video will be attached |
-|  +--------+                              |
-+------------------------------------------+
+src/components/feed/
+  CreatePostForm.tsx         (main form, reduced to ~200 lines)
+  VideoUploadDialog.tsx      (new - upload dialog component)
+  VideoReadyPreview.tsx      (new - thumbnail preview component)
 ```
 
 ---
 
-## Implementation
+## New Components
 
-### Update `src/components/feed/CreatePostForm.tsx` (lines 223-241)
+### 1. VideoReadyPreview.tsx
 
-Replace the current simple box with a thumbnail-enhanced version:
+A simple presentational component that displays the video thumbnail with play overlay and remove button.
 
-**Current code:**
+**Props:**
+| Prop | Type | Description |
+|------|------|-------------|
+| playbackId | string | Mux playback ID for thumbnail |
+| onRemove | () => void | Callback when remove button clicked |
+
+**Contents:** Lines 223-257 from current file
+
+---
+
+### 2. VideoUploadDialog.tsx
+
+A self-contained dialog component that handles the entire video upload flow.
+
+**Props:**
+| Prop | Type | Description |
+|------|------|-------------|
+| open | boolean | Dialog open state |
+| onOpenChange | (open: boolean) => void | Dialog state change handler |
+| onVideoReady | (playbackId: string) => void | Callback when video is processed |
+| onRemoveImage | () => void | Clear any selected image when video upload starts |
+
+**Internal State:**
+- uploadUrl, uploadId (from Mux)
+- status: 'idle' | 'preparing' | 'uploading' | 'uploaded' | 'processing' | 'ready'
+- uploadProgress
+
+**Key behavior:**
+- Fetches upload URL from mux-upload edge function on open
+- Manages MuxUploader and progress states
+- Polls for video readiness after upload
+- Calls onVideoReady with playbackId when done
+
+**Contents:** Lines 334-437 from current file, plus related state/functions
+
+---
+
+## Refactored CreatePostForm.tsx
+
+After extraction, the main form component will:
+- Import and use VideoReadyPreview and VideoUploadDialog
+- Manage only the essential video state: `videoPlaybackId` and `isVideoProcessing`
+- Delegate all upload complexity to VideoUploadDialog
+
+**Simplified state:**
 ```tsx
-{videoPlaybackId && (
-  <div className="relative inline-block ml-13">
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
-      <CheckCircle className="h-5 w-5 text-primary" />
-      <div>
-        <p className="text-sm font-medium text-foreground">Video ready</p>
-        <p className="text-xs text-muted-foreground">Your video will be attached to this post</p>
-      </div>
-      <Button ...>
-        <X className="h-4 w-4" />
-      </Button>
-    </div>
-  </div>
-)}
+const [videoPlaybackId, setVideoPlaybackId] = useState<string | null>(null);
+const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+const [isVideoProcessing, setIsVideoProcessing] = useState(false);
 ```
 
-**New code:**
-```tsx
-{videoPlaybackId && (
-  <div className="relative inline-block ml-13">
-    <div className="flex items-center gap-3 p-2 pr-3 rounded-xl bg-primary/10 border border-primary/20">
-      {/* Video thumbnail preview */}
-      <div className="relative w-20 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-        <img
-          src={`https://image.mux.com/${videoPlaybackId}/thumbnail.png?width=160&height=112&fit_mode=smartcrop`}
-          alt="Video preview"
-          className="w-full h-full object-cover"
-        />
-        {/* Play icon overlay */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-          <div className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center">
-            <Play className="h-3 w-3 text-foreground fill-current ml-0.5" />
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground">Video ready</p>
-        <p className="text-xs text-muted-foreground">Your video will be attached to this post</p>
-      </div>
-      
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-        onClick={removeVideo}
-      >
-        <X className="h-4 w-4" />
-      </Button>
-    </div>
-  </div>
-)}
+---
+
+## File Changes
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/components/feed/VideoReadyPreview.tsx` | Create | Thumbnail preview with play overlay and remove button |
+| `src/components/feed/VideoUploadDialog.tsx` | Create | Complete upload dialog with Mux integration |
+| `src/components/feed/CreatePostForm.tsx` | Update | Import new components, remove extracted code, simplify state |
+
+---
+
+## Technical Notes
+
+### State Communication
+
+```text
+CreatePostForm
+    |
+    +-- videoDialogOpen -----> VideoUploadDialog
+    |                              |
+    +-- onVideoReady <------------ + (playbackId)
+    |                              |
+    +-- onProcessingChange <------ + (boolean)
+    |
+    +-- videoPlaybackId -----> VideoReadyPreview
+    |                              |
+    +-- onRemove <---------------- +
 ```
 
-### Add Play icon import (line 14)
+### VideoUploadDialog Lifecycle
 
-Add `Play` to the existing lucide-react import.
+1. Parent sets `open={true}`
+2. Dialog fetches upload URL (preparing state)
+3. User drops/selects video (uploading state)
+4. Upload completes (uploaded state, 1.5s)
+5. Processing begins, polling starts (processing state)
+6. Video ready - calls `onVideoReady(playbackId)`, dialog closes
 
----
+### Toast Notifications
 
-## Technical Details
-
-### Mux Thumbnail URL
-
-Mux provides automatic thumbnail generation via their image CDN:
-- URL format: `https://image.mux.com/{playbackId}/thumbnail.png`
-- Query parameters:
-  - `width=160` - Thumbnail width (2x for retina)
-  - `height=112` - Thumbnail height (2x for retina)  
-  - `fit_mode=smartcrop` - Intelligent cropping to focus on content
-
-### Thumbnail Dimensions
-
-- Container: 80px x 56px (5:3.5 aspect ratio, similar to 16:9)
-- Image request: 160px x 112px (2x for high-DPI displays)
-- `object-cover` ensures the image fills the container without distortion
-
----
-
-## Visual Comparison
-
-| Aspect | Current | After |
-|--------|---------|-------|
-| Preview | None (icon only) | Actual video thumbnail |
-| Visual feedback | Abstract checkmark | Concrete video preview |
-| Play indication | None | Play icon overlay |
-| Size | Compact text box | Slightly larger with thumbnail |
-
----
-
-## Files Changed
-
-| File | Changes |
-|------|---------|
-| `src/components/feed/CreatePostForm.tsx` | Add Play icon import, replace video ready box with thumbnail preview |
+The VideoUploadDialog will need access to the toast hook for showing upload/processing notifications. It will import and use `useToast` directly.
 
