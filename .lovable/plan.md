@@ -1,120 +1,76 @@
 
-
-# Add Upload Complete State Feedback
+# Add Subtle Animation to Upload Complete Checkmark
 
 ## Overview
 
-Add a new visual state that shows when the video file upload completes successfully, before transitioning to the processing state. This provides clearer feedback to users about what's happening with their video.
+Add a polished entrance animation to the CheckCircle icon when the video upload completes. This will make the transition from uploading to "Upload complete!" feel more celebratory and intentional.
 
-## Current Flow
+## Animation Design
 
-```
-idle → preparing → uploading (0-100%) → processing → ready
-```
-
-The problem: When upload hits 100%, the progress bar disappears instantly and jumps to "Processing..." with no acknowledgment that the upload succeeded.
-
-## Proposed Flow
-
-```
-idle → preparing → uploading (0-100%) → uploaded → processing → ready
-```
-
-The new `uploaded` state shows a brief success message ("Upload complete!") before transitioning to processing.
-
----
+The animation will combine:
+1. **Scale-in effect** - The checkmark starts slightly smaller and scales up
+2. **Fade-in effect** - Smooth opacity transition
+3. **Bounce finish** - Subtle overshoot for a satisfying "pop"
 
 ## Implementation
 
-### Changes to `src/components/feed/CreatePostForm.tsx`
+### Update `src/components/feed/CreatePostForm.tsx` (lines 338-341)
 
-**1. Update videoStatus type (line 41)**
+Add animation classes to the container and icon:
 
-Add `'uploaded'` to the status union type:
-
+**Current:**
 ```tsx
-const [videoStatus, setVideoStatus] = useState<'idle' | 'preparing' | 'uploading' | 'uploaded' | 'processing' | 'ready'>('idle');
+<div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+  <CheckCircle className="h-8 w-8 text-primary" />
+</div>
 ```
 
-**2. Add Upload icon import (line 14)**
-
-Add `Upload` to the lucide-react imports for the upload complete state icon.
-
-**3. Update handleVideoUploadSuccess (lines 156-165)**
-
-Instead of immediately jumping to `'processing'`, first set to `'uploaded'` and show the success state briefly:
-
+**After:**
 ```tsx
-const handleVideoUploadSuccess = () => {
-  // First show upload complete state
-  setVideoStatus('uploaded');
-  
-  // After a brief moment, transition to processing
-  setTimeout(() => {
-    setVideoStatus('processing');
-    toast({
-      title: 'Video uploaded',
-      description: 'Processing your video...',
-    });
-    // Start polling for video readiness
-    statusCheckInterval.current = setInterval(checkVideoStatus, 3000);
-  }, 1500);
-};
+<div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 animate-scale-in">
+  <CheckCircle className="h-8 w-8 text-primary animate-[bounce-check_0.5s_ease-out_0.1s_both]" />
+</div>
 ```
 
-**4. Add uploaded state UI in the dialog (after line 341)**
+### Add custom keyframe animation to `tailwind.config.ts`
 
-Add a new condition block to show the upload complete state:
+Add a new "bounce-check" keyframe that creates a satisfying pop effect:
 
-```tsx
-) : videoStatus === 'uploaded' ? (
-  <div className="text-center py-8">
-    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-      <CheckCircle className="h-8 w-8 text-primary" />
-    </div>
-    <p className="font-medium text-foreground">
-      Upload complete!
-    </p>
-    <p className="text-sm text-muted-foreground mt-1">
-      Starting video processing...
-    </p>
-  </div>
+```typescript
+keyframes: {
+  // ... existing keyframes
+  "bounce-check": {
+    "0%": { transform: "scale(0)", opacity: "0" },
+    "50%": { transform: "scale(1.2)" },
+    "70%": { transform: "scale(0.9)" },
+    "100%": { transform: "scale(1)", opacity: "1" },
+  },
+}
 ```
 
-**5. Update progress display condition (line 392)**
+Also add the animation definition:
 
-Also show completed progress at 100% during the uploaded state:
-
-```tsx
-{(uploadProgress > 0 && uploadProgress < 100) || videoStatus === 'uploaded' ? (
-  <div className="space-y-2">
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-muted-foreground">
-        {videoStatus === 'uploaded' ? 'Upload complete!' : 'Uploading...'}
-      </span>
-      <span className="font-medium text-foreground">{uploadProgress}%</span>
-    </div>
-    <Progress value={uploadProgress} className="h-2" />
-  </div>
-) : null}
+```typescript
+animation: {
+  // ... existing animations
+  "bounce-check": "bounce-check 0.5s ease-out forwards",
+}
 ```
 
----
+## Visual Effect
 
-## Visual States Summary
+| Phase | Duration | Effect |
+|-------|----------|--------|
+| 0% | Start | Icon invisible, scaled to 0 |
+| 50% | 0.25s | Scales up to 120% (overshoot) |
+| 70% | 0.35s | Settles back to 90% (slight undershoot) |
+| 100% | 0.5s | Rests at 100% scale, fully visible |
 
-| State | Icon | Message | Duration |
-|-------|------|---------|----------|
-| preparing | Loader2 (spinning) | (none) | Until URL ready |
-| uploading | (progress bar) | "Uploading... X%" | During upload |
-| **uploaded** | **CheckCircle** | **"Upload complete!"** | **1.5 seconds** |
-| processing | Loader2 (spinning) | "Processing your video..." | Until ready |
+The container also uses `animate-scale-in` (already defined in Tailwind config) for a coordinated entrance.
 
----
-
-## File Changes
+## Files Changed
 
 | File | Changes |
 |------|---------|
-| `src/components/feed/CreatePostForm.tsx` | Add `'uploaded'` status, add Upload icon, update success handler with delay, add uploaded state UI |
-
+| `src/components/feed/CreatePostForm.tsx` | Add animation classes to checkmark container and icon |
+| `tailwind.config.ts` | Add `bounce-check` keyframe and animation |
