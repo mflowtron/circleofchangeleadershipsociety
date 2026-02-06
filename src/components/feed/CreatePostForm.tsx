@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Send, ImagePlus, Video, X, Globe, Users, Loader2, CheckCircle, FileUp } from 'lucide-react';
+import { Send, ImagePlus, Video, X, Globe, Users, Loader2, CheckCircle, FileUp, Play } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -222,17 +222,32 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
 
             {videoPlaybackId && (
               <div className="relative inline-block ml-13">
-                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/20">
-                  <CheckCircle className="h-5 w-5 text-primary" />
-                  <div>
+                <div className="flex items-center gap-3 p-2 pr-3 rounded-xl bg-primary/10 border border-primary/20">
+                  {/* Video thumbnail preview */}
+                  <div className="relative w-20 h-14 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                    <img
+                      src={`https://image.mux.com/${videoPlaybackId}/thumbnail.png?width=160&height=112&fit_mode=smartcrop`}
+                      alt="Video preview"
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Play icon overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <div className="w-6 h-6 rounded-full bg-white/90 flex items-center justify-center">
+                        <Play className="h-3 w-3 text-foreground fill-current ml-0.5" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">Video ready</p>
                     <p className="text-xs text-muted-foreground">Your video will be attached to this post</p>
                   </div>
+                  
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
                     onClick={removeVideo}
                   >
                     <X className="h-4 w-4" />
