@@ -356,7 +356,7 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
                   You can close this dialog - we'll notify you when it's ready.
                 </p>
               </div>
-            ) : videoUploadUrl ? (
+            ) : videoUploadUrl && videoStatus === 'idle' ? (
               <div className="space-y-4">
                 {/* Hidden MuxUploader that powers everything */}
                 <MuxUploader
