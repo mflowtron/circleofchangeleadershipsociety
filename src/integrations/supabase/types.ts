@@ -443,6 +443,56 @@ export type Database = {
           },
         ]
       }
+      event_hotels: {
+        Row: {
+          address: string
+          booking_url: string | null
+          created_at: string | null
+          description: string | null
+          event_id: string
+          id: string
+          image_url: string | null
+          name: string
+          phone: string | null
+          rate_description: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          address: string
+          booking_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          event_id: string
+          id?: string
+          image_url?: string | null
+          name: string
+          phone?: string | null
+          rate_description?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          address?: string
+          booking_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          event_id?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          phone?: string | null
+          rate_description?: string | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_hotels_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           cover_image_url: string | null
@@ -456,6 +506,8 @@ export type Database = {
           slug: string
           starts_at: string
           title: string
+          travel_contact_email: string | null
+          travel_info: string | null
           updated_at: string
           venue_address: string | null
           venue_name: string | null
@@ -472,6 +524,8 @@ export type Database = {
           slug: string
           starts_at: string
           title: string
+          travel_contact_email?: string | null
+          travel_info?: string | null
           updated_at?: string
           venue_address?: string | null
           venue_name?: string | null
@@ -488,6 +542,8 @@ export type Database = {
           slug?: string
           starts_at?: string
           title?: string
+          travel_contact_email?: string | null
+          travel_info?: string | null
           updated_at?: string
           venue_address?: string | null
           venue_name?: string | null

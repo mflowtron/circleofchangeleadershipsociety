@@ -17,6 +17,8 @@ export interface Event {
   created_by: string;
   created_at: string;
   updated_at: string;
+  travel_info: string | null;
+  travel_contact_email: string | null;
 }
 
 export interface CreateEventData {

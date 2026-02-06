@@ -8,6 +8,7 @@ import { EventHero } from '@/components/events/EventHero';
 import { EventQuickInfo } from '@/components/events/EventQuickInfo';
 import { EventSpeakersSection } from '@/components/events/EventSpeakersSection';
 import { EventLocationSection } from '@/components/events/EventLocationSection';
+import { EventTravelSection } from '@/components/events/EventTravelSection';
 import { EventTicketsSection } from '@/components/events/EventTicketsSection';
 import { EventTicketsSidebar } from '@/components/events/EventTicketsSidebar';
 import { FloatingTicketBar } from '@/components/events/FloatingTicketBar';
@@ -109,6 +110,9 @@ export default function EventDetail() {
             
             {/* Location Section */}
             <EventLocationSection event={event} />
+            
+            {/* Travel & Hotel Section */}
+            <EventTravelSection event={event} />
             
             {/* Mobile Tickets Section */}
             <EventTicketsSection eventId={event.id} eventSlug={event.slug} />
