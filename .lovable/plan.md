@@ -1,189 +1,216 @@
 
-# Convert HSL Colors to Hex Values
+
+# Customize Mux Video Uploader Interface
 
 ## Overview
 
-Convert all CSS color definitions from HSL format (e.g., `42 75% 50%`) to hex format (e.g., `#D4A82B`). This requires changes to both the CSS variables in `index.css` and how Tailwind references them in `tailwind.config.ts`.
+Transform the current basic Mux uploader into a beautiful, on-brand upload experience that matches the app's premium design system. We'll use Mux's subcomponents (`MuxUploaderDrop`, `MuxUploaderFileSelect`, `MuxUploaderProgress`) to create a fully customized interface while keeping the robust upload functionality.
 
-## Current Format
+## Current State
 
-The current system uses HSL values without the `hsl()` wrapper:
+The current implementation uses the default `MuxUploader` component with minimal styling:
+
+```jsx
+<MuxUploader
+  endpoint={videoUploadUrl}
+  onSuccess={handleVideoUploadSuccess}
+  className="w-full"
+/>
+```
+
+This shows Mux's default gray/blue UI which doesn't match the app's golden premium aesthetic.
+
+## Proposed Design
+
+Create a custom uploader UI that:
+- Uses a dashed border drop zone with the app's primary color
+- Shows a video icon and clear instructions
+- Displays a custom "Select Video" button styled as a primary action
+- Shows upload progress with the app's branded progress bar
+- Maintains all Mux functionality (drag & drop, chunked uploads, resumability)
+
+---
+
+## Implementation Approach
+
+### Strategy: Use Mux Subcomponents
+
+Instead of using the monolithic `<MuxUploader>` component, we'll use its subcomponents:
+- `MuxUploaderDrop` - Handles drag & drop
+- `MuxUploaderFileSelect` - Handles file selection
+- `MuxUploaderProgress` - Shows upload progress
+
+These subcomponents connect to a hidden parent `<MuxUploader>` via an `id` reference.
+
+---
+
+## File Changes
+
+### Update `src/components/feed/CreatePostForm.tsx`
+
+**Changes to make:**
+
+1. **Import subcomponents** (line 2):
+```tsx
+import MuxUploader, { 
+  MuxUploaderDrop, 
+  MuxUploaderFileSelect, 
+  MuxUploaderProgress 
+} from '@mux/mux-uploader-react';
+```
+
+2. **Add progress tracking state** (around line 40):
+```tsx
+const [uploadProgress, setUploadProgress] = useState(0);
+```
+
+3. **Add progress handler** (around line 148):
+```tsx
+const handleUploadProgress = (e: CustomEvent) => {
+  setUploadProgress(Math.round(e.detail));
+};
+```
+
+4. **Reset progress on video removal** (in `removeVideo` function):
+```tsx
+setUploadProgress(0);
+```
+
+5. **Replace the current MuxUploader JSX** (lines 334-344) with a custom styled interface:
+
+**New structure:**
+```tsx
+{videoUploadUrl ? (
+  <div className="space-y-4">
+    {/* Hidden MuxUploader that powers everything */}
+    <MuxUploader
+      id="post-video-uploader"
+      endpoint={videoUploadUrl}
+      onSuccess={handleVideoUploadSuccess}
+      onProgress={handleUploadProgress}
+      noDrop
+      noProgress
+      noStatus
+      className="hidden"
+    />
+    
+    {/* Custom styled drop zone */}
+    <MuxUploaderDrop
+      muxUploader="post-video-uploader"
+      className="border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer
+        border-border hover:border-primary/50 hover:bg-primary/5
+        [&[active]]:border-primary [&[active]]:bg-primary/10"
+    >
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+          <Video className="h-7 w-7 text-primary" />
+        </div>
+        
+        <div className="space-y-1">
+          <p slot="heading" className="font-medium text-foreground">
+            Drag and drop your video here
+          </p>
+          <p slot="separator" className="text-sm text-muted-foreground">
+            or
+          </p>
+        </div>
+        
+        <MuxUploaderFileSelect muxUploader="post-video-uploader">
+          <Button type="button" variant="outline" className="gap-2">
+            <FileUp className="h-4 w-4" />
+            Select Video
+          </Button>
+        </MuxUploaderFileSelect>
+        
+        <p className="text-xs text-muted-foreground mt-2">
+          MP4, MOV, MKV, WEBM supported
+        </p>
+      </div>
+    </MuxUploaderDrop>
+    
+    {/* Upload progress indicator */}
+    {uploadProgress > 0 && uploadProgress < 100 && (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Uploading...</span>
+          <span className="font-medium text-foreground">{uploadProgress}%</span>
+        </div>
+        <Progress value={uploadProgress} className="h-2" />
+      </div>
+    )}
+  </div>
+) : null}
+```
+
+6. **Add import for Progress component** (around line 6):
+```tsx
+import { Progress } from '@/components/ui/progress';
+```
+
+7. **Add import for FileUp icon** (line 14):
+Add `FileUp` to the existing lucide-react import.
+
+---
+
+## Visual Comparison
+
+| Aspect | Current | After |
+|--------|---------|-------|
+| Drop zone | Mux's default gray | Dashed border with primary color on hover/active |
+| Icon | Generic upload icon | Video icon in a circular primary-tinted container |
+| Button | Blue Mux default | App's outline button with consistent styling |
+| Progress | Mux's built-in bar | Custom progress component matching app design |
+| Colors | Gray/blue | Warm golden theme matching the app |
+| Typography | Mux defaults | App's font with proper hierarchy |
+
+---
+
+## Technical Details
+
+### How Mux Subcomponents Work
+
+The subcomponents connect via the `muxUploader` prop which references the `id` of the parent `<MuxUploader>`:
+
+```text
+MuxUploader (id="post-video-uploader")  <-- Powers upload logic
+    ↑
+    ├── MuxUploaderDrop (muxUploader="post-video-uploader")  <-- Handles drag/drop
+    │
+    └── MuxUploaderFileSelect (muxUploader="post-video-uploader")  <-- Handles file picker
+```
+
+### CSS Attribute Selectors
+
+Mux components add state attributes like `[active]` when a file is being dragged over. We use Tailwind's arbitrary variant syntax to style these states:
+
 ```css
---primary: 42 75% 50%;
+[&[active]]:border-primary [&[active]]:bg-primary/10
 ```
 
-Tailwind then wraps them:
-```ts
-primary: "hsl(var(--primary))"
-```
+### Progress Tracking
 
-## New Format
+The `onProgress` callback provides upload percentage as `event.detail`:
 
-Switch to direct hex values:
-```css
---primary: #D4A82B;
-```
-
-Tailwind references them directly:
-```ts
-primary: "var(--primary)"
+```tsx
+onProgress={(e) => setUploadProgress(Math.round(e.detail))}
 ```
 
 ---
 
-## Color Conversion Table
+## Files Changed
 
-### Light Mode (:root)
-
-| Variable | HSL | Hex |
-|----------|-----|-----|
-| --background | 40 30% 97% | #F9F7F3 |
-| --foreground | 30 15% 12% | #231F1B |
-| --card | 40 35% 99% | #FFFDFB |
-| --card-foreground | 30 15% 12% | #231F1B |
-| --popover | 40 30% 98% | #FCFAF6 |
-| --popover-foreground | 30 15% 12% | #231F1B |
-| --primary | 42 75% 50% | #D4A82B |
-| --primary-foreground | 30 15% 10% | #1D1A16 |
-| --secondary | 30 10% 15% | #2A2725 |
-| --secondary-foreground | 40 30% 97% | #F9F7F3 |
-| --muted | 40 15% 92% | #EDEAE5 |
-| --muted-foreground | 30 10% 45% | #7E7672 |
-| --accent | 45 60% 92% | #F7F0DC |
-| --accent-foreground | 30 15% 12% | #231F1B |
-| --destructive | 0 72% 50% | #DC2626 |
-| --destructive-foreground | 0 85% 97% | #FEF2F2 |
-| --border | 40 20% 88% | #E5E0D8 |
-| --input | 40 20% 88% | #E5E0D8 |
-| --ring | 42 75% 50% | #D4A82B |
-| --sidebar-background | 40 30% 97% | #F9F7F3 |
-| --sidebar-foreground | 30 15% 12% | #231F1B |
-| --sidebar-primary | 42 75% 50% | #D4A82B |
-| --sidebar-primary-foreground | 40 30% 97% | #F9F7F3 |
-| --sidebar-accent | 40 25% 92% | #EDEBE5 |
-| --sidebar-accent-foreground | 30 15% 12% | #231F1B |
-| --sidebar-border | 40 20% 88% | #E5E0D8 |
-| --sidebar-ring | 42 75% 50% | #D4A82B |
-| --sidebar | 40 30% 97% | #F9F7F3 |
-| --chart-1 | 42 75% 50% | #D4A82B |
-| --chart-2 | 45 60% 65% | #D4C17A |
-| --chart-3 | 38 50% 45% | #AC8B39 |
-| --chart-4 | 30 10% 25% | #464240 |
-| --chart-5 | 35 20% 60% | #A89A8A |
-
-### Dark Mode (.dark)
-
-| Variable | HSL | Hex |
-|----------|-----|-----|
-| --background | 30 12% 8% | #161412 |
-| --foreground | 40 25% 93% | #F2EFE9 |
-| --card | 30 10% 11% | #1F1C1A |
-| --card-foreground | 40 25% 93% | #F2EFE9 |
-| --popover | 30 10% 13% | #242120 |
-| --popover-foreground | 40 25% 93% | #F2EFE9 |
-| --primary | 42 80% 55% | #E0B22E |
-| --primary-foreground | 30 15% 8% | #171411 |
-| --secondary | 30 8% 18% | #312E2C |
-| --secondary-foreground | 40 25% 93% | #F2EFE9 |
-| --muted | 30 8% 20% | #363332 |
-| --muted-foreground | 40 15% 60% | #A49D94 |
-| --accent | 30 10% 16% | #2D2A28 |
-| --accent-foreground | 42 80% 55% | #E0B22E |
-| --destructive | 0 72% 55% | #E04444 |
-| --destructive-foreground | 0 85% 97% | #FEF2F2 |
-| --border | 30 8% 18% | #312E2C |
-| --input | 30 8% 18% | #312E2C |
-| --ring | 42 80% 55% | #E0B22E |
-| --sidebar-background | 30 12% 6% | #121010 |
-| --sidebar-foreground | 40 25% 90% | #EBE7E0 |
-| --sidebar-primary | 42 80% 55% | #E0B22E |
-| --sidebar-primary-foreground | 30 15% 8% | #171411 |
-| --sidebar-accent | 30 10% 12% | #221F1E |
-| --sidebar-accent-foreground | 40 25% 90% | #EBE7E0 |
-| --sidebar-border | 30 8% 15% | #292625 |
-| --sidebar-ring | 42 80% 55% | #E0B22E |
-| --sidebar | 30 12% 6% | #121010 |
-| --chart-1 | 42 80% 60% | #E6BD42 |
-| --chart-2 | 45 65% 70% | #D9CD8A |
-| --chart-3 | 38 55% 50% | #C59B3A |
-| --chart-4 | 40 20% 70% | #C2B9AD |
-| --chart-5 | 35 25% 55% | #A89480 |
+| File | Action |
+|------|--------|
+| `src/components/feed/CreatePostForm.tsx` | Add Mux subcomponent imports, progress state, custom styled upload UI |
 
 ---
 
-## Files to Update
+## Result
 
-### 1. `src/index.css`
+The video upload dialog will feature:
+- A premium-styled drop zone matching the app's design language
+- Clear visual feedback when dragging files
+- A custom-styled file select button
+- A branded progress bar during upload
+- All existing Mux functionality preserved (chunked uploads, resume, error handling)
 
-Replace all HSL values with hex values in both `:root` and `.dark` blocks.
-
-Also update gradient and shadow definitions that use `hsl()`:
-
-**Gradients (light mode):**
-```css
---gradient-gold: linear-gradient(135deg, #DDAF30 0%, #B38A2D 100%);
---gradient-dark: linear-gradient(180deg, #211E1B 0%, #181512 100%);
---gradient-sidebar: linear-gradient(180deg, #F9F7F3 0%, #F1EDE6 100%);
---gradient-card: linear-gradient(180deg, #FFFDFB 0%, #F9F7F3 100%);
---shadow-soft: 0 2px 8px -2px rgba(54, 48, 43, 0.08), 0 4px 16px -4px rgba(54, 48, 43, 0.12);
---shadow-medium: 0 4px 12px -2px rgba(54, 48, 43, 0.1), 0 8px 24px -4px rgba(54, 48, 43, 0.15);
---shadow-gold: 0 4px 20px -4px rgba(212, 168, 43, 0.35);
---shadow-glow: 0 0 40px -10px rgba(212, 168, 43, 0.4);
-```
-
-**Gradients (dark mode):**
-```css
---gradient-gold: linear-gradient(135deg, #E0B22E 0%, #C59736 100%);
---gradient-dark: linear-gradient(180deg, #161412 0%, #110E0C 100%);
---gradient-card: linear-gradient(180deg, #1F1C1A 0%, #1A1715 100%);
---gradient-sidebar: linear-gradient(180deg, #161412 0%, #110E0C 100%);
---shadow-soft: 0 2px 8px -2px rgba(0, 0, 0, 0.3), 0 4px 16px -4px rgba(0, 0, 0, 0.4);
---shadow-medium: 0 4px 12px -2px rgba(0, 0, 0, 0.4), 0 8px 24px -4px rgba(0, 0, 0, 0.5);
---shadow-gold: 0 4px 20px -4px rgba(224, 178, 46, 0.3);
---shadow-glow: 0 0 40px -10px rgba(224, 178, 46, 0.35);
-```
-
-**Also update inline hsl() references:**
-- Line 205: `.input-premium:focus-within` box-shadow
-- Line 276: `.shine-effect::after` background gradient
-- Lines 333-343: Scrollbar thumb colors
-- Line 381: Touch hover effect
-
-### 2. `tailwind.config.ts`
-
-Change all color references from `hsl(var(--name))` to `var(--name)`:
-
-```typescript
-colors: {
-  border: "var(--border)",
-  input: "var(--input)",
-  ring: "var(--ring)",
-  background: "var(--background)",
-  foreground: "var(--foreground)",
-  primary: {
-    DEFAULT: "var(--primary)",
-    foreground: "var(--primary-foreground)",
-  },
-  // ... same pattern for all colors
-}
-```
-
-Also update:
-- Line 108-109: `pulse-gold` keyframe box-shadow
-- Line 125: `gradient-gold` backgroundImage
-
----
-
-## Summary
-
-| File | Changes |
-|------|---------|
-| `src/index.css` | Convert all HSL color variables to hex, update gradients and shadows to use rgba/hex |
-| `tailwind.config.ts` | Remove `hsl()` wrapper from all color references |
-
-## Benefits
-
-1. **Easier to read** - Hex values are more universally understood
-2. **Better tooling support** - Color pickers and inspectors work better with hex
-3. **Simpler syntax** - No need for the `hsl()` wrapper in Tailwind
-4. **Consistent with Natively** - The `setAppBackgroundColor()` calls already use hex values
