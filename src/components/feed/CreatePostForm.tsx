@@ -356,23 +356,7 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
                   You can close this dialog - we'll notify you when it's ready.
                 </p>
               </div>
-            ) : videoStatus === 'uploading' ? (
-              <div className="py-8 space-y-4">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Video className="h-7 w-7 text-primary animate-pulse" />
-                  </div>
-                  <p className="font-medium text-foreground">Uploading video...</p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Progress</span>
-                    <span className="font-medium text-foreground">{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} className="h-2" />
-                </div>
-              </div>
-            ) : videoUploadUrl && videoStatus === 'idle' ? (
+            ) : videoUploadUrl ? (
               <div className="space-y-4">
                 {/* Hidden MuxUploader that powers everything */}
                 <MuxUploader
@@ -420,6 +404,17 @@ export default function CreatePostForm({ onSubmit, hasChapter }: CreatePostFormP
                     </p>
                   </div>
                 </MuxUploaderDrop>
+                
+                {/* Upload progress indicator */}
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Uploading...</span>
+                      <span className="font-medium text-foreground">{uploadProgress}%</span>
+                    </div>
+                    <Progress value={uploadProgress} className="h-2" />
+                  </div>
+                )}
               </div>
             ) : null}
           </div>
