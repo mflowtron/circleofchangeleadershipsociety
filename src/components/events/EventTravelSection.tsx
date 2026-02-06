@@ -94,7 +94,7 @@ function HotelCard({ hotel }: { hotel: {
 }
 
 export function EventTravelSection({ event }: EventTravelSectionProps) {
-  const { data: hotels, isLoading } = useEventHotels(event.id);
+  const { hotels, isLoading } = useEventHotels(event.id);
 
   // Don't render if no travel info and no hotels
   if (!isLoading && !event.travel_info && (!hotels || hotels.length === 0)) {

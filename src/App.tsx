@@ -45,6 +45,7 @@ const BadgeDesigner = lazy(() => import("@/pages/events/manage/BadgeDesigner"));
 const ManageSpeakers = lazy(() => import("@/pages/events/manage/Speakers"));
 const ManageAgenda = lazy(() => import("@/pages/events/manage/Agenda"));
 const ManageCheckIn = lazy(() => import("@/pages/events/manage/CheckIn"));
+const ManageHotels = lazy(() => import("@/pages/events/manage/Hotels"));
 const Checkout = lazy(() => import("@/pages/events/Checkout"));
 const CheckoutSuccess = lazy(() => import("@/pages/events/CheckoutSuccess"));
 const OrderAttendees = lazy(() => import("@/pages/events/OrderAttendees"));
@@ -455,6 +456,16 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <ManageCheckIn />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/events/manage/hotels" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+            <Suspense fallback={<PageLoader />}>
+              <ManageHotels />
             </Suspense>
           </ProtectedRoute>
         } 
