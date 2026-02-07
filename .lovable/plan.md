@@ -1,127 +1,67 @@
 
 
-# Fix Attendee App Tab Switching Performance
+# Add Component Preloading for Attendee App Tabs
 
-## Problem
+## Overview
 
-When switching between tabs in the Attendee app (Home, Agenda, Messages, Bookmarks, QR), the entire page appears to reload with loading skeletons, creating a jarring user experience.
+When a user lands on any tab in the Attendee app, all 5 main tab components will be preloaded in the background. This eliminates the brief loading delay when visiting a tab for the first time.
 
-## Root Causes
+## Approach
 
-After exploring the codebase, I identified **two issues** causing the reload waterfalls:
-
-### 1. SuspenseWithErrorBoundary Key Prop
-
-In `App.tsx`, the `SuspenseWithErrorBoundary` component uses `key={location.pathname}`:
-
-```typescript
-function SuspenseWithErrorBoundary({ children }) {
-  const location = useLocation();
-  return (
-    <RouteErrorBoundary key={location.pathname}>
-      <Suspense fallback={<PageLoader />}>
-        {children}
-      </Suspense>
-    </RouteErrorBoundary>
-  );
-}
-```
-
-This causes the entire Suspense boundary and all its children to **unmount and remount** whenever the URL changes. Every tab switch triggers a fresh lazy load and new component mount.
-
-### 2. Each Child Route Wrapped in SuspenseWithErrorBoundary
-
-Each attendee child route is individually wrapped:
-
-```text
-<Route path="home" element={
-  <SuspenseWithErrorBoundary>    <-- Remounts on path change
-    <AttendeeHome />
-  </SuspenseWithErrorBoundary>
-} />
-<Route path="agenda" element={
-  <SuspenseWithErrorBoundary>    <-- Also remounts
-    <AttendeeAgenda />
-  </SuspenseWithErrorBoundary>
-} />
-```
-
-Combined with the key prop issue, this causes each tab switch to:
-1. Unmount the previous component
-2. Show the loading fallback
-3. Re-fetch lazy loaded code
-4. Re-run all useEffect hooks (triggering data fetches)
+Add a `useEffect` in the `AttendeeDashboard` component that triggers dynamic imports for all tab components after the initial render. This loads the JavaScript chunks in the background without blocking the current view.
 
 ---
 
-## Solution
+## Implementation
 
-### Step 1: Remove Key Prop from Error Boundary
+### File: `src/pages/attendee/Dashboard.tsx`
 
-Remove the `key={location.pathname}` from `SuspenseWithErrorBoundary`. The error boundary can reset itself via other means (like a retry button).
-
-### Step 2: Remove Individual Suspense Wrappers from Child Routes
-
-Since the parent route (`AttendeeDashboard`) already handles auth loading states and the pages handle their own loading states via React Query, the individual Suspense boundaries on child routes are unnecessary.
-
-Remove `SuspenseWithErrorBoundary` wrappers from all `/attendee/app/*` child routes. The parent's Suspense boundary is sufficient for the initial lazy load.
-
-### Step 3: Preload Adjacent Tabs (Optional Enhancement)
-
-To make navigation even snappier, preload sibling tab components when the user lands on a tab. This can be done by importing the lazy modules eagerly after initial render.
-
----
-
-## Implementation Details
-
-### Changes to App.tsx
-
-| Location | Change |
-|----------|--------|
-| `SuspenseWithErrorBoundary` | Remove `key={location.pathname}` from the error boundary |
-| Attendee child routes | Remove individual `SuspenseWithErrorBoundary` wrappers |
-
-### Before (current structure):
+Add a preloading effect that runs once when the dashboard mounts:
 
 ```text
-<Route path="/attendee/app" element={<SuspenseWithErrorBoundary><AttendeeDashboard /></SuspenseWithErrorBoundary>}>
-  <Route path="home" element={<SuspenseWithErrorBoundary><AttendeeHome /></SuspenseWithErrorBoundary>} />
-  <Route path="agenda" element={<SuspenseWithErrorBoundary><AttendeeAgenda /></SuspenseWithErrorBoundary>} />
-  ...
-</Route>
+import { useEffect } from 'react';
+
+// Preload all attendee tab components for instant navigation
+const preloadAttendeePages = () => {
+  import('@/pages/attendee/EventHome');
+  import('@/pages/attendee/Agenda');
+  import('@/pages/attendee/Messages');
+  import('@/pages/attendee/MyBookmarks');
+  import('@/pages/attendee/QRCode');
+};
 ```
 
-### After (optimized structure):
+Then call this function in a `useEffect` after the dashboard renders:
 
 ```text
-<Route path="/attendee/app" element={<SuspenseWithErrorBoundary><AttendeeDashboard /></SuspenseWithErrorBoundary>}>
-  <Route path="home" element={<AttendeeHome />} />
-  <Route path="agenda" element={<AttendeeAgenda />} />
-  ...
-</Route>
+useEffect(() => {
+  // Preload sibling tabs after initial render
+  preloadAttendeePages();
+}, []);
 ```
 
 ---
 
-## Technical Considerations
+## Technical Details
 
 ### Why This Works
 
-1. **Lazy loading still works**: The components remain lazy-loaded. The first time a tab is visited, it loads the chunk. Subsequent visits use the cached chunk.
+1. **Dynamic imports return promises** - Calling `import('@/pages/...')` starts fetching the chunk immediately
+2. **Vite/Webpack deduplication** - If the chunk is already loaded (from navigation), the import resolves instantly from cache
+3. **Non-blocking** - Preloading happens after render, so it doesn't delay the current page
+4. **One-time cost** - Once loaded, chunks stay in browser memory for the session
 
-2. **Data fetching is unaffected**: React Query caches data. Components use `useAgendaItems`, `useBookmarks`, etc. which return cached data instantly on remount.
+### Preloaded Components
 
-3. **Error boundaries still work**: Errors in child routes bubble up to the parent's error boundary. Each page can optionally have its own error handling.
+| Tab | Component Path |
+|-----|----------------|
+| Home | `@/pages/attendee/EventHome` |
+| Agenda | `@/pages/attendee/Agenda` |
+| Messages | `@/pages/attendee/Messages` |
+| Bookmarks | `@/pages/attendee/MyBookmarks` |
+| QR Code | `@/pages/attendee/QRCode` |
 
-4. **Context is preserved**: The `AttendeeProviders` (auth, events, bookmarks, conversations) stay mounted at the Dashboard level, so state persists across tab switches.
-
-### What About Error Boundary Reset?
-
-The original `key={location.pathname}` was intended to reset error boundaries on navigation. Instead:
-
-- The error boundary's "Try Again" button already resets state
-- Navigation away from an errored route naturally unmounts that component
-- If needed, a custom reset mechanism can be added later
+Note: Networking and Profile are not in the bottom nav but could optionally be preloaded too.
 
 ---
 
@@ -129,16 +69,13 @@ The original `key={location.pathname}` was intended to reset error boundaries on
 
 | File | Change |
 |------|--------|
-| `src/App.tsx` | Remove key prop and unwrap child routes |
+| `src/pages/attendee/Dashboard.tsx` | Add preload function and useEffect |
 
 ---
 
 ## Expected Result
 
-After this change:
-
-- Switching tabs will be nearly instant (no loading skeleton flash)
-- Cached data displays immediately
-- Lazy chunks load once and stay cached
-- The overall navigation feels native and smooth
+- All 5 tab chunks load in the background within ~1 second of landing on any tab
+- Switching to any tab is instant (no loading flash, even on first visit)
+- Network tab will show the chunk requests happening in parallel after page load
 
