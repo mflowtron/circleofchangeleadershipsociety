@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export type ModerationStatus = 'pending' | 'approved' | 'flagged' | 'auto_flagged';
 
@@ -29,7 +29,6 @@ export function useModerationPosts(filter: FilterTab = 'all') {
   const [posts, setPosts] = useState<ModerationPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -112,15 +111,13 @@ export function useModerationPosts(filter: FilterTab = 'all') {
 
       setPosts(enrichedPosts);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error loading posts',
+      toast.error('Error loading posts', {
         description: error.message,
       });
     } finally {
       setLoading(false);
     }
-  }, [filter, toast]);
+  }, [filter]);
 
   useEffect(() => {
     fetchPosts();
@@ -140,22 +137,19 @@ export function useModerationPosts(filter: FilterTab = 'all') {
 
       if (error) throw error;
 
-      toast({
-        title: 'Scan complete',
+      toast.success('Scan complete', {
         description: `Status: ${data.status}, Score: ${(data.score * 100).toFixed(0)}%`,
       });
 
       fetchPosts();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Scan failed',
+      toast.error('Scan failed', {
         description: error.message,
       });
     } finally {
       setScanning(null);
     }
-  }, [fetchPosts, toast]);
+  }, [fetchPosts]);
 
   const approvePost = useCallback(async (postId: string) => {
     try {
@@ -169,32 +163,28 @@ export function useModerationPosts(filter: FilterTab = 'all') {
 
       if (error) throw error;
 
-      toast({ title: 'Post approved' });
+      toast.success('Post approved');
       fetchPosts();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error approving post',
+      toast.error('Error approving post', {
         description: error.message,
       });
     }
-  }, [fetchPosts, toast]);
+  }, [fetchPosts]);
 
   const deletePost = useCallback(async (postId: string) => {
     try {
       const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
       if (error) throw error;
 
-      toast({ title: 'Post deleted' });
+      toast.success('Post deleted');
       fetchPosts();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error deleting post',
+      toast.error('Error deleting post', {
         description: error.message,
       });
     }
-  }, [fetchPosts, toast]);
+  }, [fetchPosts]);
 
   const stats = {
     total: posts.length,

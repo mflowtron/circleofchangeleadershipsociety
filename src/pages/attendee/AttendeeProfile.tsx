@@ -12,11 +12,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAttendeeProfile } from '@/hooks/useAttendeeProfile';
 import { useAttendee } from '@/contexts/AttendeeContext';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export default function AttendeeProfile() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { selectedAttendee } = useAttendee();
   const { profile, loading, updating, updateProfile } = useAttendeeProfile();
   const { theme, resolvedTheme, setTheme } = useTheme();
@@ -48,15 +47,12 @@ export default function AttendeeProfile() {
     });
 
     if (result.success) {
-      toast({
-        title: 'Profile updated',
+      toast.success('Profile updated', {
         description: 'Your networking profile has been saved'
       });
     } else {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: result.error || 'Failed to update profile',
-        variant: 'destructive'
       });
     }
   };
@@ -69,18 +65,15 @@ export default function AttendeeProfile() {
     });
 
     if (result.success) {
-      toast({
-        title: enabled ? 'Networking enabled' : 'Networking disabled',
+      toast.success(enabled ? 'Networking enabled' : 'Networking disabled', {
         description: enabled 
           ? 'Other attendees can now find and message you'
           : 'You are hidden from the networking directory'
       });
     } else {
       setOpenToNetworking(!enabled);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: result.error || 'Failed to update setting',
-        variant: 'destructive'
       });
     }
   };

@@ -4,7 +4,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import MuxUploader from '@mux/mux-uploader-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +37,6 @@ export default function Recordings() {
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const { isLMSAdmin, isLMSAdvisor } = useAuth();
-  const { toast } = useToast();
   const location = useLocation();
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -58,8 +57,7 @@ export default function Recordings() {
 
       if (response.error) throw new Error(response.error.message);
 
-      toast({
-        title: 'Recording deleted',
+      toast.success('Recording deleted', {
         description: 'The recording and video asset have been removed.',
       });
 
@@ -67,9 +65,7 @@ export default function Recordings() {
         setSelectedRecording(null);
       }
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error deleting recording',
+      toast.error('Error deleting recording', {
         description: error.message,
       });
     }
@@ -116,9 +112,7 @@ export default function Recordings() {
       if (error) throw error;
       setRecordings(data || []);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error loading recordings',
+      toast.error('Error loading recordings', {
         description: error.message,
       });
     } finally {
@@ -143,9 +137,7 @@ export default function Recordings() {
         if (error) throw error;
       }
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error saving order',
+      toast.error('Error saving order', {
         description: error.message,
       });
       // Refetch to restore correct order
@@ -176,9 +168,7 @@ export default function Recordings() {
 
   const createUpload = async () => {
     if (!title.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Title required',
+      toast.error('Title required', {
         description: 'Please enter a title for the recording.',
       });
       return;
@@ -202,9 +192,7 @@ export default function Recordings() {
       setRecordingId(recording_id);
       setUploadStatus('ready');
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error creating upload',
+      toast.error('Error creating upload', {
         description: error.message,
       });
     } finally {
@@ -233,8 +221,7 @@ export default function Recordings() {
         if (statusCheckInterval.current) {
           clearInterval(statusCheckInterval.current);
         }
-        toast({
-          title: 'Upload complete!',
+        toast.success('Upload complete!', {
           description: 'Your recording is now available.',
         });
         resetUploadState();
@@ -247,8 +234,7 @@ export default function Recordings() {
 
   const handleUploadSuccess = () => {
     setUploadStatus('processing');
-    toast({
-      title: 'Upload received',
+    toast('Upload received', {
       description: 'Processing your video...',
     });
 

@@ -10,7 +10,7 @@ import {
 import { Video, Loader2, CheckCircle, FileUp } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 type UploadStatus = 'idle' | 'preparing' | 'uploading' | 'uploaded' | 'processing' | 'ready';
 
@@ -27,7 +27,6 @@ export default function VideoUploadDialog({
   onVideoReady,
   onProcessingChange,
 }: VideoUploadDialogProps) {
-  const { toast } = useToast();
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
   const [uploadId, setUploadId] = useState<string | null>(null);
   const [status, setStatus] = useState<UploadStatus>('idle');
@@ -63,9 +62,7 @@ export default function VideoUploadDialog({
       setUploadId(response.data.upload_id);
       setStatus('idle');
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error preparing upload',
+      toast.error('Error preparing upload', {
         description: error.message,
       });
       onOpenChange(false);
@@ -96,8 +93,7 @@ export default function VideoUploadDialog({
         onVideoReady(playback_id);
         onProcessingChange(false);
         onOpenChange(false);
-        toast({
-          title: 'Video ready!',
+        toast.success('Video ready!', {
           description: 'Your video has been processed and is ready to post.',
         });
         resetState();
@@ -118,8 +114,7 @@ export default function VideoUploadDialog({
     setTimeout(() => {
       setStatus('processing');
       onProcessingChange(true);
-      toast({
-        title: 'Video uploaded',
+      toast('Video uploaded', {
         description: 'Processing your video...',
       });
       statusCheckInterval.current = setInterval(checkVideoStatus, 3000);

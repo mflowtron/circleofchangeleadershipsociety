@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export interface TicketType {
   id: string;
@@ -36,7 +36,6 @@ export interface UpdateTicketTypeData extends Partial<Omit<CreateTicketTypeData,
 
 export function useTicketTypes(eventId: string) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const ticketTypesQuery = useQuery({
     queryKey: ['ticket_types', eventId],
@@ -66,16 +65,13 @@ export function useTicketTypes(eventId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket_types', eventId] });
-      toast({
-        title: 'Ticket type created',
+      toast.success('Ticket type created', {
         description: 'The ticket type has been created successfully.',
       });
     },
     onError: (error) => {
-      toast({
-        title: 'Error creating ticket type',
+      toast.error('Error creating ticket type', {
         description: error.message,
-        variant: 'destructive',
       });
     },
   });
@@ -94,16 +90,13 @@ export function useTicketTypes(eventId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket_types', eventId] });
-      toast({
-        title: 'Ticket type updated',
+      toast.success('Ticket type updated', {
         description: 'The ticket type has been updated successfully.',
       });
     },
     onError: (error) => {
-      toast({
-        title: 'Error updating ticket type',
+      toast.error('Error updating ticket type', {
         description: error.message,
-        variant: 'destructive',
       });
     },
   });
@@ -119,16 +112,13 @@ export function useTicketTypes(eventId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket_types', eventId] });
-      toast({
-        title: 'Ticket type deleted',
+      toast.success('Ticket type deleted', {
         description: 'The ticket type has been deleted.',
       });
     },
     onError: (error) => {
-      toast({
-        title: 'Error deleting ticket type',
+      toast.error('Error deleting ticket type', {
         description: error.message,
-        variant: 'destructive',
       });
     },
   });

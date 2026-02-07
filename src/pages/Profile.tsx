@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { User, Mail, Shield, Save, Camera, Loader2, Linkedin, Briefcase, Trash2 } from 'lucide-react';
 import { clearAllCaches } from '@/utils/pwaUtils';
@@ -21,7 +21,6 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
   const isValidLinkedInUrl = (url: string): boolean => {
     if (!url) return true; // Empty is valid (optional field)
@@ -58,9 +57,7 @@ export default function Profile() {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid file type',
+      toast.error('Invalid file type', {
         description: 'Please upload an image file.',
       });
       return;
@@ -68,9 +65,7 @@ export default function Profile() {
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast({
-        variant: 'destructive',
-        title: 'File too large',
+      toast.error('File too large', {
         description: 'Please upload an image smaller than 5MB.',
       });
       return;
@@ -107,17 +102,14 @@ export default function Profile() {
 
       setAvatarUrl(newAvatarUrl);
 
-      toast({
-        title: 'Avatar updated',
+      toast.success('Avatar updated', {
         description: 'Your profile picture has been changed.',
       });
 
       // Reload page to update avatar everywhere
       setTimeout(() => window.location.reload(), 500);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Upload failed',
+      toast.error('Upload failed', {
         description: error.message,
       });
     } finally {
@@ -150,14 +142,11 @@ export default function Profile() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Profile updated',
+      toast.success('Profile updated', {
         description: 'Your changes have been saved.',
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error updating profile',
+      toast.error('Error updating profile', {
         description: error.message,
       });
     } finally {
@@ -346,8 +335,7 @@ export default function Profile() {
               variant="outline" 
               size="sm"
               onClick={() => {
-                toast({
-                  title: 'Clearing cache...',
+                toast('Clearing cache...', {
                   description: 'The app will reload momentarily.',
                 });
                 

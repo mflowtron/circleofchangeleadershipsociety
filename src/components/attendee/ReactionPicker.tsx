@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -18,7 +18,6 @@ export const ReactionPicker = memo(function ReactionPicker({
   isOwn = false,
   messageContent
 }: ReactionPickerProps) {
-  const { toast } = useToast();
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -29,15 +28,11 @@ export const ReactionPicker = memo(function ReactionPicker({
     
     try {
       await navigator.clipboard.writeText(messageContent);
-      toast({
-        title: "Copied!",
-        description: "Message copied to clipboard",
+      toast.success('Copied!', {
+        description: 'Message copied to clipboard',
       });
     } catch (err) {
-      toast({
-        title: "Failed to copy",
-        variant: "destructive",
-      });
+      toast.error('Failed to copy');
     }
     onClose();
   };

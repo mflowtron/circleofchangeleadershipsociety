@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export interface Announcement {
   id: string;
@@ -25,7 +25,6 @@ export function useAnnouncements() {
   const [allAnnouncements, setAllAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, isLMSAdmin } = useAuth();
-  const { toast } = useToast();
 
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
@@ -78,16 +77,13 @@ export function useAnnouncements() {
       });
 
     if (error) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Failed to create announcement',
-        variant: 'destructive',
       });
       return;
     }
 
-    toast({
-      title: 'Success',
+    toast.success('Success', {
       description: 'Announcement created successfully',
     });
     fetchAnnouncements();
@@ -102,16 +98,13 @@ export function useAnnouncements() {
       .eq('id', id);
 
     if (error) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Failed to update announcement',
-        variant: 'destructive',
       });
       return;
     }
 
-    toast({
-      title: 'Success',
+    toast.success('Success', {
       description: 'Announcement updated successfully',
     });
     fetchAnnouncements();
@@ -126,16 +119,13 @@ export function useAnnouncements() {
       .eq('id', id);
 
     if (error) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Failed to delete announcement',
-        variant: 'destructive',
       });
       return;
     }
 
-    toast({
-      title: 'Success',
+    toast.success('Success', {
       description: 'Announcement deleted successfully',
     });
     fetchAnnouncements();

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import logoLight from '@/assets/coclc-logo-light.png';
@@ -19,7 +19,6 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { resolvedTheme } = useTheme();
   const logo = resolvedTheme === 'dark' ? logoDark : logoLight;
 
@@ -34,9 +33,7 @@ export default function Auth() {
       password
     });
     if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Login failed',
+      toast.error('Login failed', {
         description: error.message
       });
       setLoading(false);
@@ -75,15 +72,12 @@ export default function Auth() {
       }
     });
     if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Signup failed',
+      toast.error('Signup failed', {
         description: error.message
       });
       setLoading(false);
     } else {
-      toast({
-        title: 'Account created!',
+      toast.success('Account created!', {
         description: 'Your account is pending approval.'
       });
       // New signups always go to pending approval

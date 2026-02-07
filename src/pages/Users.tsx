@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -60,7 +60,7 @@ export default function Users() {
   const [editRole, setEditRole] = useState<AppRole>('lms_student');
   const [editChapter, setEditChapter] = useState<string>('none');
   const [pendingChanges, setPendingChanges] = useState<Record<string, { role?: AppRole; chapter_id?: string }>>({});
-  const { toast: showToast } = useToast();
+  
 
   // Fetch all profiles with approval status
   const { data: allUsers, isLoading } = useQuery({

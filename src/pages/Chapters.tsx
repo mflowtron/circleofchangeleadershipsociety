@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +38,6 @@ export default function Chapters() {
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchChapters();
@@ -54,9 +53,7 @@ export default function Chapters() {
       if (error) throw error;
       setChapters(data || []);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error loading chapters',
+      toast.error('Error loading chapters', {
         description: error.message,
       });
     } finally {
@@ -88,22 +85,20 @@ export default function Chapters() {
           .eq('id', editingChapter.id);
 
         if (error) throw error;
-        toast({ title: 'Chapter updated' });
+        toast.success('Chapter updated');
       } else {
         const { error } = await supabase
           .from('lms_chapters')
           .insert({ name, description: description || null });
 
         if (error) throw error;
-        toast({ title: 'Chapter created' });
+        toast.success('Chapter created');
       }
 
       setDialogOpen(false);
       fetchChapters();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error saving chapter',
+      toast.error('Error saving chapter', {
         description: error.message,
       });
     }
@@ -113,12 +108,10 @@ export default function Chapters() {
     try {
       const { error } = await supabase.from('lms_chapters').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: 'Chapter deleted' });
+      toast.success('Chapter deleted');
       fetchChapters();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error deleting chapter',
+      toast.error('Error deleting chapter', {
         description: error.message,
       });
     }

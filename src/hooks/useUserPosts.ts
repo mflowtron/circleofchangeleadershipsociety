@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Post } from '@/hooks/usePosts';
 
 export function useUserPosts(userId: string | undefined) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const fetchPosts = useCallback(async () => {
     if (!userId || !user) {
@@ -102,15 +101,13 @@ export function useUserPosts(userId: string | undefined) {
 
       setPosts(enrichedPosts);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error loading posts',
+      toast.error('Error loading posts', {
         description: error.message,
       });
     } finally {
       setLoading(false);
     }
-  }, [userId, user, toast]);
+  }, [userId, user]);
 
   useEffect(() => {
     fetchPosts();
@@ -156,32 +153,27 @@ export function useUserPosts(userId: string | undefined) {
             : post
         )
       );
-      toast({
-        variant: 'destructive',
-        title: 'Error',
+      toast.error('Error', {
         description: error.message,
       });
     }
-  }, [user, toast]);
+  }, [user]);
 
   const deletePost = useCallback(async (postId: string) => {
     try {
       const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
       if (error) throw error;
 
-      toast({
-        title: 'Post deleted',
+      toast.success('Post deleted', {
         description: 'The post has been removed.',
       });
       fetchPosts();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error deleting post',
+      toast.error('Error deleting post', {
         description: error.message,
       });
     }
-  }, [fetchPosts, toast]);
+  }, [fetchPosts]);
 
   return { posts, loading, toggleLike, deletePost, refetch: fetchPosts };
 }

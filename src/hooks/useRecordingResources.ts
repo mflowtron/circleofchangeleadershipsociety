@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export interface RecordingResource {
   id: string;
@@ -17,7 +17,6 @@ export function useRecordingResources(recordingId: string | null) {
   const [resources, setResources] = useState<RecordingResource[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!recordingId) {
@@ -107,14 +106,11 @@ export function useRecordingResources(recordingId: string | null) {
 
       if (insertError) throw insertError;
 
-      toast({
-        title: 'Resource uploaded',
+      toast.success('Resource uploaded', {
         description: `${file.name} has been attached to this recording.`,
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Upload failed',
+      toast.error('Upload failed', {
         description: error.message,
       });
     } finally {
@@ -141,14 +137,11 @@ export function useRecordingResources(recordingId: string | null) {
 
       if (error) throw error;
 
-      toast({
-        title: 'Resource deleted',
+      toast.success('Resource deleted', {
         description: `${resource.name} has been removed.`,
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Delete failed',
+      toast.error('Delete failed', {
         description: error.message,
       });
     }

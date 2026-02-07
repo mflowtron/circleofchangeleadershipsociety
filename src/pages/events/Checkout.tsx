@@ -13,14 +13,13 @@ import { useEvent } from '@/hooks/useEvents';
 import { useTicketTypes } from '@/hooks/useTicketTypes';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export default function Checkout() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, profile } = useAuth();
-  const { toast } = useToast();
 
   const { data: event, isLoading: isLoadingEvent } = useEvent(slug || '');
   const { ticketTypes, isLoading: isLoadingTickets } = useTicketTypes(event?.id || '');
@@ -46,13 +45,11 @@ export default function Checkout() {
   // Show cancelled message
   useEffect(() => {
     if (searchParams.get('cancelled') === 'true') {
-      toast({
-        title: 'Payment cancelled',
+      toast.error('Payment cancelled', {
         description: 'Your order was not completed. You can try again.',
-        variant: 'destructive',
       });
     }
-  }, [searchParams, toast]);
+  }, [searchParams]);
 
   const totalTickets = Object.values(selectedTickets).reduce((sum, qty) => sum + qty, 0);
   const totalAmount = Object.entries(selectedTickets).reduce((sum, [ticketId, qty]) => {
