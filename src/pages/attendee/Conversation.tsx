@@ -23,7 +23,7 @@ export default function ConversationPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const { conversations, loading: convsLoading } = useConversations();
-  const { messages, loading, sending, hasMore, sendMessage, sendMessageWithAttachment, loadMore, toggleReaction } = useMessages(conversationId || null);
+  const { messages, loading, sending, hasMore, sendMessage, sendMessageWithAttachment, loadMore, toggleReaction, getReactors } = useMessages(conversationId || null);
   
   const [conversation, setConversation] = useState<Conversation | null>(null);
 
@@ -218,6 +218,7 @@ export default function ConversationPage() {
                 message={msg}
                 showSender={shouldShowSender(index)}
                 onReaction={handleReaction}
+                onFetchReactors={getReactors}
               />
             ))
           )}

@@ -7,17 +7,20 @@ import { Message } from '@/hooks/useMessages';
 import { ReactionPicker } from './ReactionPicker';
 import { ReactionBar, MessageReaction } from './ReactionBar';
 import { MessageAttachmentDisplay } from './MessageAttachmentDisplay';
+import { Reactor } from './ReactionDetailsPopover';
 
 interface MessageBubbleProps {
   message: Message;
   showSender?: boolean;
   onReaction?: (messageId: string, emoji: string) => void;
+  onFetchReactors?: (messageId: string, emoji: string) => Promise<Reactor[]>;
 }
 
 export const MessageBubble = memo(function MessageBubble({ 
   message, 
   showSender = true,
-  onReaction
+  onReaction,
+  onFetchReactors
 }: MessageBubbleProps) {
   const [showPicker, setShowPicker] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -124,10 +127,12 @@ export const MessageBubble = memo(function MessageBubble({
           </div>
           
           {/* Reactions bar for own messages */}
-          {reactions && reactions.length > 0 && (
+          {reactions && reactions.length > 0 && onFetchReactors && (
             <ReactionBar 
-              reactions={reactions} 
+              reactions={reactions}
+              messageId={message.id}
               onToggle={handleReactionToggle}
+              onFetchReactors={onFetchReactors}
               isOwn={true}
             />
           )}
@@ -208,10 +213,12 @@ export const MessageBubble = memo(function MessageBubble({
         </div>
         
         {/* Reactions bar */}
-        {reactions && reactions.length > 0 && (
+        {reactions && reactions.length > 0 && onFetchReactors && (
           <ReactionBar 
-            reactions={reactions} 
+            reactions={reactions}
+            messageId={message.id}
             onToggle={handleReactionToggle}
+            onFetchReactors={onFetchReactors}
             isOwn={false}
           />
         )}
