@@ -27,7 +27,7 @@ export default function Attendees() {
     new Map(
       attendees
         .filter((a) => a.ticket_type)
-        .map((a) => [a.ticket_type_id, { id: a.ticket_type_id, name: a.ticket_type?.name || '' }])
+        .map((a) => [a.order_item_id || '', { id: a.order_item_id || '', name: a.ticket_type?.name || '' }])
     ).values()
   );
 

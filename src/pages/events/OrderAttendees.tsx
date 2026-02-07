@@ -65,8 +65,8 @@ export default function OrderAttendees() {
         // If that failed and we have a token, verify via RPC
         if (token) {
           const { data: isValid } = await supabase.rpc('verify_order_edit_token', {
-            _order_id: orderId,
-            _token: token,
+            p_order_id: orderId,
+            p_token: token,
           });
 
           if (isValid) {

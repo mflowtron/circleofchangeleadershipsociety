@@ -69,7 +69,7 @@ export default function CheckIn() {
       return;
     }
 
-    // Check if attendee belongs to current event
+    // Check if attendee belongs to current event via order
     const attendeeEventId = scannedAttendee.order?.event_id;
     if (attendeeEventId && attendeeEventId !== selectedEventId) {
       setScanStatus('wrong_event');

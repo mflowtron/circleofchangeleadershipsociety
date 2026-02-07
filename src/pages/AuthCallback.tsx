@@ -27,22 +27,26 @@ export default function AuthCallback() {
           // Add a small delay to ensure trigger has completed for new users
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          const [profileResult, roleResult] = await Promise.all([
-            supabase.from('profiles').select('is_approved').eq('user_id', session.user.id).single(),
-            supabase.from('user_roles').select('role').eq('user_id', session.user.id).single()
-          ]);
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('is_approved, role')
+            .eq('user_id', session.user.id)
+            .single();
 
-          console.log('Auth callback - profile result:', profileResult);
-          console.log('Auth callback - role result:', roleResult);
+          console.log('Auth callback - profile result:', profileData);
 
           // Check if profile query failed (not just empty data)
-          if (profileResult.error) {
-            console.error('Profile query error:', profileResult.error);
+          if (profileError) {
+            console.error('Profile query error:', profileError);
             // If profile doesn't exist yet, wait and retry
-            if (profileResult.error.code === 'PGRST116') {
+            if (profileError.code === 'PGRST116') {
               setMessage('Setting up your account...');
               await new Promise(resolve => setTimeout(resolve, 1000));
-              const retryResult = await supabase.from('profiles').select('is_approved').eq('user_id', session.user.id).single();
+              const retryResult = await supabase
+                .from('profiles')
+                .select('is_approved')
+                .eq('user_id', session.user.id)
+                .single();
               if (retryResult.data) {
                 const isApproved = retryResult.data.is_approved;
                 if (!isApproved) {
@@ -58,7 +62,7 @@ export default function AuthCallback() {
             return;
           }
 
-          const isApproved = profileResult.data?.is_approved ?? false;
+          const isApproved = profileData?.is_approved ?? false;
 
           if (!isApproved) {
             navigate('/pending-approval', { replace: true });

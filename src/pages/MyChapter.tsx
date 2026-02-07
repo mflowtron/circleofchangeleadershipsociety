@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Trash2, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ClickableUserAvatar } from '@/components/ui/clickable-user-avatar';
@@ -44,7 +43,7 @@ export default function MyChapter() {
     try {
       // Get advisor's assigned chapters
       const { data: advisorChapters, error: advisorError } = await supabase
-        .from('lms_advisor_chapters')
+        .from('advisor_chapters')
         .select('chapter_id')
         .eq('user_id', user.id);
 
@@ -59,7 +58,7 @@ export default function MyChapter() {
 
       // Get chapter details
       const { data: chapterData, error: chapterError } = await supabase
-        .from('lms_chapters')
+        .from('chapters')
         .select('id, name, description')
         .eq('id', chapterId)
         .single();
@@ -78,7 +77,7 @@ export default function MyChapter() {
 
       // Get chapter posts
       const { data: postsData, error: postsError } = await supabase
-        .from('lms_posts')
+        .from('posts')
         .select('id, content, created_at, user_id')
         .eq('chapter_id', chapterId)
         .order('created_at', { ascending: false });
@@ -115,7 +114,7 @@ export default function MyChapter() {
 
   const handleDeletePost = async (postId: string) => {
     try {
-      const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
       if (error) throw error;
       
       toast.success('Post deleted');

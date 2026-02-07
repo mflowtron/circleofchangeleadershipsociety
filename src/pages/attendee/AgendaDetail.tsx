@@ -22,13 +22,12 @@ export default function AgendaDetail() {
 
   const speakers = useMemo(() => {
     if (!item?.speakers) return [];
-    return item.speakers.map(s => ({
-      id: s.speaker_id,
-      name: s.speaker?.name || '',
-      title: s.speaker?.title || null,
-      company: s.speaker?.company || null,
-      photo_url: s.speaker?.photo_url || null,
-      role: s.role || null,
+    return item.speakers.map((s) => ({
+      id: s.id,
+      name: s.name || '',
+      title: s.title || null,
+      company: s.company || null,
+      photo_url: s.photo_url || null,
     }));
   }, [item]);
 
@@ -199,11 +198,6 @@ export default function AgendaDetail() {
                         <div className="text-sm text-muted-foreground">
                           {[speaker.title, speaker.company].filter(Boolean).join(' · ')}
                         </div>
-                      )}
-                      {speaker.role && speaker.role !== 'speaker' && (
-                        <Badge variant="outline" className="mt-1 text-xs capitalize">
-                          {speaker.role}
-                        </Badge>
                       )}
                     </div>
                   </div>

@@ -58,7 +58,7 @@ export default function UserProfile() {
           avatar_url,
           linkedin_url,
           headline,
-          chapter:lms_chapters(name)
+          chapter:chapters(name)
         `)
         .eq('user_id', userId)
         .single();
@@ -72,7 +72,20 @@ export default function UserProfile() {
         return;
       }
 
-      setProfile(data as UserProfileData);
+      // Handle the chapter join result
+      const chapterData = data.chapter;
+      const chapter = Array.isArray(chapterData) 
+        ? (chapterData[0] || null) 
+        : chapterData;
+
+      setProfile({
+        user_id: data.user_id,
+        full_name: data.full_name,
+        avatar_url: data.avatar_url,
+        linkedin_url: data.linkedin_url,
+        headline: data.headline,
+        chapter: chapter as { name: string } | null,
+      });
     } catch (err: any) {
       setError(err.message || 'Failed to load profile');
     } finally {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { useAuth, AccessArea, AppRole } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,6 +11,8 @@ import logoDark from '@/assets/coclc-logo-dark.png';
 import { useTheme } from 'next-themes';
 import { FullPageLoader } from '@/components/ui/circle-loader';
 
+type AccessArea = 'lms' | 'events' | 'attendee';
+
 interface AreaConfig {
   id: AccessArea;
   title: string;
@@ -18,7 +20,6 @@ interface AreaConfig {
   subtitle: string;
   icon: React.ComponentType<{ className?: string }>;
   route: string;
-  defaultRole: AppRole;
 }
 
 const AREA_CONFIGS: AreaConfig[] = [
@@ -29,16 +30,14 @@ const AREA_CONFIGS: AreaConfig[] = [
     description: 'Access the learning management system, view recordings, manage chapters, and moderate content.',
     icon: GraduationCap,
     route: '/lms',
-    defaultRole: 'lms_student',
   },
   {
-    id: 'em',
+    id: 'events',
     title: 'Events Dashboard',
     subtitle: 'Event Management',
     description: 'Create and manage events, ticket types, view orders, and track attendee registrations.',
     icon: Ticket,
     route: '/events/manage',
-    defaultRole: 'em_manager',
   },
   {
     id: 'attendee',
@@ -47,22 +46,24 @@ const AREA_CONFIGS: AreaConfig[] = [
     description: 'Access your event agenda, networking features, and session bookmarks.',
     icon: Users,
     route: '/attendee/app/home',
-    defaultRole: 'attendee_student',
   },
 ];
 
 export default function AreaSelector() {
-  const { user, loading, accessibleAreas, signOut, setDefaultRole, isApproved } = useAuth();
+  const { user, loading, signOut, isApproved, hasModuleAccess } = useAuth();
   const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
   const logo = resolvedTheme === 'dark' ? logoDark : logoLight;
   const [rememberChoice, setRememberChoice] = useState(false);
-  const [selectedArea, setSelectedArea] = useState<AccessArea | null>(null);
+
+  // Determine accessible areas based on module_access
+  const accessibleAreas: AccessArea[] = [];
+  if (hasModuleAccess('lms')) accessibleAreas.push('lms');
+  if (hasModuleAccess('events')) accessibleAreas.push('events');
+  // Attendee access is always available for now
+  accessibleAreas.push('attendee');
 
   const handleSelectArea = async (config: AreaConfig) => {
-    if (rememberChoice) {
-      await setDefaultRole(config.defaultRole);
-    }
     navigate(config.route, { replace: true });
   };
 

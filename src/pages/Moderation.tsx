@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useModerationPosts, FilterTab } from '@/hooks/useModerationPosts';
@@ -10,17 +10,17 @@ export default function Moderation() {
   const { posts, loading, scanning, stats, scanPost, approvePost, deletePost } = useModerationPosts(activeTab);
 
   // Calculate full stats (need to fetch all posts for accurate stats)
-  const [allStats, setAllStats] = useState({ total: 0, flagged: 0, autoFlagged: 0, pending: 0 });
+  const [allStats, setAllStats] = useState({ total: 0, flagged: 0, pending: 0, approved: 0 });
   
   // Use current filter stats for display
   const displayStats = activeTab === 'all' ? stats : allStats;
 
   // Effect to get full stats when not on 'all' tab
-  useState(() => {
+  useEffect(() => {
     if (activeTab === 'all') {
       setAllStats(stats);
     }
-  });
+  }, [activeTab, stats]);
 
   if (loading) {
     return (
@@ -69,7 +69,7 @@ export default function Moderation() {
                 ? 'No posts to moderate.'
                 : activeTab === 'flagged'
                 ? 'No posts need review.'
-                : 'No auto-flagged posts.'}
+                : 'No pending posts.'}
             </p>
           </CardContent>
         </Card>
