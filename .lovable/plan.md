@@ -1,93 +1,69 @@
 
 
-# Fix Layout Jump and Card Shadow Clipping on Feed Page
+# Make Toast Notifications Respect Mobile Safe Area
 
-## Summary
+## Problem
 
-This plan addresses two related issues on the Feed page:
-1. The layout "jumps" when switching between tabs (All Posts / My Chapter / My Posts) due to scrollbar appearance changes
-2. Card shadows are getting clipped on the sides
-
-Both issues stem from overflow handling in the layout.
-
----
-
-## Problem Analysis
-
-### Issue 1: Layout Jump on Tab Switch
-
-On macOS, changing from `overflow-y-auto` to `overflow-y-scroll` doesn't reliably prevent layout shifts because macOS uses overlay scrollbars by default (they don't take up space). The CSS property `scrollbar-gutter: stable` is designed specifically for this case - it reserves space for the scrollbar without forcing it to always appear.
-
-### Issue 2: Shadow Clipping
-
-The Feed page uses `overflow-x-hidden` to prevent horizontal scrolling. However, this also clips any box-shadows that extend beyond the container edges. The cards use `shadow-soft` which creates shadows that extend outward, and these get cut off at the container boundary.
-
----
+Toast notifications on mobile devices are appearing behind the OS status bar/notch area. They need to respect the safe area inset so they remain visible and don't overlap with system UI elements.
 
 ## Solution
 
-### File 1: `src/components/layout/AppLayout.tsx`
+Sonner provides a `mobileOffset` prop specifically for mobile devices. We'll use this prop with `env(safe-area-inset-top)` to push toasts below the status bar on devices with notches or Dynamic Islands.
 
-Add `scrollbar-gutter: stable` to reserve scrollbar space consistently across all platforms, and revert to `overflow-y-auto` (since overlay scrollbars on macOS don't need `scroll`).
+Since `env(safe-area-inset-top)` returns `0px` on devices without safe areas (and on desktop), this is safe to apply universally - it will only add offset when needed.
 
-**Line 40** - Update the main element:
+---
 
-| Before | After |
-|--------|-------|
-| `overflow-x-hidden overflow-y-scroll` | `overflow-x-hidden overflow-y-auto` + inline style for `scrollbar-gutter: stable` |
+## File to Modify
+
+### `src/components/ui/sonner.tsx`
+
+Add the `mobileOffset` prop to the Toaster component to respect the safe area inset at the top:
 
 ```tsx
-// After change:
-<main 
-  className="flex-1 p-4 md:p-8 overflow-x-hidden overflow-y-auto"
-  style={{ scrollbarGutter: 'stable' }}
->
+import { useTheme } from "next-themes";
+import { Toaster as Sonner, toast } from "sonner";
+
+type ToasterProps = React.ComponentProps<typeof Sonner>;
+
+const Toaster = ({ ...props }: ToasterProps) => {
+  const { theme = "system" } = useTheme();
+
+  return (
+    <Sonner
+      theme={theme as ToasterProps["theme"]}
+      className="toaster group"
+      mobileOffset={{ top: 'env(safe-area-inset-top)' }}
+      toastOptions={{
+        classNames: {
+          toast:
+            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
+          description: "group-[.toast]:text-muted-foreground",
+          actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
+          cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+        },
+      }}
+      {...props}
+    />
+  );
+};
+
+export { Toaster, toast };
 ```
-
-### File 2: `src/pages/Feed.tsx`
-
-Add horizontal padding to the feed container so shadows have room to render without being clipped. Also remove `overflow-x-hidden` since the parent layout already handles horizontal overflow.
-
-**Line 29** - Update the container div:
-
-| Before | After |
-|--------|-------|
-| `max-w-2xl mx-auto overflow-x-hidden` | `max-w-2xl mx-auto px-1` |
-
-The `px-1` (4px padding) provides just enough breathing room for the `shadow-soft` to render without clipping, while keeping the visual layout nearly identical.
 
 ---
 
 ## Technical Details
 
-### Why `scrollbar-gutter: stable`?
-
-This CSS property tells the browser to always reserve space for the scrollbar gutter, even when the scrollbar itself isn't visible. This prevents the content area from shifting when content height changes cause the scrollbar to appear/disappear.
-
-Browser support: Supported in all modern browsers (Chrome 94+, Firefox 97+, Safari 17+, Edge 94+).
-
-### Why Remove `overflow-x-hidden` from Feed?
-
-The `overflow-x-hidden` on the Feed container was clipping shadows. Since:
-1. The parent `<main>` already has `overflow-x-hidden`
-2. The content is constrained by `max-w-2xl` anyway
-
-...there's no need for double overflow clipping. The padding approach is more elegant.
+- **`mobileOffset`**: Sonner's dedicated prop for mobile-specific toast positioning
+- **`env(safe-area-inset-top)`**: CSS environment variable that returns the safe area inset for the top edge (notch, Dynamic Island, status bar). Returns `0px` on devices/browsers without safe areas.
+- The `viewport-fit=cover` meta tag in `index.html` is already configured, which enables safe area CSS variables to work properly.
 
 ---
 
-## Files to Modify
+## Expected Result
 
-| File | Change |
-|------|--------|
-| `src/components/layout/AppLayout.tsx` | Add `scrollbar-gutter: stable` style, revert to `overflow-y-auto` |
-| `src/pages/Feed.tsx` | Replace `overflow-x-hidden` with `px-1` padding |
-
----
-
-## Expected Results
-
-- Tab switching will no longer cause any layout shift
-- Card shadows will render fully without clipping
-- Works consistently across macOS, Windows, and mobile platforms
+- Toast notifications will appear below the status bar/notch on iOS devices
+- No visual change on desktop or Android devices without notches
+- Works in both portrait and landscape orientations
 
