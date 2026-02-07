@@ -1,106 +1,110 @@
 
-
-# Delete All Event Management Test Data
+# Rename LMS-Exclusive Tables with `lms_` Prefix
 
 ## Overview
 
-Delete all test and demo data from the event management system. This requires deleting records in the correct order due to foreign key relationships.
+Rename database tables that are exclusively used by the Society LMS system to have an `lms_` prefix for clearer organization and to distinguish them from the Event Management system.
 
-## Data to Delete
+## Tables to Rename
 
-| Table | Records | Description |
-|-------|---------|-------------|
-| `message_reactions` | 2 | Reactions on attendee messages |
-| `attendee_messages` | 15 | Messages in conversations |
-| `conversation_participants` | 7 | Participants in conversations |
-| `attendee_conversations` | 5 | DM and group conversations |
-| `attendee_bookmarks` | 4 | Bookmarked agenda items |
-| `attendee_profiles` | 1 | Attendee networking profiles |
-| `attendee_checkins` | 1 | Event check-in records |
-| `attendees` | 21 | Individual attendee records |
-| `order_messages` | 7 | Messages on orders |
-| `order_items` | 14 | Line items on orders |
-| `orders` | 14 | Purchase orders |
-| `agenda_item_speakers` | 9 | Speaker assignments to sessions |
-| `agenda_items` | 26 | Agenda sessions/breaks |
-| `speakers` | 5 | Speaker profiles |
-| `badge_templates` | 1 | Badge design templates |
-| `event_hotels` | 2 | Hotel recommendations |
-| `ticket_types` | 2 | Ticket type definitions |
-| `events` | 1 | "First Gen 2026" event |
+| Current Name | New Name | Description |
+|--------------|----------|-------------|
+| `recordings` | `lms_recordings` | Lecture video recordings |
+| `recording_resources` | `lms_recording_resources` | Downloadable files for recordings |
+| `posts` | `lms_posts` | Social feed posts |
+| `comments` | `lms_comments` | Comments on posts |
+| `likes` | `lms_likes` | Post likes |
+| `announcements` | `lms_announcements` | System announcements |
 
-## Deletion Order (respecting foreign keys)
+**Note:** `lms_events` already has the correct prefix.
 
-The records must be deleted in this order to avoid foreign key constraint violations:
+## Tables NOT Being Renamed
 
-1. **Messaging Data** (depends on attendees/speakers)
-   - `message_reactions`
-   - `attendee_messages`
-   - `conversation_participants`
-   - `attendee_conversations`
+These tables are shared infrastructure or belong to the Event Management system:
 
-2. **Attendee Data** (depends on orders/agenda)
-   - `attendee_bookmarks`
-   - `attendee_profiles`
-   - `attendee_checkins`
-   - `attendees`
+- **User/Auth:** `profiles`, `user_roles`, `chapters`, `advisor_chapters`
+- **Events:** `events`, `ticket_types`, `speakers`, `agenda_items`, `agenda_item_speakers`, `event_hotels`, `badge_templates`
+- **Registration:** `orders`, `order_items`, `attendees`, `order_access_codes`, `order_messages`, `attendee_checkins`
+- **Attendee App:** `attendee_conversations`, `attendee_messages`, `conversation_participants`, `attendee_profiles`, `attendee_bookmarks`, `message_reactions`
+- **System:** `activity_logs`, `push_subscriptions`
 
-3. **Order Data** (depends on ticket_types)
-   - `order_messages`
-   - `order_items`
-   - `orders`
+---
 
-4. **Agenda Data** (depends on speakers/events)
-   - `agenda_item_speakers`
-   - `agenda_items`
+## Implementation Plan
 
-5. **Event Supporting Data** (depends on events)
-   - `speakers`
-   - `badge_templates`
-   - `event_hotels`
-   - `ticket_types`
+### Phase 1: Database Migration
 
-6. **Events** (root table)
-   - `events`
-
-## SQL Script
+Create a migration that:
+1. Renames each table using `ALTER TABLE ... RENAME TO ...`
+2. Updates all RLS policy names to reflect the new table names
+3. Updates any triggers that reference the old table names
 
 ```sql
--- 1. Messaging Data
-DELETE FROM message_reactions;
-DELETE FROM attendee_messages;
-DELETE FROM conversation_participants;
-DELETE FROM attendee_conversations;
-
--- 2. Attendee Data
-DELETE FROM attendee_bookmarks;
-DELETE FROM attendee_profiles;
-DELETE FROM attendee_checkins;
-DELETE FROM attendees;
-
--- 3. Order Data
-DELETE FROM order_messages;
-DELETE FROM order_items;
-DELETE FROM orders;
-
--- 4. Agenda Data
-DELETE FROM agenda_item_speakers;
-DELETE FROM agenda_items;
-
--- 5. Event Supporting Data
-DELETE FROM speakers;
-DELETE FROM badge_templates;
-DELETE FROM event_hotels;
-DELETE FROM ticket_types;
-
--- 6. Events
-DELETE FROM events;
+-- Example for recordings
+ALTER TABLE recordings RENAME TO lms_recordings;
+ALTER TABLE recording_resources RENAME TO lms_recording_resources;
+ALTER TABLE posts RENAME TO lms_posts;
+ALTER TABLE comments RENAME TO lms_comments;
+ALTER TABLE likes RENAME TO lms_likes;
+ALTER TABLE announcements RENAME TO lms_announcements;
 ```
 
-## Important Notes
+### Phase 2: Update Frontend Code
 
-- This will delete the **"First Gen 2026"** event and ALL associated data
-- This action is irreversible
-- No user accounts or profiles will be affected
-- LMS events, recordings, posts, and chapters are NOT affected
+Update all Supabase queries to use the new table names:
 
+| File | Tables Referenced |
+|------|-------------------|
+| `src/pages/Recordings.tsx` | `recordings` -> `lms_recordings` |
+| `src/hooks/useRecordingResources.ts` | `recording_resources` -> `lms_recording_resources` |
+| `src/hooks/usePosts.ts` | `posts` -> `lms_posts`, `likes` -> `lms_likes`, `comments` -> `lms_comments` |
+| `src/hooks/useUserPosts.ts` | `posts` -> `lms_posts`, `likes` -> `lms_likes`, `comments` -> `lms_comments` |
+| `src/hooks/useModerationPosts.ts` | `posts` -> `lms_posts` |
+| `src/hooks/useComments.ts` | `comments` -> `lms_comments` |
+| `src/hooks/useAnnouncements.ts` | `announcements` -> `lms_announcements` |
+| `src/hooks/useAdminStats.ts` | `posts` -> `lms_posts` |
+| `src/pages/MyChapter.tsx` | `posts` -> `lms_posts` |
+
+### Phase 3: Update Edge Functions
+
+Check and update any edge functions that reference these tables:
+- `mux-upload` - references `recordings`
+- `mux-webhook` - references `recordings`
+- `moderate-content` - may reference `posts`
+
+### Phase 4: Update Documentation
+
+Update `docs/DATA_DICTIONARY.md` to reflect the new table names.
+
+---
+
+## Files to Modify
+
+| Category | Files |
+|----------|-------|
+| **Database** | New migration for table renames |
+| **Recordings** | `src/pages/Recordings.tsx`, `src/hooks/useRecordingResources.ts` |
+| **Posts/Feed** | `src/hooks/usePosts.ts`, `src/hooks/useUserPosts.ts`, `src/hooks/useModerationPosts.ts`, `src/pages/MyChapter.tsx` |
+| **Comments** | `src/hooks/useComments.ts` |
+| **Announcements** | `src/hooks/useAnnouncements.ts` |
+| **Admin** | `src/hooks/useAdminStats.ts` |
+| **Edge Functions** | `supabase/functions/mux-upload/index.ts`, `supabase/functions/mux-webhook/index.ts`, `supabase/functions/moderate-content/index.ts` |
+| **Documentation** | `docs/DATA_DICTIONARY.md` |
+
+---
+
+## Technical Considerations
+
+1. **Foreign Keys**: The rename operation preserves foreign key relationships automatically in PostgreSQL
+2. **Triggers**: Existing triggers will continue to work as they're bound to the table, not the name
+3. **RLS Policies**: Will be renamed along with the table automatically
+4. **Indexes**: Will be preserved during the rename
+5. **Type System**: After migration, the `types.ts` file will be regenerated automatically with the new table names
+
+---
+
+## Risk Mitigation
+
+- Run migration during low-traffic period
+- Deploy code changes immediately after migration runs
+- The migration and code updates must be deployed together to avoid query failures
