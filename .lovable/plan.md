@@ -1,155 +1,180 @@
 
 
-# Create Mock Agenda and Speakers for First Gen 2026
+# Add Timezone Toggle to Agenda Calendar View
 
 ## Overview
 
-Based on the conference website, I'll create a comprehensive set of speakers and a full 3-day agenda for the "First Gen 2026" event (ID: `2e062f79-1693-4883-a3c5-623121810c57`).
+Currently, the Agenda Calendar displays times based on the browser's local timezone with no indication of the event's actual timezone. Since event organizers work across many timezones, this causes confusion when the event is held in a different timezone than the viewer.
+
+This feature adds:
+1. A **timezone field** for events (stored in the database)
+2. A **toggle switch** in the calendar header to switch between "My Time" (local) and "Event Time"
+3. Proper timezone conversion for all displayed times and item positioning
 
 ---
 
-## Speakers to Create (30 total)
+## Current State
 
-### Keynote Speakers (6)
-| Name | Title | Company |
-|------|-------|---------|
-| Dr. Joshua Fredenburg | President | Circle of Change Leadership Experience |
-| Tish Norman | Founder and Principal Consultant | Transforming Leaders Now, Inc |
-| Dr. Tierney Bates | Vice Chancellor for Student Affairs | University of South Carolina Upstate |
-| David Coleman | Nationally Recognized Speaker | Coleman Speaks |
-| Dr. Alex Ellis | Chief Executive Officer | Tied To Greatness |
-| Silvana Marmelojos | Executive Producer | Living Latina Productions |
-
-### College to Career Panel (5)
-| Name | Title | Company |
-|------|-------|---------|
-| Dr. Paula Hopkins | Sr. Director of Strategy | PepsiCo |
-| Charmion Kinder | Head, Office of Communications | Peace Corps |
-| Beth Elletson | Founder & CEO | Abe |
-| Clara Stroude Vazquez | Chief of Culture and Inclusion | Miami Heat |
-| Johanne Wilson | Chief Creative Director | COOL Creative, Inc. |
-
-### Entertainment Industry Panel (4)
-| Name | Title | Company |
-|------|-------|---------|
-| Melissa Exposito | Managing Director Central America & Caribbean | Sony Music Entertainment |
-| Tricia Patella | Vice President | Spinning Plates Management |
-| Marilyn Santana | Chief Talent Officer & Founder | Blendemos, LLC |
-| Corvaya Jefferies | Strategist & Manager, Audience Development | Revolt Media & TV |
-
-### Business Panel (5)
-| Name | Title | Company |
-|------|-------|---------|
-| Lauren Ziadia | Executive Director, Head of Women Without Limits | Morgan Stanley |
-| Jenny Chen | Head of Marketing (Head of Brand) | Wild Fork |
-| Chandler Bishop | Senior Copywriter | TBWA Chiat Day |
-| Tatiana Oueini | Senior Vice President, People & Culture | Redwood Trust, Inc. |
-| Ana Perez | Senior Manager, Supply Chain | Standard Aero |
-
-### Tech Panel (4)
-| Name | Title | Company |
-|------|-------|---------|
-| Michael Lay | Head of Inter-belief and ERGs | Google |
-| Akwasi Owusu-Ansah | Senior Technical Recruiter | Indeed |
-| Darie Dorlus | Engineering Manager | Gusto |
-| Lacey Elmange | Executive Director | Inspire Leadership Network |
-
-### Healthcare Panel (4)
-| Name | Title | Company |
-|------|-------|---------|
-| Dr. Priscilla Torres | Chief Human Resource Officer | Health Choice Network |
-| Joseph West | Managing Director | Capgenus |
-| Dr. Dominique Leveille | Licensed Marriage And Family Therapist | BlissTherapy.Me |
-| Jerson Dulis | Director of Outreach & Development | Broward Community & Family Health Centers |
-
-### Education Panel (2)
-| Name | Title | Company |
-|------|-------|---------|
-| Dr. Ryan Holmes | Associate Vice President for Student Affairs and Dean of Students | University of Miami |
-| Dr. Janett I. Cordoves | Senior Program Director | Presidents Consortium Institute for Citizens & Scholars |
+- **Events table**: No timezone column exists
+- **Agenda times**: Stored as UTC `timestamp with time zone` in the database
+- **Display**: Uses browser's local timezone via JavaScript `Date` object
+- **Dependencies**: Only `date-fns` is available (no timezone library yet)
 
 ---
 
-## Agenda Items to Create
+## Implementation Steps
 
-### Day 1: Friday, April 17, 2026 (12 items)
+### Step 1: Add Timezone Column to Events Table
 
-| Time | Title | Type | Speaker(s) |
-|------|-------|------|------------|
-| 9:00 AM - 10:30 AM | Morning Keynote: Positioning Yourself for Career Success | session | Dr. Joshua Fredenburg |
-| 10:45 AM - 12:15 PM | Career Development Empowerment Session | session | 4 panelists |
-| 12:15 PM - 1:30 PM | Lunch & Networking | meal | - |
-| 1:30 PM - 2:00 PM | Fire-Side Career Development Chat #1: Tech Industry | session | Michael Lay, Darie Dorlus |
-| 2:15 PM - 2:45 PM | Fire-Side Career Development Chat #2: Entertainment Industry | session | Melissa Exposito, Tricia Patella |
-| 3:00 PM - 3:30 PM | Fire-Side Career Development Chat #3: Q&A Session | session | Panel of speakers |
-| 3:30 PM - 3:45 PM | Snack Break | break | - |
-| 3:45 PM - 4:30 PM | Closing Session & Prize Giveaway | session | Dr. Alex Ellis |
-| 4:30 PM - 5:30 PM | Book-Signing, Networking & Professional Headshots | networking | - |
+Add a new `timezone` column to store the event's timezone as an IANA timezone identifier (e.g., "America/New_York"):
 
-### Day 2: Saturday, April 18, 2026 (10 items)
+```text
+Column: timezone
+Type: TEXT
+Default: 'America/New_York'
+Nullable: YES
+```
 
-| Time | Title | Type | Speaker(s) |
-|------|-------|------|------------|
-| 9:00 AM - 10:30 AM | Morning Keynote: Building Resilience as a First-Gen Professional | session | Tish Norman |
-| 10:45 AM - 12:00 PM | Career Leadership Panel: Business Leaders | session | Business panel (5 speakers) |
-| 12:00 PM - 1:15 PM | Lunch & Interactive Games | meal | - |
-| 1:15 PM - 2:15 PM | Style-Shop: The Ultimate Dress for Success Intensive | session | Silvana Marmelojos |
-| 2:30 PM - 3:30 PM | Career Leadership Panel: Tech Industry | session | Tech panel (4 speakers) |
-| 3:45 PM - 4:30 PM | Career Leadership Panel: Healthcare Industry | session | Healthcare panel (4 speakers) |
-| 4:30 PM - 5:30 PM | First-Gen Career & Leadership Society Induction Ceremony | session | Dr. Joshua Fredenburg |
+Also update the First Gen 2026 event to use "America/New_York" (Eastern Time for Miami, FL).
 
-### Day 3: Sunday, April 19, 2026 (3 items)
+### Step 2: Install date-fns-tz Library
 
-| Time | Title | Type | Speaker(s) |
-|------|-------|------|------------|
-| 10:00 AM - 12:00 PM | Miami Beach Day Excursion - Morning Session | networking | - |
-| 12:00 PM - 1:00 PM | Beach Lunch & Networking | meal | - |
-| 1:00 PM - 4:00 PM | Miami Beach Day Excursion - Afternoon Activities | networking | - |
+Add the `date-fns-tz` package which provides timezone-aware formatting and conversion functions that integrate with the existing `date-fns` library.
+
+### Step 3: Create Timezone Utility Functions
+
+Create a new utility file `src/lib/timezoneUtils.ts` with:
+
+| Function | Purpose |
+|----------|---------|
+| `getLocalTimezone()` | Returns the user's browser timezone |
+| `formatInTimezone(date, timezone, formatStr)` | Formats a date in a specific timezone |
+| `getTimezoneAbbreviation(timezone)` | Gets short name like "EST" or "PST" |
+| `convertToTimezone(date, fromTz, toTz)` | Converts between timezones |
+| `COMMON_TIMEZONES` | List of common US timezones for the dropdown |
+
+### Step 4: Update Event Form
+
+Add a timezone selector to `EventForm.tsx` in the "Date and Time" section:
+
+- Dropdown with common US timezones
+- Defaults to "America/New_York"
+- Shows timezone abbreviation next to the selection
+
+### Step 5: Update useEvents Hook
+
+Update the `Event` interface and hook to include the timezone field in queries and mutations.
+
+### Step 6: Update AgendaBuilder Component
+
+Pass the event's timezone down to the calendar view:
+
+- Fetch the event data using `useEventById`
+- Pass `eventTimezone` prop to `AgendaCalendarView`
+
+### Step 7: Add Timezone Toggle to AgendaCalendarView
+
+Add a toggle switch in the header section:
+
+```text
++-------------------------------------------+
+| < Today >     [My Time | Event Time]  Apr 17-19 |
++-------------------------------------------+
+```
+
+**UI Elements:**
+- Toggle group with two options: "My Time" and "Event Time"
+- When "Event Time" selected, show timezone abbreviation (e.g., "EDT")
+- State stored in component (not persisted)
+
+### Step 8: Update Time Display Logic
+
+Modify the calendar rendering to respect the selected timezone:
+
+| Component | Change |
+|-----------|--------|
+| Time column labels | Format hours using selected timezone |
+| Current time indicator | Convert "now" to selected timezone |
+| `isToday` check | Compare dates in selected timezone |
+| Click-to-create | Create Date in event timezone when that mode is active |
+
+### Step 9: Update AgendaCalendarItem
+
+Update the item positioning and time display to use the selected timezone:
+
+- Receive `displayTimezone` prop
+- Calculate `topPosition` using timezone-aware hours/minutes
+- Format tooltip times in the selected timezone
+
+### Step 10: Update AgendaItemForm (Optional Enhancement)
+
+Show a hint about which timezone times are being entered in when creating/editing items.
 
 ---
 
-## Database Operations
+## Technical Details
 
-### Step 1: Insert 30 Speakers
-Insert all speakers into the `speakers` table linked to event_id `2e062f79-1693-4883-a3c5-623121810c57` with:
-- Name, title, company
-- Bio generated based on their role
-- Sort order based on category (keynotes first, then panels)
+### Data Flow
 
-### Step 2: Insert 22 Agenda Items
-Insert all agenda items into the `agenda_items` table with:
-- Proper timestamps for April 17-19, 2026 (EST timezone)
-- item_type: session, meal, break, or networking
-- Locations assigned (Main Ballroom, Panel Room A, Beach Area, etc.)
-- Track assignments where applicable (Main Track, Industry Panels)
+```text
+AgendaBuilder
+  |-- useEventById(eventId) --> event.timezone
+  |
+  +-- AgendaCalendarView
+        |-- timezoneMode: 'local' | 'event'
+        |-- displayTimezone: computed from mode + event.timezone
+        |
+        +-- AgendaCalendarItem
+              |-- displayTimezone prop
+              |-- timezone-aware positioning
+```
 
-### Step 3: Link Speakers to Agenda Items
-Insert records into `agenda_item_speakers` table to:
-- Assign keynote speakers to their sessions
-- Assign panelists to panel sessions with appropriate roles (speaker, panelist, moderator)
+### Timezone Conversion Strategy
+
+Since dates are stored as UTC in the database:
+
+1. **Event Time Mode**: Convert UTC to event timezone for display
+2. **My Time Mode**: Convert UTC to browser's local timezone (current behavior)
+3. **Creating Items**: When in "Event Time" mode, interpret input times as event timezone
+
+### Common Timezones List
+
+```text
+America/New_York    (Eastern)
+America/Chicago     (Central)
+America/Denver      (Mountain)
+America/Los_Angeles (Pacific)
+America/Anchorage   (Alaska)
+Pacific/Honolulu    (Hawaii)
+```
 
 ---
 
-## SQL Migration Approach
+## Files to Create/Modify
 
-A single SQL migration script will:
-
-1. Insert all 30 speakers with realistic bios
-2. Insert all 22 agenda items across 3 days
-3. Create speaker-to-agenda-item linkages with proper roles
-
-The migration will use CTEs to:
-- Store speaker IDs for reference when linking to agenda items
-- Maintain referential integrity between tables
+| File | Action |
+|------|--------|
+| `src/lib/timezoneUtils.ts` | Create - utility functions |
+| `src/hooks/useEvents.ts` | Modify - add timezone to Event interface |
+| `src/components/events/EventForm.tsx` | Modify - add timezone selector |
+| `src/components/events/agenda/AgendaBuilder.tsx` | Modify - fetch event, pass timezone |
+| `src/components/events/agenda/AgendaCalendarView.tsx` | Modify - add toggle, timezone logic |
+| `src/components/events/agenda/AgendaCalendarItem.tsx` | Modify - accept timezone prop |
+| Database migration | Create - add timezone column |
 
 ---
 
-## Expected Results
+## User Experience
 
-After execution:
-- 30 speakers visible in the Speakers management page
-- 22 agenda items visible in the Agenda builder (calendar view)
-- Proper speaker assignments showing on each session
-- 3-day agenda spanning April 17-19, 2026
-- Mix of session types: keynotes, panels, meals, breaks, networking
+### For Event Organizers
+
+1. When creating/editing an event, select the event's timezone
+2. In the Agenda Calendar, toggle between viewing in your time or event time
+3. Clear indicator shows which timezone is active
+
+### Visual Design
+
+- Toggle styled consistently with existing List/Calendar toggle
+- When "Event Time" is selected, show timezone abbreviation like "(EDT)"
+- Subtle indicator in the time column header showing current display timezone
 
