@@ -1,169 +1,342 @@
 
 
-# Add Reusable Error Boundary Component
+# Refactor AttendeeContext into Four Focused Providers
 
 ## Summary
 
-Create a class-based `RouteErrorBoundary` component that catches rendering errors in route-level components and displays a friendly recovery UI. Then wrap all `<Suspense>` boundaries in `App.tsx` with this component using a helper wrapper.
+Split the monolithic `AttendeeContext.tsx` (436 lines) into four single-responsibility context providers. This improves performance by isolating re-renders, makes each provider independently understandable, and prepares for future scaling.
 
 ---
 
-## New File: `src/components/ui/error-boundary.tsx`
+## New Files to Create
 
-Create a React class component with:
+| File | Responsibility | Dependencies |
+|------|----------------|--------------|
+| `src/contexts/AttendeeAuthContext.tsx` | Auth state from useOrderPortal | None |
+| `src/contexts/AttendeeEventContext.tsx` | Event/attendee selection | AttendeeAuthContext |
+| `src/contexts/BookmarksContext.tsx` | Bookmark state + toggle | AttendeeAuthContext, AttendeeEventContext |
+| `src/contexts/ConversationsContext.tsx` | Conversations, realtime, message cache | AttendeeAuthContext, AttendeeEventContext |
+| `src/contexts/AttendeeProviders.tsx` | Nesting wrapper | All four providers |
 
-| Feature | Implementation |
-|---------|----------------|
-| Error catching | Implement `getDerivedStateFromError` and `componentDidCatch` |
-| Error state | `{ hasError: boolean; error: Error \| null }` |
-| Reset on navigation | Accept `key` prop from parent (React remounts when key changes) |
-| Fallback UI | Centered Card with AlertTriangle icon, heading, error message, two buttons |
+---
 
-### Component Structure
-
-```text
-+-----------------------------------------------+
-|               RouteErrorBoundary              |
-+-----------------------------------------------+
-|  Props:                                       |
-|    - children: React.ReactNode                |
-|    - key: string (for reset on navigation)   |
-|                                               |
-|  State:                                       |
-|    - hasError: boolean                        |
-|    - error: Error | null                      |
-|                                               |
-|  Methods:                                     |
-|    - getDerivedStateFromError(error) -> state |
-|    - componentDidCatch(error, info) -> log    |
-|    - handleRetry() -> setState({ hasError: false }) |
-|    - handleGoHome() -> window.location.href = "/" |
-+-----------------------------------------------+
-```
-
-### Fallback UI Layout
+## Provider Dependency Chain
 
 ```text
-+--------------------------------------------------+
-|                    [AlertTriangle Icon]          |
-|                                                  |
-|              Something went wrong                |
-|                                                  |
-|    [Muted error.message text, max 200 chars]     |
-|                                                  |
-|       [Try Again]          [Go Home]             |
-+--------------------------------------------------+
+AttendeeAuthProvider
+  └─ AttendeeEventProvider
+       ├─ BookmarksProvider
+       └─ ConversationsProvider
+              └─ {children}
 ```
 
-**Styling:**
-- Use existing `Card`, `CardHeader`, `CardContent`, `CardFooter` components
-- Use `Button` component (primary for "Try Again", outline for "Go Home")
-- Use `AlertTriangle` icon from `lucide-react`
-- Center the card on screen with flex layout
-- Use `text-muted-foreground` for the error message
+---
+
+## File 1: `src/contexts/AttendeeAuthContext.tsx`
+
+### Interface
+
+```typescript
+interface AttendeeAuthContextType {
+  isAuthenticated: boolean;
+  email: string | null;
+  loading: boolean;
+  error: string | null;
+  sendMagicLink: (email: string) => Promise<{ success: boolean; message?: string }>;
+  logout: () => void;
+  orders: PortalOrder[];
+}
+```
+
+### Code to Move
+
+- Import and use `useOrderPortal` hook
+- Expose `isAuthenticated`, `email`, `loading`, `error`, `sendMagicLink`, `logout`, `orders` from the hook
 
 ### Exports
 
-- Named export: `RouteErrorBoundary`
-- Default export: `RouteErrorBoundary`
+- `AttendeeAuthProvider`
+- `useAttendeeAuth`
+- Re-export `PortalOrder` type from useOrderPortal
 
 ---
 
-## File Modification: `src/App.tsx`
+## File 2: `src/contexts/AttendeeEventContext.tsx`
 
-### Step 1: Add Import
+### Interface
 
-Add to imports (around line 8):
 ```typescript
-import { useLocation } from "react-router-dom";
-import RouteErrorBoundary from "@/components/ui/error-boundary";
+interface AttendeeEvent {
+  id: string;
+  title: string;
+  slug: string;
+  starts_at: string;
+  ends_at: string | null;
+  venue_name: string | null;
+  venue_address: string | null;
+  cover_image_url: string | null;
+}
+
+interface AttendeeInfo {
+  id: string;
+  attendee_name: string | null;
+  attendee_email: string | null;
+  ticket_type_id: string;
+  ticket_type_name?: string;
+}
+
+interface AttendeeEventContextType {
+  events: AttendeeEvent[];
+  selectedEvent: AttendeeEvent | null;
+  selectedAttendee: AttendeeInfo | null;
+  setSelectedEventId: (eventId: string) => void;
+}
 ```
 
-### Step 2: Create Helper Component
+### Code to Move
 
-Add after `PageLoader` function (around line 88):
+- `SELECTED_EVENT_KEY` constant
+- `AttendeeEvent` and `AttendeeInfo` interfaces
+- `selectedEventId` state with localStorage initialization (lines 114-116)
+- `events` memo that extracts unique events from orders (lines 133-141)
+- `selectedEvent` memo (lines 144-147)
+- `selectedAttendee` memo (lines 150-172)
+- `setSelectedEventId` callback (lines 175-178)
+- Auto-select first event `useEffect` (lines 258-262)
+
+### Dependencies
+
+- Uses `useAttendeeAuth()` to access `orders` and `email`
+
+### Exports
+
+- `AttendeeEventProvider`
+- `useAttendeeEvent`
+- Export `AttendeeEvent` and `AttendeeInfo` types
+
+---
+
+## File 3: `src/contexts/BookmarksContext.tsx`
+
+### Interface
 
 ```typescript
-function SuspenseWithErrorBoundary({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
+interface Bookmark {
+  id: string;
+  attendee_id: string;
+  agenda_item_id: string;
+  created_at: string;
+}
+
+interface BookmarksContextType {
+  bookmarks: Bookmark[];
+  bookmarkedItemIds: Set<string>;
+  toggleBookmark: (agendaItemId: string) => Promise<{ success: boolean }>;
+  refreshBookmarks: () => Promise<void>;
+  loading: boolean;
+}
+```
+
+### Code to Move
+
+- `Bookmark` interface (lines 62-67)
+- `bookmarks` and `bookmarksLoading` state (lines 119-120)
+- `refreshBookmarks` callback (lines 181-200)
+- `toggleBookmark` callback with optimistic update (lines 203-243)
+- `bookmarkedItemIds` memo (lines 246-248)
+- Fetch bookmarks `useEffect` (lines 251-255)
+
+### Dependencies
+
+- Uses `useAttendeeAuth()` for `isAuthenticated`
+- Uses `useAttendeeEvent()` for `selectedAttendee`
+
+### Exports
+
+- `BookmarksProvider`
+- `useBookmarks`
+- Export `Bookmark` type
+
+---
+
+## File 4: `src/contexts/ConversationsContext.tsx`
+
+### Interface
+
+```typescript
+// Already exported from current AttendeeContext
+interface ConversationParticipant { ... }
+interface LastMessage { ... }
+interface Conversation { ... }
+
+interface ConversationsContextType {
+  conversations: Conversation[];
+  conversationsLoading: boolean;
+  conversationsError: string | null;
+  refreshConversations: (options?: { silent?: boolean }) => Promise<void>;
+  totalUnread: number;
+  messagesCache: Map<string, Message[]>;
+  getCachedMessages: (conversationId: string) => Message[] | undefined;
+  setCachedMessages: (conversationId: string, messages: Message[]) => void;
+  prefetchMessages: (conversationId: string) => void;
+}
+```
+
+### Code to Move
+
+- `ConversationParticipant`, `LastMessage`, `Conversation` interfaces (lines 9-40)
+- `conversations`, `conversationsLoading`, `conversationsError` state (lines 123-125)
+- `conversationIdsRef` ref (line 126)
+- `messagesCacheRef` and `prefetchingRef` refs (lines 129-130)
+- `refreshConversations` callback (lines 268-298)
+- Keep conversation IDs ref in sync `useEffect` (lines 301-303)
+- Realtime subscription `useEffect` (lines 306-344)
+- Fetch conversations `useEffect` (lines 347-351)
+- `totalUnread` memo (lines 354-356)
+- `getCachedMessages`, `setCachedMessages`, `prefetchMessages` callbacks (lines 359-394)
+
+### Dependencies
+
+- Uses `useAttendeeAuth()` for `isAuthenticated`
+- Uses `useAttendeeEvent()` for `selectedAttendee` and `selectedEvent`
+- Imports `supabase` from `@/integrations/supabase/client`
+- Imports `Message` type from `@/hooks/useMessages`
+
+### Exports
+
+- `ConversationsProvider`
+- `useConversations`
+- Export `Conversation`, `ConversationParticipant`, `LastMessage` types
+
+---
+
+## File 5: `src/contexts/AttendeeProviders.tsx`
+
+### Implementation
+
+```typescript
+import { ReactNode } from 'react';
+import { AttendeeAuthProvider } from './AttendeeAuthContext';
+import { AttendeeEventProvider } from './AttendeeEventContext';
+import { BookmarksProvider } from './BookmarksContext';
+import { ConversationsProvider } from './ConversationsContext';
+
+export function AttendeeProviders({ children }: { children: ReactNode }) {
   return (
-    <RouteErrorBoundary key={location.pathname}>
-      <Suspense fallback={<PageLoader />}>
-        {children}
-      </Suspense>
-    </RouteErrorBoundary>
+    <AttendeeAuthProvider>
+      <AttendeeEventProvider>
+        <BookmarksProvider>
+          <ConversationsProvider>
+            {children}
+          </ConversationsProvider>
+        </BookmarksProvider>
+      </AttendeeEventProvider>
+    </AttendeeAuthProvider>
   );
 }
 ```
 
-### Step 3: Replace All Suspense Wrappers
+---
 
-Replace every occurrence of:
-```jsx
-<Suspense fallback={<PageLoader />}>
-  <SomePage />
-</Suspense>
+## File 6: Replace `src/contexts/AttendeeContext.tsx`
+
+Replace the entire file with a thin compatibility layer:
+
+```typescript
+// Re-export providers and hooks
+export { AttendeeProviders as AttendeeProvider } from './AttendeeProviders';
+export { useAttendeeAuth } from './AttendeeAuthContext';
+export { useAttendeeEvent, type AttendeeEvent, type AttendeeInfo } from './AttendeeEventContext';
+export { useBookmarks, type Bookmark } from './BookmarksContext';
+export { useConversations, type Conversation, type ConversationParticipant, type LastMessage } from './ConversationsContext';
+
+// Re-export PortalOrder from useOrderPortal (unchanged)
+export type { PortalOrder } from '@/hooks/useOrderPortal';
+
+// Compatibility hook - combines all contexts
+export function useAttendee() {
+  const auth = useAttendeeAuth();
+  const event = useAttendeeEvent();
+  const bookmarks = useBookmarks();
+  const conversations = useConversations();
+
+  return {
+    // Auth
+    isAuthenticated: auth.isAuthenticated,
+    email: auth.email,
+    loading: auth.loading || bookmarks.loading,
+    error: auth.error,
+    sendMagicLink: auth.sendMagicLink,
+    logout: auth.logout,
+    orders: auth.orders,
+    
+    // Event selection
+    events: event.events,
+    selectedEvent: event.selectedEvent,
+    selectedAttendee: event.selectedAttendee,
+    setSelectedEventId: event.setSelectedEventId,
+    
+    // Bookmarks
+    bookmarks: bookmarks.bookmarks,
+    bookmarkedItemIds: bookmarks.bookmarkedItemIds,
+    toggleBookmark: bookmarks.toggleBookmark,
+    refreshBookmarks: bookmarks.refreshBookmarks,
+    
+    // Conversations
+    conversations: conversations.conversations,
+    conversationsLoading: conversations.conversationsLoading,
+    conversationsError: conversations.conversationsError,
+    refreshConversations: conversations.refreshConversations,
+    totalUnread: conversations.totalUnread,
+    messagesCache: conversations.messagesCache,
+    getCachedMessages: conversations.getCachedMessages,
+    setCachedMessages: conversations.setCachedMessages,
+    prefetchMessages: conversations.prefetchMessages,
+  };
+}
 ```
-
-With:
-```jsx
-<SuspenseWithErrorBoundary>
-  <SomePage />
-</SuspenseWithErrorBoundary>
-```
-
-### Suspense Locations to Update (36 total occurrences)
-
-| Line Range | Route/Context |
-|------------|---------------|
-| 117-119 | `ProtectedRoute` with `useEventsLayout` |
-| 149-151 | `/pending-approval` |
-| 157-159 | `/` (RootRouter) |
-| 164-166 | `/select-dashboard` |
-| 172-174 | `/lms` (Feed) |
-| 179-181 | `/lms/recordings` |
-| 186-188 | `/lms/profile/:userId` |
-| 193-195 | `/lms/profile` |
-| 204-206 | `/lms/my-chapter` |
-| 216-218 | `/lms/admin/users` |
-| 226-228 | `/lms/admin/chapters` |
-| 236-238 | `/lms/admin/moderation` |
-| 246-248 | `/lms/admin/announcements` |
-| 256-258 | `/lms/events` |
-| 266-268 | `/lms/admin` |
-| 277-279 | `/events` |
-| 282-284 | `/events/:slug` |
-| 287-289 | `/events/:slug/checkout` |
-| 291-294 | `/events/:slug/checkout/success` |
-| 297-299 | `/events/:slug/order/:orderId/attendees` |
-| 304-306 | `/my-orders` |
-| 309-311 | `/my-orders/dashboard` |
-| 316-318 | `/attendee` |
-| 321-323 | `/attendee/app` (AttendeeDashboard) |
-| 327-329 | `/attendee/app/home` |
-| 332-334 | `/attendee/app/agenda` |
-| 337-339 | `/attendee/app/messages` |
-| 342-344 | `/attendee/app/messages/:conversationId` |
-| 347-349 | `/attendee/app/networking` |
-| 352-354 | `/attendee/app/profile` |
-| 357-359 | `/attendee/app/bookmarks` |
-| 362-364 | `/attendee/app/qr` |
-| 372-374 | `/events/manage` (and all other manage routes) |
-| ... | All `/events/manage/*` routes (12 total) |
 
 ---
 
-## Technical Notes
+## Update Existing Hooks
 
-1. **Why class component?** React error boundaries require `getDerivedStateFromError` or `componentDidCatch` lifecycle methods, which are only available in class components. There is no hooks-based equivalent.
+### `src/hooks/useConversations.ts`
 
-2. **Why `window.location.href` instead of `useNavigate`?** When an error crashes a component tree, the router itself might be part of the crashed tree. Using `window.location.href` is a safe escape hatch that guarantees navigation even if React state is corrupted.
+Change import to use new dedicated context:
 
-3. **Why key-based reset?** When `location.pathname` changes, the `key` prop changes, causing React to unmount and remount the error boundary. This automatically clears the error state without needing `componentDidUpdate` logic.
+```typescript
+// Before
+import { useAttendee, Conversation, ConversationParticipant, LastMessage } from '@/contexts/AttendeeContext';
 
-4. **Error message truncation:** Display only the first 200 characters of the error message to prevent layout issues with very long error messages.
+// After
+import { useConversations as useConversationsContext, Conversation, ConversationParticipant, LastMessage } from '@/contexts/ConversationsContext';
+```
 
-5. **No new dependencies:** Uses only built-in React APIs and existing shadcn/ui components (Card, Button) and lucide-react icons.
+Or keep it importing from `AttendeeContext.tsx` since the compatibility layer re-exports these types.
+
+### `src/hooks/useAttendeeBookmarks.ts`
+
+Keep importing from `@/contexts/AttendeeContext` - compatibility hook provides same interface.
+
+---
+
+## Files That Import from AttendeeContext (16 files)
+
+All 16 files continue to work without changes because:
+
+1. `AttendeeProvider` export is aliased from `AttendeeProviders`
+2. `useAttendee()` hook returns the combined shape
+3. All types (`Conversation`, `ConversationParticipant`, `LastMessage`) are re-exported
+
+| File | Current Import | Status |
+|------|----------------|--------|
+| `src/pages/attendee/Dashboard.tsx` | `useAttendee, AttendeeProvider` | Works (compatibility layer) |
+| `src/hooks/useConversations.ts` | `useAttendee, Conversation, ...` | Works (types re-exported) |
+| `src/hooks/useMessages.ts` | `useAttendee` | Works (compatibility hook) |
+| `src/hooks/useAttendeeBookmarks.ts` | `useAttendee` | Works (compatibility hook) |
+| `src/hooks/useAttendeeProfile.ts` | `useAttendee` | Works (compatibility hook) |
+| `src/hooks/useNetworking.ts` | `useAttendee` | Works (compatibility hook) |
+| All other components | `useAttendee` | Works (compatibility hook) |
 
 ---
 
@@ -171,10 +344,16 @@ With:
 
 | Action | Count |
 |--------|-------|
-| New files | 1 (`error-boundary.tsx`) |
-| Modified files | 1 (`App.tsx`) |
-| Suspense wrappers to update | 36 |
-| New dependencies | 0 |
+| New files | 5 |
+| Modified files | 1 (AttendeeContext.tsx becomes compatibility layer) |
+| Deleted files | 0 |
+| Lines moved | ~320 |
+| Components requiring changes | 0 |
 
-This adds resilient error handling at the route level, ensuring that if a page component throws an error during render, users see a friendly UI with recovery options rather than a blank white screen.
+### Benefits
+
+- **Isolated re-renders**: Bookmark changes don't trigger conversation re-renders
+- **Clearer ownership**: Each provider has single responsibility
+- **Easier testing**: Can test providers independently
+- **Future-proof**: Components can gradually migrate to specific hooks
 
