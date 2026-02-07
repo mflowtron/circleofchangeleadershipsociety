@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 const preloadAttendeePages = () => {
   import('@/pages/attendee/EventHome');
   import('@/pages/attendee/Agenda');
+  import('@/pages/attendee/AgendaDetail');
   import('@/pages/attendee/Messages');
   import('@/pages/attendee/MyBookmarks');
   import('@/pages/attendee/QRCode');
@@ -69,11 +70,12 @@ function DashboardContent() {
     );
   }
 
-  // Detect if we're in a conversation view (full-screen, no layout wrapper)
+  // Detect if we're in a full-screen view (no layout wrapper)
   const isConversationView = location.pathname.match(/\/messages\/[^/]+$/);
+  const isAgendaDetailView = location.pathname.match(/\/agenda\/[^/]+$/);
 
-  if (isConversationView) {
-    // Render conversation full-screen without layout wrapper
+  if (isConversationView || isAgendaDetailView) {
+    // Render full-screen without layout wrapper
     return <Outlet />;
   }
 
