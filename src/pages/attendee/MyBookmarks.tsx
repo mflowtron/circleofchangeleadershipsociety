@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { useAttendee } from '@/contexts/AttendeeContext';
@@ -11,10 +11,8 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Calendar } from 'lucide-react';
 
 export default function MyBookmarks() {
-  const { selectedEvent, bookmarks, bookmarkedItemIds, toggleBookmark, refreshBookmarks } = useAttendee();
+  const { selectedEvent, bookmarkedItemIds, toggleBookmark, refreshBookmarks } = useAttendee();
   const { agendaItems, isLoading } = useAgendaItems(selectedEvent?.id);
-  
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 
   // Get bookmarked items
   const bookmarkedItems = useMemo(() => {
@@ -51,16 +49,6 @@ export default function MyBookmarks() {
   const handleToggleBookmark = useCallback(async (itemId: string) => {
     await toggleBookmark(itemId);
   }, [toggleBookmark]);
-
-  const getSpeakersForItem = (item: AgendaItem) => {
-    return item.speakers?.map(s => ({
-      id: s.speaker_id,
-      name: s.speaker?.name || '',
-      title: s.speaker?.title || null,
-      company: s.speaker?.company || null,
-      photo_url: s.speaker?.photo_url || null,
-    })) || [];
-  };
 
   if (isLoading) {
     return (
@@ -118,20 +106,14 @@ export default function MyBookmarks() {
                 key={item.id}
                 id={item.id}
                 title={item.title}
-                description={item.description}
                 starts_at={item.starts_at}
                 ends_at={item.ends_at}
                 location={item.location}
                 track={item.track}
                 item_type={item.item_type}
                 is_highlighted={item.is_highlighted}
-                speakers={getSpeakersForItem(item)}
                 isBookmarked={true}
                 onToggleBookmark={() => handleToggleBookmark(item.id)}
-                isExpanded={expandedItemId === item.id}
-                onToggleExpand={() => setExpandedItemId(
-                  expandedItemId === item.id ? null : item.id
-                )}
               />
             ))}
           </div>

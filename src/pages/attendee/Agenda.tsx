@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Filter } from 'lucide-react';
 import { useAttendee } from '@/contexts/AttendeeContext';
-import { useAgendaItems, AgendaItem } from '@/hooks/useAgendaItems';
+import { useAgendaItems } from '@/hooks/useAgendaItems';
 import { AgendaItemCard } from '@/components/attendee/AgendaItemCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,7 +21,6 @@ export default function Agenda() {
   const { agendaItems, itemsByDate, tracks, isLoading } = useAgendaItems(selectedEvent?.id);
   
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null);
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
 
   // Get sorted dates
@@ -59,16 +58,6 @@ export default function Agenda() {
   const handleToggleBookmark = useCallback(async (itemId: string) => {
     await toggleBookmark(itemId);
   }, [toggleBookmark]);
-
-  const getSpeakersForItem = (item: AgendaItem) => {
-    return item.speakers?.map(s => ({
-      id: s.speaker_id,
-      name: s.speaker?.name || '',
-      title: s.speaker?.title || null,
-      company: s.speaker?.company || null,
-      photo_url: s.speaker?.photo_url || null,
-    })) || [];
-  };
 
   if (isLoading) {
     return (
@@ -166,20 +155,14 @@ export default function Agenda() {
               key={item.id}
               id={item.id}
               title={item.title}
-              description={item.description}
               starts_at={item.starts_at}
               ends_at={item.ends_at}
               location={item.location}
               track={item.track}
               item_type={item.item_type}
               is_highlighted={item.is_highlighted}
-              speakers={getSpeakersForItem(item)}
               isBookmarked={bookmarkedItemIds.has(item.id)}
               onToggleBookmark={() => handleToggleBookmark(item.id)}
-              isExpanded={expandedItemId === item.id}
-              onToggleExpand={() => setExpandedItemId(
-                expandedItemId === item.id ? null : item.id
-              )}
             />
           ))
         )}
