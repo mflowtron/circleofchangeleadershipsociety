@@ -1,180 +1,69 @@
 
+# Fix Event Selector Persistence
 
-# Add Timezone Toggle to Agenda Calendar View
+## Problem
 
-## Overview
+When you select an event from the EventSelector dropdown and then navigate to a sidebar item like Agenda or Speakers, the selection resets to "Select an event...". This happens because:
 
-Currently, the Agenda Calendar displays times based on the browser's local timezone with no indication of the event's actual timezone. Since event organizers work across many timezones, this causes confusion when the event is held in a different timezone than the viewer.
+1. Each protected route creates a new instance of `EventsDashboardLayout`
+2. The `EventSelectionProvider` lives inside `EventsDashboardLayout`
+3. When navigating, the layout remounts, resetting the context state
 
-This feature adds:
-1. A **timezone field** for events (stored in the database)
-2. A **toggle switch** in the calendar header to switch between "My Time" (local) and "Event Time"
-3. Proper timezone conversion for all displayed times and item positioning
+## Solution
 
----
-
-## Current State
-
-- **Events table**: No timezone column exists
-- **Agenda times**: Stored as UTC `timestamp with time zone` in the database
-- **Display**: Uses browser's local timezone via JavaScript `Date` object
-- **Dependencies**: Only `date-fns` is available (no timezone library yet)
+Move the `EventSelectionProvider` to a higher level in the component tree so it persists across route changes. The provider should wrap all Events Dashboard routes rather than being inside the layout.
 
 ---
 
-## Implementation Steps
+## Implementation
 
-### Step 1: Add Timezone Column to Events Table
+### Step 1: Remove Provider from EventsDashboardLayout
 
-Add a new `timezone` column to store the event's timezone as an IANA timezone identifier (e.g., "America/New_York"):
+Update `src/layouts/EventsDashboardLayout.tsx` to remove the `EventSelectionProvider` wrapper from the return statement. The layout will now just render the sidebar, header, and children directly.
 
-```text
-Column: timezone
-Type: TEXT
-Default: 'America/New_York'
-Nullable: YES
-```
+### Step 2: Create Events Route Wrapper in App.tsx
 
-Also update the First Gen 2026 event to use "America/New_York" (Eastern Time for Miami, FL).
-
-### Step 2: Install date-fns-tz Library
-
-Add the `date-fns-tz` package which provides timezone-aware formatting and conversion functions that integrate with the existing `date-fns` library.
-
-### Step 3: Create Timezone Utility Functions
-
-Create a new utility file `src/lib/timezoneUtils.ts` with:
-
-| Function | Purpose |
-|----------|---------|
-| `getLocalTimezone()` | Returns the user's browser timezone |
-| `formatInTimezone(date, timezone, formatStr)` | Formats a date in a specific timezone |
-| `getTimezoneAbbreviation(timezone)` | Gets short name like "EST" or "PST" |
-| `convertToTimezone(date, fromTz, toTz)` | Converts between timezones |
-| `COMMON_TIMEZONES` | List of common US timezones for the dropdown |
-
-### Step 4: Update Event Form
-
-Add a timezone selector to `EventForm.tsx` in the "Date and Time" section:
-
-- Dropdown with common US timezones
-- Defaults to "America/New_York"
-- Shows timezone abbreviation next to the selection
-
-### Step 5: Update useEvents Hook
-
-Update the `Event` interface and hook to include the timezone field in queries and mutations.
-
-### Step 6: Update AgendaBuilder Component
-
-Pass the event's timezone down to the calendar view:
-
-- Fetch the event data using `useEventById`
-- Pass `eventTimezone` prop to `AgendaCalendarView`
-
-### Step 7: Add Timezone Toggle to AgendaCalendarView
-
-Add a toggle switch in the header section:
+Create a wrapper component that provides the `EventSelectionProvider` context for all `/events/manage/*` routes:
 
 ```text
-+-------------------------------------------+
-| < Today >     [My Time | Event Time]  Apr 17-19 |
-+-------------------------------------------+
+function EventsManagementWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <EventSelectionProvider>
+      {children}
+    </EventSelectionProvider>
+  );
+}
 ```
 
-**UI Elements:**
-- Toggle group with two options: "My Time" and "Event Time"
-- When "Event Time" selected, show timezone abbreviation (e.g., "EDT")
-- State stored in component (not persisted)
+### Step 3: Wrap Events Routes with Provider
 
-### Step 8: Update Time Display Logic
+In `App.tsx`, wrap the events management routes section with `EventsManagementWrapper` so the context persists across all child routes:
 
-Modify the calendar rendering to respect the selected timezone:
+```text
+<Route element={<EventsManagementWrapper />}>
+  <Route path="/events/manage" ... />
+  <Route path="/events/manage/orders" ... />
+  <Route path="/events/manage/agenda" ... />
+  ...
+</Route>
+```
 
-| Component | Change |
-|-----------|--------|
-| Time column labels | Format hours using selected timezone |
-| Current time indicator | Convert "now" to selected timezone |
-| `isToday` check | Compare dates in selected timezone |
-| Click-to-create | Create Date in event timezone when that mode is active |
-
-### Step 9: Update AgendaCalendarItem
-
-Update the item positioning and time display to use the selected timezone:
-
-- Receive `displayTimezone` prop
-- Calculate `topPosition` using timezone-aware hours/minutes
-- Format tooltip times in the selected timezone
-
-### Step 10: Update AgendaItemForm (Optional Enhancement)
-
-Show a hint about which timezone times are being entered in when creating/editing items.
+Using React Router's nested routes with an `element` that renders an `<Outlet />` will preserve the provider across all child routes.
 
 ---
 
-## Technical Details
+## Files to Modify
 
-### Data Flow
-
-```text
-AgendaBuilder
-  |-- useEventById(eventId) --> event.timezone
-  |
-  +-- AgendaCalendarView
-        |-- timezoneMode: 'local' | 'event'
-        |-- displayTimezone: computed from mode + event.timezone
-        |
-        +-- AgendaCalendarItem
-              |-- displayTimezone prop
-              |-- timezone-aware positioning
-```
-
-### Timezone Conversion Strategy
-
-Since dates are stored as UTC in the database:
-
-1. **Event Time Mode**: Convert UTC to event timezone for display
-2. **My Time Mode**: Convert UTC to browser's local timezone (current behavior)
-3. **Creating Items**: When in "Event Time" mode, interpret input times as event timezone
-
-### Common Timezones List
-
-```text
-America/New_York    (Eastern)
-America/Chicago     (Central)
-America/Denver      (Mountain)
-America/Los_Angeles (Pacific)
-America/Anchorage   (Alaska)
-Pacific/Honolulu    (Hawaii)
-```
-
----
-
-## Files to Create/Modify
-
-| File | Action |
+| File | Change |
 |------|--------|
-| `src/lib/timezoneUtils.ts` | Create - utility functions |
-| `src/hooks/useEvents.ts` | Modify - add timezone to Event interface |
-| `src/components/events/EventForm.tsx` | Modify - add timezone selector |
-| `src/components/events/agenda/AgendaBuilder.tsx` | Modify - fetch event, pass timezone |
-| `src/components/events/agenda/AgendaCalendarView.tsx` | Modify - add toggle, timezone logic |
-| `src/components/events/agenda/AgendaCalendarItem.tsx` | Modify - accept timezone prop |
-| Database migration | Create - add timezone column |
+| `src/layouts/EventsDashboardLayout.tsx` | Remove `EventSelectionProvider` wrapper |
+| `src/App.tsx` | Add `EventsManagementWrapper` and restructure routes |
 
 ---
 
-## User Experience
+## Result
 
-### For Event Organizers
-
-1. When creating/editing an event, select the event's timezone
-2. In the Agenda Calendar, toggle between viewing in your time or event time
-3. Clear indicator shows which timezone is active
-
-### Visual Design
-
-- Toggle styled consistently with existing List/Calendar toggle
-- When "Event Time" is selected, show timezone abbreviation like "(EDT)"
-- Subtle indicator in the time column header showing current display timezone
-
+After this change:
+- Selecting an event will persist when navigating between Agenda, Speakers, Orders, etc.
+- The provider only mounts once when entering the events management area
+- Selection will reset when leaving `/events/manage/*` routes (expected behavior)
