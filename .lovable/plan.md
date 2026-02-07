@@ -1,165 +1,98 @@
 
 
-# Add Sending State Visual Feedback for Messages
+# Optimize Messaging Performance
 
-## Overview
+## Analysis Summary
 
-Implement optimistic UI for message sending - when a user sends a message, it should immediately appear in the chat as a bubble with a visual indicator that it's still being sent (similar to iMessage, WhatsApp, etc.).
-
-## Current Behavior
-
-1. User types message and hits send
-2. Input is disabled while `sending` state is true
-3. **Nothing appears in the message list**
-4. After API responds, message appears fully sent
-
-## Desired Behavior
-
-1. User types message and hits send
-2. Message **immediately appears** in the list with a "sending" visual state
-3. Bubble shows reduced opacity and a small clock/spinner icon
-4. Once API confirms, bubble transitions to full opacity with a checkmark
-5. If failed, show error state with option to retry
+After reviewing the entire messaging codebase, I've identified **critical N+1 query problems** in the backend Edge Functions that are the primary cause of slow performance. The frontend has some minor inefficiencies, but the backend is the main bottleneck.
 
 ---
 
-## Implementation
+## Performance Issues Identified
 
-### 1. Extend Message Interface
+### Critical: N+1 Query Problems in Edge Functions
 
-Add a `status` field to track message state:
+| Function | Issue | Impact |
+|----------|-------|--------|
+| `get-conversation-messages` | For each message, makes 2-6 separate DB queries to fetch sender info, profiles, and reply data | 50 messages = 100-300 queries |
+| `get-attendee-conversations` | For each conversation, makes 4-6 separate queries for last message, unread count, other participant, participant count | 10 conversations = 40-60 queries |
 
-```typescript
-export interface Message {
-  // ... existing fields
-  status?: 'sending' | 'sent' | 'failed';  // New field
-}
-```
+### Moderate: Frontend Re-renders
 
-### 2. Update useMessages Hook
+| Component | Issue | Impact |
+|-----------|-------|--------|
+| `useConversations` | Realtime subscription on ALL messages triggers full refetch | Frequent unnecessary API calls |
+| `Conversation.tsx` | Fetches all conversations just to find one by ID | Redundant data fetching |
+| `MessageBubble` | Not memoized; re-renders on any parent state change | Minor UI performance impact |
 
-Implement optimistic UI pattern:
+### Minor: Missing Index
 
-```typescript
-const sendMessage = useCallback(async (content: string, replyToId?: string) => {
-  // Create optimistic message with temporary ID
-  const tempId = `temp-${Date.now()}`;
-  const optimisticMessage: Message = {
-    id: tempId,
-    conversation_id: conversationId!,
-    content,
-    is_deleted: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    sender: {
-      type: 'attendee',
-      id: selectedAttendee!.id,
-      name: selectedAttendee!.name || 'You',
-      avatar_url: selectedAttendee!.avatar_url,
-    },
-    is_own: true,
-    status: 'sending',  // Mark as sending
-  };
-
-  // Add to list immediately
-  setMessages(prev => [...prev, optimisticMessage]);
-  setSending(true);
-
-  try {
-    const { data, error } = await supabase.functions.invoke(...);
-    
-    if (error || data?.error) throw new Error(...);
-
-    // Replace temp message with real one
-    setMessages(prev => prev.map(m => 
-      m.id === tempId 
-        ? { ...data.message, status: 'sent' }
-        : m
-    ));
-    
-    return { success: true };
-  } catch (err) {
-    // Mark as failed
-    setMessages(prev => prev.map(m => 
-      m.id === tempId 
-        ? { ...m, status: 'failed' }
-        : m
-    ));
-    return { success: false, error: err.message };
-  } finally {
-    setSending(false);
-  }
-}, [...]);
-```
-
-### 3. Update MessageBubble Component
-
-Add visual states for sending/failed:
-
-```tsx
-export function MessageBubble({ message, showSender = true }: MessageBubbleProps) {
-  const isSending = message.status === 'sending';
-  const isFailed = message.status === 'failed';
-  
-  // For own messages
-  if (message.is_own) {
-    return (
-      <div className={cn(
-        "flex justify-end mb-3",
-        isSending && "opacity-70"  // Reduce opacity while sending
-      )}>
-        <div className="max-w-[80%]">
-          {/* Bubble */}
-          <div className={cn(
-            "bg-primary text-primary-foreground rounded-2xl rounded-tr-md px-4 py-2",
-            isFailed && "bg-destructive"
-          )}>
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-          </div>
-          
-          {/* Status indicator */}
-          <div className="flex items-center justify-end gap-1 mt-1">
-            {isSending ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Sending...</span>
-              </>
-            ) : isFailed ? (
-              <span className="text-xs text-destructive">Failed to send</span>
-            ) : (
-              <p className="text-xs text-muted-foreground">{time}</p>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  // ... rest of component for received messages
-}
-```
+| Table | Column | Query Pattern |
+|-------|--------|---------------|
+| `attendee_messages` | `sender_attendee_id` | Filtered in unread count queries |
 
 ---
 
-## Visual Design
+## Solution: Batch Queries in Edge Functions
 
+### 1. Optimize `get-conversation-messages` (High Impact)
+
+**Current approach** (N+1 pattern):
+```
+For each message:
+  → Query attendees table
+  → Query attendee_profiles table
+  → If reply: Query attendee_messages
+  → If reply from attendee: Query attendee_profiles again
+```
+
+**Optimized approach** (Batch queries):
 ```text
-SENDING STATE                      SENT STATE
-┌─────────────────────┐           ┌─────────────────────┐
-│                     │           │                     │
-│     [Message text]  │ ← 70%     │     [Message text]  │ ← 100%
-│                     │   opacity │                     │   opacity
-└─────────────────────┘           └─────────────────────┘
-        ◌ Sending...                      2:30 PM ✓
-
-FAILED STATE
-┌─────────────────────┐
-│                     │
-│     [Message text]  │ ← Red tint
-│                     │
-└─────────────────────┘
-        ⚠ Failed to send
+1. Fetch all messages in one query
+2. Collect unique sender_attendee_ids and sender_speaker_ids
+3. Batch fetch all attendees in one query
+4. Batch fetch all profiles in one query
+5. Batch fetch all speakers in one query
+6. Collect unique reply_to_ids, batch fetch original messages
+7. Enrich messages in memory using lookup maps
 ```
+
+### 2. Optimize `get-attendee-conversations` (High Impact)
+
+**Current approach** (N+1 pattern):
+```
+For each conversation:
+  → Query last message
+  → Query unread count
+  → Query other participants
+  → Query attendee/speaker info for other participant
+  → Query participant count
+```
+
+**Optimized approach**:
+```text
+1. Get all participant records for user in one query
+2. Get all conversations in one query
+3. Batch query last messages (WHERE conversation_id IN (...))
+4. Use a single aggregated query for unread counts
+5. Batch query all other participants
+6. Batch query all attendee/speaker info
+7. Assemble results in memory
+```
+
+### 3. Optimize Frontend Realtime Subscriptions
+
+**Current**: Subscribes to ALL `attendee_messages` inserts globally, which triggers refetch even for unrelated conversations.
+
+**Optimized**: Filter realtime subscription by `event_id` or user's conversation IDs to reduce unnecessary triggers.
+
+### 4. Memoize React Components
+
+Add `React.memo` to `MessageBubble` and `ConversationCard` to prevent unnecessary re-renders.
+
+### 5. Add Missing Database Index
+
+Add index on `attendee_messages.sender_attendee_id` for faster unread count filtering.
 
 ---
 
@@ -167,32 +100,95 @@ FAILED STATE
 
 | File | Changes |
 |------|---------|
-| `src/hooks/useMessages.ts` | Add `status` to Message interface, implement optimistic updates |
-| `src/components/attendee/MessageBubble.tsx` | Add visual states for sending/failed with icons |
+| `supabase/functions/get-conversation-messages/index.ts` | Rewrite with batch queries using lookup maps |
+| `supabase/functions/get-attendee-conversations/index.ts` | Rewrite with batch queries for all enrichment |
+| `src/components/attendee/MessageBubble.tsx` | Wrap with `React.memo` |
+| `src/components/attendee/ConversationCard.tsx` | Wrap with `React.memo` |
+| `src/hooks/useConversations.ts` | Scope realtime subscription more narrowly |
+| New migration | Add index on `sender_attendee_id` |
 
 ---
 
-## Technical Details
+## Technical Implementation
 
-### Message Status Flow
+### Batch Query Pattern for Messages
 
-```text
-User sends → status: 'sending' (optimistic) → API responds
-                                                   ↓
-                                           ┌──────┴──────┐
-                                           ↓             ↓
-                                    status: 'sent'  status: 'failed'
+```typescript
+// 1. Fetch all messages
+const { data: messages } = await supabase
+  .from('attendee_messages')
+  .select('*')
+  .eq('conversation_id', conversation_id)
+  .order('created_at', { ascending: false })
+  .limit(limit);
+
+// 2. Collect unique IDs
+const attendeeIds = [...new Set(messages.filter(m => m.sender_attendee_id).map(m => m.sender_attendee_id))];
+const speakerIds = [...new Set(messages.filter(m => m.sender_speaker_id).map(m => m.sender_speaker_id))];
+const replyIds = [...new Set(messages.filter(m => m.reply_to_id).map(m => m.reply_to_id))];
+
+// 3. Batch fetch (3 queries instead of 50-300)
+const [attendees, profiles, speakers, replyMessages] = await Promise.all([
+  supabase.from('attendees').select('id, attendee_name').in('id', attendeeIds),
+  supabase.from('attendee_profiles').select('attendee_id, display_name, avatar_url').in('attendee_id', attendeeIds),
+  supabase.from('speakers').select('id, name, photo_url, title, company').in('id', speakerIds),
+  supabase.from('attendee_messages').select('id, content, sender_attendee_id, sender_speaker_id').in('id', replyIds)
+]);
+
+// 4. Build lookup maps for O(1) access
+const attendeeMap = new Map(attendees.data?.map(a => [a.id, a]));
+const profileMap = new Map(profiles.data?.map(p => [p.attendee_id, p]));
+const speakerMap = new Map(speakers.data?.map(s => [s.id, s]));
+const replyMap = new Map(replyMessages.data?.map(m => [m.id, m]));
+
+// 5. Enrich messages in memory (no additional queries)
+const enrichedMessages = messages.map(msg => {
+  // Use maps for instant lookup...
+});
 ```
 
-### Animation
+### Optimized Unread Count Query
 
-The transition from sending to sent will be smooth using Tailwind transitions:
-- Opacity change: `transition-opacity duration-200`
-- The spinner will fade out and timestamp will fade in
+Instead of one query per conversation, use a single aggregated query:
 
-### Edge Cases
+```sql
+SELECT 
+  conversation_id,
+  COUNT(*) as unread_count
+FROM attendee_messages
+WHERE conversation_id = ANY($1)
+  AND is_deleted = false
+  AND sender_attendee_id != $2
+  AND created_at > (
+    SELECT last_read_at FROM conversation_participants 
+    WHERE conversation_id = attendee_messages.conversation_id 
+    AND attendee_id = $2
+  )
+GROUP BY conversation_id
+```
 
-1. **Quick send**: If API responds very fast, user might not even see the spinner (this is fine)
-2. **Failed message**: Keep in list with red styling so user can see what failed
-3. **Retry**: Could add a retry button for failed messages (future enhancement)
+---
+
+## Expected Performance Improvement
+
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| `get-conversation-messages` (50 msgs) | 100-300 queries | 5-8 queries | 95%+ reduction |
+| `get-attendee-conversations` (10 convs) | 40-60 queries | 6-10 queries | 80%+ reduction |
+| Response time | 2-5 seconds | 200-500ms | 4-10x faster |
+
+---
+
+## Implementation Order
+
+1. **Backend Edge Functions** (highest impact)
+   - Optimize `get-conversation-messages` with batch queries
+   - Optimize `get-attendee-conversations` with batch queries
+
+2. **Database**
+   - Add index on `sender_attendee_id`
+
+3. **Frontend** (lower impact)
+   - Memoize components
+   - Scope realtime subscriptions
 
