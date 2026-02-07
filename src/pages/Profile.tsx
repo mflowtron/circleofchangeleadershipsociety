@@ -171,7 +171,10 @@ export default function Profile() {
 
       {/* Profile Header Card */}
       <Card className="shadow-soft border-border/50 overflow-hidden">
-        <div className="h-24 bg-gradient-gold" />
+        <div className="h-28 bg-gradient-to-br from-primary via-amber-500 to-amber-600 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.15)_0%,_transparent_60%)]" />
+        </div>
         <CardContent className="relative pt-0 pb-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
             <div className="relative group">
@@ -201,7 +204,7 @@ export default function Profile() {
               </button>
             </div>
             <div className="text-center sm:text-left flex-1 pb-1">
-              <h2 className="text-xl font-bold text-foreground">{profile?.full_name}</h2>
+              <h2 className="text-xl font-bold text-foreground drop-shadow-sm">{profile?.full_name}</h2>
               {profile?.headline && (
                 <p className="text-sm text-muted-foreground">{profile.headline}</p>
               )}
