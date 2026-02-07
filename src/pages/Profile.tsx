@@ -171,7 +171,7 @@ export default function Profile() {
 
       {/* Profile Header Card */}
       <Card className="shadow-soft border-border/50 overflow-hidden">
-        <div className="h-28 bg-gradient-to-br from-primary via-amber-500 to-amber-600 relative overflow-hidden">
+        <div className="h-28 bg-gradient-to-br from-primary via-amber-mid to-amber-deep relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.15)_0%,_transparent_60%)]" />
         </div>
