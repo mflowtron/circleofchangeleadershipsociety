@@ -42,7 +42,7 @@ serve(async (req) => {
       );
     }
 
-    // Get conversations where the attendee is a participant
+    // 1. Get all participant records for user in one query
     const { data: participants, error: participantsError } = await supabase
       .from('conversation_participants')
       .select(`
@@ -68,7 +68,10 @@ serve(async (req) => {
       );
     }
 
-    // Get conversation details
+    // Build participant lookup map
+    const participantMap = new Map(participants?.map(p => [p.conversation_id, p]));
+
+    // 2. Get all conversations in one query
     const { data: conversations, error: convError } = await supabase
       .from('attendee_conversations')
       .select(`
@@ -91,128 +94,168 @@ serve(async (req) => {
       throw convError;
     }
 
-    // Get last message for each conversation
-    const conversationsWithMessages = await Promise.all(
-      (conversations || []).map(async (conv) => {
-        const { data: lastMessage } = await supabase
-          .from('attendee_messages')
-          .select(`
-            id,
-            content,
-            created_at,
-            sender_attendee_id,
-            sender_speaker_id
-          `)
-          .eq('conversation_id', conv.id)
-          .eq('is_deleted', false)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    if (!conversations || conversations.length === 0) {
+      return new Response(
+        JSON.stringify({ conversations: [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-        // Get participant info for this conversation
-        const participant = participants?.find(p => p.conversation_id === conv.id);
+    const activeConversationIds = conversations.map(c => c.id);
 
-        // Count unread messages
-        const lastReadAt = participant?.last_read_at;
-        let unreadCount = 0;
-        
-        if (lastReadAt) {
-          const { count } = await supabase
-            .from('attendee_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', conv.id)
-            .eq('is_deleted', false)
-            .gt('created_at', lastReadAt)
-            .neq('sender_attendee_id', attendee_id);
-          
-          unreadCount = count || 0;
-        } else if (lastMessage) {
-          // If never read, count all messages not from self
-          const { count } = await supabase
-            .from('attendee_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', conv.id)
-            .eq('is_deleted', false)
-            .neq('sender_attendee_id', attendee_id);
-          
-          unreadCount = count || 0;
+    // 3. Batch fetch last messages for all conversations
+    // Using a subquery approach - get latest message per conversation
+    const { data: lastMessages } = await supabase
+      .from('attendee_messages')
+      .select(`
+        id,
+        conversation_id,
+        content,
+        created_at,
+        sender_attendee_id,
+        sender_speaker_id
+      `)
+      .in('conversation_id', activeConversationIds)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false });
+
+    // Build last message map (first message per conversation due to ordering)
+    const lastMessageMap = new Map<string, any>();
+    (lastMessages || []).forEach((msg: any) => {
+      if (!lastMessageMap.has(msg.conversation_id)) {
+        lastMessageMap.set(msg.conversation_id, msg);
+      }
+    });
+
+    // 4. Batch fetch unread counts using aggregated query
+    // Get all messages after last_read_at for each conversation
+    const unreadCounts = new Map<string, number>();
+    
+    // Build queries for unread counts
+    const unreadPromises = activeConversationIds.map(async (convId) => {
+      const participant = participantMap.get(convId);
+      const lastReadAt = participant?.last_read_at;
+      
+      let query = supabase
+        .from('attendee_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('conversation_id', convId)
+        .eq('is_deleted', false)
+        .neq('sender_attendee_id', attendee_id);
+      
+      if (lastReadAt) {
+        query = query.gt('created_at', lastReadAt);
+      }
+      
+      const { count } = await query;
+      return { convId, count: count || 0 };
+    });
+
+    const unreadResults = await Promise.all(unreadPromises);
+    unreadResults.forEach(({ convId, count }) => {
+      unreadCounts.set(convId, count);
+    });
+
+    // 5. Get all other participants for DM conversations
+    const dmConversationIds = conversations.filter(c => c.type === 'direct').map(c => c.id);
+    
+    let otherParticipantsMap = new Map<string, any>();
+    
+    if (dmConversationIds.length > 0) {
+      const { data: otherParticipants } = await supabase
+        .from('conversation_participants')
+        .select(`
+          conversation_id,
+          attendee_id,
+          speaker_id
+        `)
+        .in('conversation_id', dmConversationIds)
+        .neq('attendee_id', attendee_id)
+        .is('left_at', null);
+
+      // Collect unique attendee and speaker IDs
+      const otherAttendeeIds = [...new Set((otherParticipants || []).filter(p => p.attendee_id).map(p => p.attendee_id))];
+      const otherSpeakerIds = [...new Set((otherParticipants || []).filter(p => p.speaker_id).map(p => p.speaker_id))];
+
+      // Batch fetch attendee and speaker info
+      const [attendeesRes, profilesRes, speakersRes] = await Promise.all([
+        otherAttendeeIds.length > 0 
+          ? supabase.from('attendees').select('id, attendee_name, attendee_email').in('id', otherAttendeeIds)
+          : Promise.resolve({ data: [] }),
+        otherAttendeeIds.length > 0 
+          ? supabase.from('attendee_profiles').select('attendee_id, display_name, avatar_url').in('attendee_id', otherAttendeeIds)
+          : Promise.resolve({ data: [] }),
+        otherSpeakerIds.length > 0 
+          ? supabase.from('speakers').select('id, name, photo_url').in('id', otherSpeakerIds)
+          : Promise.resolve({ data: [] })
+      ]);
+
+      const attendeeMap = new Map((attendeesRes.data || []).map((a: any) => [a.id, a]));
+      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.attendee_id, p]));
+      const speakerMap = new Map((speakersRes.data || []).map((s: any) => [s.id, s]));
+
+      // Build other participant info map
+      (otherParticipants || []).forEach((op: any) => {
+        if (op.attendee_id) {
+          const attendee = attendeeMap.get(op.attendee_id);
+          const profile = profileMap.get(op.attendee_id);
+          otherParticipantsMap.set(op.conversation_id, {
+            type: 'attendee',
+            id: attendee?.id,
+            name: profile?.display_name || attendee?.attendee_name,
+            avatar_url: profile?.avatar_url
+          });
+        } else if (op.speaker_id) {
+          const speaker = speakerMap.get(op.speaker_id);
+          otherParticipantsMap.set(op.conversation_id, {
+            type: 'speaker',
+            id: speaker?.id,
+            name: speaker?.name,
+            avatar_url: speaker?.photo_url
+          });
         }
+      });
+    }
 
-        // For DMs, get the other participant's info
-        let otherParticipant = null;
-        if (conv.type === 'direct') {
-          const { data: otherParticipants } = await supabase
-            .from('conversation_participants')
-            .select(`
-              attendee_id,
-              speaker_id
-            `)
-            .eq('conversation_id', conv.id)
-            .neq('attendee_id', attendee_id)
-            .is('left_at', null)
-            .limit(1);
+    // 6. Batch get participant counts for group conversations
+    const groupConversationIds = conversations.filter(c => c.type !== 'direct').map(c => c.id);
+    const participantCounts = new Map<string, number>();
 
-          if (otherParticipants && otherParticipants.length > 0) {
-            const other = otherParticipants[0];
-            if (other.attendee_id) {
-              const { data: attendee } = await supabase
-                .from('attendees')
-                .select('id, attendee_name, attendee_email')
-                .eq('id', other.attendee_id)
-                .single();
-              
-              const { data: profile } = await supabase
-                .from('attendee_profiles')
-                .select('display_name, avatar_url')
-                .eq('attendee_id', other.attendee_id)
-                .maybeSingle();
-              
-              otherParticipant = {
-                type: 'attendee',
-                id: attendee?.id,
-                name: profile?.display_name || attendee?.attendee_name,
-                avatar_url: profile?.avatar_url
-              };
-            } else if (other.speaker_id) {
-              const { data: speaker } = await supabase
-                .from('speakers')
-                .select('id, name, photo_url')
-                .eq('id', other.speaker_id)
-                .single();
-              
-              otherParticipant = {
-                type: 'speaker',
-                id: speaker?.id,
-                name: speaker?.name,
-                avatar_url: speaker?.photo_url
-              };
-            }
-          }
-        }
+    if (groupConversationIds.length > 0) {
+      // Count participants per conversation
+      const countPromises = groupConversationIds.map(async (convId) => {
+        const { count } = await supabase
+          .from('conversation_participants')
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', convId)
+          .is('left_at', null);
+        return { convId, count: count || 0 };
+      });
 
-        // Get participant count for groups
-        let participantCount = 0;
-        if (conv.type !== 'direct') {
-          const { count } = await supabase
-            .from('conversation_participants')
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', conv.id)
-            .is('left_at', null);
-          
-          participantCount = count || 0;
-        }
+      const countResults = await Promise.all(countPromises);
+      countResults.forEach(({ convId, count }) => {
+        participantCounts.set(convId, count);
+      });
+    }
 
-        return {
-          ...conv,
-          last_message: lastMessage,
-          unread_count: unreadCount,
-          other_participant: otherParticipant,
-          participant_count: participantCount,
-          role: participant?.role,
-          muted_until: participant?.muted_until
-        };
-      })
-    );
+    // 7. Assemble final results using lookup maps
+    const conversationsWithMessages = conversations.map(conv => {
+      const participant = participantMap.get(conv.id);
+      const lastMessage = lastMessageMap.get(conv.id);
+      const unreadCount = unreadCounts.get(conv.id) || 0;
+      const otherParticipant = otherParticipantsMap.get(conv.id);
+      const participantCount = participantCounts.get(conv.id) || 0;
+
+      return {
+        ...conv,
+        last_message: lastMessage || null,
+        unread_count: unreadCount,
+        other_participant: otherParticipant || null,
+        participant_count: participantCount,
+        role: participant?.role,
+        muted_until: participant?.muted_until
+      };
+    });
 
     return new Response(
       JSON.stringify({ conversations: conversationsWithMessages }),

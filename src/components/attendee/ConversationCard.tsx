@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageCircle, Users, Calendar, Radio } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,7 +11,7 @@ interface ConversationCardProps {
   onClick: () => void;
 }
 
-export function ConversationCard({ conversation, onClick }: ConversationCardProps) {
+export const ConversationCard = memo(function ConversationCard({ conversation, onClick }: ConversationCardProps) {
   const getIcon = () => {
     switch (conversation.type) {
       case 'event':
@@ -134,4 +135,4 @@ export function ConversationCard({ conversation, onClick }: ConversationCardProp
       </div>
     </button>
   );
-}
+});
