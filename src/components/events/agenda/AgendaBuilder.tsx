@@ -27,6 +27,7 @@ import { AgendaCalendarView } from './AgendaCalendarView';
 import { getAgendaTypeConfig, AGENDA_ITEM_TYPES } from './AgendaTypeIcon';
 import { useAgendaItems, type AgendaItem, type AgendaItemType } from '@/hooks/useAgendaItems';
 import { useSpeakers } from '@/hooks/useSpeakers';
+import { useEventById } from '@/hooks/useEvents';
 
 interface AgendaBuilderProps {
   eventId: string;
@@ -43,6 +44,9 @@ export function AgendaBuilder({ eventId }: AgendaBuilderProps) {
     deleteAgendaItem 
   } = useAgendaItems(eventId);
   const { speakers } = useSpeakers(eventId);
+  const { data: event } = useEventById(eventId);
+  
+  const eventTimezone = event?.timezone || 'America/New_York';
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AgendaItem | null>(null);
@@ -194,6 +198,7 @@ export function AgendaBuilder({ eventId }: AgendaBuilderProps) {
             agendaItems={agendaItems}
             onEditItem={handleEditItem}
             onCreateItem={handleCreateAtTime}
+            eventTimezone={eventTimezone}
           />
         </div>
       )}
