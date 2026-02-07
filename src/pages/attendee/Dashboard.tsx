@@ -56,6 +56,9 @@ function DashboardContent() {
 
   // Determine title based on current route
   const getTitle = () => {
+    if (location.pathname.includes('/messages')) return 'Messages';
+    if (location.pathname.includes('/networking')) return 'Networking';
+    if (location.pathname.includes('/profile')) return 'Profile';
     if (location.pathname.includes('/agenda')) return 'Agenda';
     if (location.pathname.includes('/schedule')) return 'My Schedule';
     if (location.pathname.includes('/qr')) return 'My QR Code';

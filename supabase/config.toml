@@ -29,3 +29,33 @@ verify_jwt = false
 
 [functions.get-system-health]
 verify_jwt = false
+
+[functions.get-attendee-conversations]
+verify_jwt = false
+
+[functions.get-conversation-messages]
+verify_jwt = false
+
+[functions.send-attendee-message]
+verify_jwt = false
+
+[functions.create-dm-conversation]
+verify_jwt = false
+
+[functions.create-group-conversation]
+verify_jwt = false
+
+[functions.join-event-chat]
+verify_jwt = false
+
+[functions.get-networkable-attendees]
+verify_jwt = false
+
+[functions.update-attendee-profile]
+verify_jwt = false
+
+[functions.get-attendee-profile]
+verify_jwt = false
+
+[functions.join-session-chat]
+verify_jwt = false

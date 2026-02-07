@@ -62,6 +62,10 @@ const AttendeeHome = lazy(() => import("@/pages/attendee/EventHome"));
 const AttendeeAgenda = lazy(() => import("@/pages/attendee/Agenda"));
 const AttendeeSchedule = lazy(() => import("@/pages/attendee/MySchedule"));
 const AttendeeQRCode = lazy(() => import("@/pages/attendee/QRCode"));
+const AttendeeMessages = lazy(() => import("@/pages/attendee/Messages"));
+const AttendeeConversation = lazy(() => import("@/pages/attendee/Conversation"));
+const AttendeeNetworking = lazy(() => import("@/pages/attendee/Networking"));
+const AttendeeProfilePage = lazy(() => import("@/pages/attendee/AttendeeProfile"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -326,6 +330,26 @@ function AppRoutes() {
         <Route path="agenda" element={
           <Suspense fallback={<PageLoader />}>
             <AttendeeAgenda />
+          </Suspense>
+        } />
+        <Route path="messages" element={
+          <Suspense fallback={<PageLoader />}>
+            <AttendeeMessages />
+          </Suspense>
+        } />
+        <Route path="messages/:conversationId" element={
+          <Suspense fallback={<PageLoader />}>
+            <AttendeeConversation />
+          </Suspense>
+        } />
+        <Route path="networking" element={
+          <Suspense fallback={<PageLoader />}>
+            <AttendeeNetworking />
+          </Suspense>
+        } />
+        <Route path="profile" element={
+          <Suspense fallback={<PageLoader />}>
+            <AttendeeProfilePage />
           </Suspense>
         } />
         <Route path="schedule" element={
