@@ -291,6 +291,189 @@ export type Database = {
           },
         ]
       }
+      attendee_conversations: {
+        Row: {
+          agenda_item_id: string | null
+          created_at: string | null
+          created_by_attendee_id: string | null
+          created_by_speaker_id: string | null
+          description: string | null
+          event_id: string
+          id: string
+          is_archived: boolean | null
+          name: string | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          agenda_item_id?: string | null
+          created_at?: string | null
+          created_by_attendee_id?: string | null
+          created_by_speaker_id?: string | null
+          description?: string | null
+          event_id: string
+          id?: string
+          is_archived?: boolean | null
+          name?: string | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          agenda_item_id?: string | null
+          created_at?: string | null
+          created_by_attendee_id?: string | null
+          created_by_speaker_id?: string | null
+          description?: string | null
+          event_id?: string
+          id?: string
+          is_archived?: boolean | null
+          name?: string | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendee_conversations_agenda_item_id_fkey"
+            columns: ["agenda_item_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendee_conversations_created_by_attendee_id_fkey"
+            columns: ["created_by_attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendee_conversations_created_by_speaker_id_fkey"
+            columns: ["created_by_speaker_id"]
+            isOneToOne: false
+            referencedRelation: "speakers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendee_conversations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendee_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
+          id: string
+          is_deleted: boolean | null
+          reply_to_id: string | null
+          sender_attendee_id: string | null
+          sender_speaker_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          reply_to_id?: string | null
+          sender_attendee_id?: string | null
+          sender_speaker_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          reply_to_id?: string | null
+          sender_attendee_id?: string | null
+          sender_speaker_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendee_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "attendee_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendee_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "attendee_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendee_messages_sender_attendee_id_fkey"
+            columns: ["sender_attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendee_messages_sender_speaker_id_fkey"
+            columns: ["sender_speaker_id"]
+            isOneToOne: false
+            referencedRelation: "speakers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendee_profiles: {
+        Row: {
+          attendee_id: string
+          avatar_url: string | null
+          bio: string | null
+          company: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          open_to_networking: boolean | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attendee_id: string
+          avatar_url?: string | null
+          bio?: string | null
+          company?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          open_to_networking?: boolean | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attendee_id?: string
+          avatar_url?: string | null
+          bio?: string | null
+          company?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          open_to_networking?: boolean | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendee_profiles_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: true
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendees: {
         Row: {
           additional_info: Json | null
@@ -439,6 +622,64 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_participants: {
+        Row: {
+          attendee_id: string | null
+          conversation_id: string
+          id: string
+          joined_at: string | null
+          last_read_at: string | null
+          left_at: string | null
+          muted_until: string | null
+          role: string | null
+          speaker_id: string | null
+        }
+        Insert: {
+          attendee_id?: string | null
+          conversation_id: string
+          id?: string
+          joined_at?: string | null
+          last_read_at?: string | null
+          left_at?: string | null
+          muted_until?: string | null
+          role?: string | null
+          speaker_id?: string | null
+        }
+        Update: {
+          attendee_id?: string | null
+          conversation_id?: string
+          id?: string
+          joined_at?: string | null
+          last_read_at?: string | null
+          left_at?: string | null
+          muted_until?: string | null
+          role?: string | null
+          speaker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "attendee_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_speaker_id_fkey"
+            columns: ["speaker_id"]
+            isOneToOne: false
+            referencedRelation: "speakers"
             referencedColumns: ["id"]
           },
         ]
