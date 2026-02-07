@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export interface Post {
   id: string;
@@ -29,7 +29,6 @@ export function usePosts(filter: FilterType = 'all') {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, profile } = useAuth();
-  const { toast } = useToast();
 
   const fetchPosts = useCallback(async () => {
     if (!user) return;
@@ -136,15 +135,13 @@ export function usePosts(filter: FilterType = 'all') {
 
       setPosts(enrichedPosts);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error loading posts',
+      toast.error('Error loading posts', {
         description: error.message,
       });
     } finally {
       setLoading(false);
     }
-  }, [user, filter, profile?.chapter_id, toast]);
+  }, [user, filter, profile?.chapter_id]);
 
   useEffect(() => {
     fetchPosts();
@@ -193,16 +190,13 @@ export function usePosts(filter: FilterType = 'all') {
 
       if (error) throw error;
 
-      toast({
-        title: 'Post created!',
+      toast.success('Post created!', {
         description: 'Your post has been shared.',
       });
 
       fetchPosts();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error creating post',
+      toast.error('Error creating post', {
         description: error.message,
       });
     }
@@ -250,32 +244,27 @@ export function usePosts(filter: FilterType = 'all') {
             : post
         )
       );
-      toast({
-        variant: 'destructive',
-        title: 'Error',
+      toast.error('Error', {
         description: error.message,
       });
     }
-  }, [user, toast]);
+  }, [user]);
 
   const deletePost = useCallback(async (postId: string) => {
     try {
       const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
       if (error) throw error;
       
-      toast({
-        title: 'Post deleted',
+      toast.success('Post deleted', {
         description: 'The post has been removed.',
       });
       fetchPosts();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error deleting post',
+      toast.error('Error deleting post', {
         description: error.message,
       });
     }
-  }, [fetchPosts, toast]);
+  }, [fetchPosts]);
 
   return { posts, loading, createPost, toggleLike, deletePost, refetch: fetchPosts };
 }

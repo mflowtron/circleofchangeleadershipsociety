@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MoreVertical, Users, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,15 +10,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMessages } from '@/hooks/useMessages';
-import { useConversations, Conversation } from '@/hooks/useConversations';
+import { useConversations } from '@/hooks/useConversations';
 import { MessageBubble } from '@/components/attendee/MessageBubble';
 import { MessageInput } from '@/components/attendee/MessageInput';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export default function ConversationPage() {
   const { conversationId } = useParams<{ conversationId: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
@@ -40,10 +39,8 @@ export default function ConversationPage() {
   const handleSend = async (content: string) => {
     const result = await sendMessage(content);
     if (!result.success) {
-      toast({
-        title: 'Failed to send',
+      toast.error('Failed to send', {
         description: result.error || 'Please try again',
-        variant: 'destructive'
       });
     }
   };
@@ -51,10 +48,8 @@ export default function ConversationPage() {
   const handleSendWithAttachment = async (content: string, file: File) => {
     const result = await sendMessageWithAttachment(content, file);
     if (!result.success) {
-      toast({
-        title: 'Failed to send',
+      toast.error('Failed to send', {
         description: result.error || 'Please try again',
-        variant: 'destructive'
       });
     }
   };
@@ -62,10 +57,8 @@ export default function ConversationPage() {
   const handleReaction = async (messageId: string, emoji: string) => {
     const result = await toggleReaction(messageId, emoji);
     if (!result.success) {
-      toast({
-        title: 'Failed to react',
+      toast.error('Failed to react', {
         description: result.error || 'Please try again',
-        variant: 'destructive'
       });
     }
   };

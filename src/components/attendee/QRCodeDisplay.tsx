@@ -2,7 +2,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Download, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface QRCodeDisplayProps {
   attendeeId: string;
@@ -15,8 +15,6 @@ export function QRCodeDisplay({
   attendeeName,
   ticketType,
 }: QRCodeDisplayProps) {
-  const { toast } = useToast();
-  
   const baseUrl = window.location.origin;
   const qrValue = `${baseUrl}/events/checkin/${attendeeId}`;
   
@@ -60,10 +58,8 @@ export function QRCodeDisplay({
       } catch (err) {
         // User cancelled or share failed
         if ((err as Error).name !== 'AbortError') {
-          toast({
-            title: "Couldn't share",
-            description: "Try downloading the QR code instead.",
-            variant: "destructive",
+          toast.error("Couldn't share", {
+            description: 'Try downloading the QR code instead.',
           });
         }
       }
@@ -71,15 +67,12 @@ export function QRCodeDisplay({
       // Fallback: copy to clipboard
       try {
         await navigator.clipboard.writeText(qrValue);
-        toast({
-          title: "Link copied!",
-          description: "The check-in link has been copied to your clipboard.",
+        toast.success('Link copied!', {
+          description: 'The check-in link has been copied to your clipboard.',
         });
       } catch {
-        toast({
-          title: "Couldn't copy",
-          description: "Please try downloading the QR code instead.",
-          variant: "destructive",
+        toast.error("Couldn't copy", {
+          description: 'Please try downloading the QR code instead.',
         });
       }
     }

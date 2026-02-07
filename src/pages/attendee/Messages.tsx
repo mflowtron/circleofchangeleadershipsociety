@@ -9,11 +9,10 @@ import { useAttendee } from '@/contexts/AttendeeContext';
 import { ConversationCard } from '@/components/attendee/ConversationCard';
 import { CreateGroupDialog } from '@/components/attendee/CreateGroupDialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export default function Messages() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { isAuthenticated, selectedAttendee, selectedEvent } = useAttendee();
   const { conversations, loading, refetch } = useConversations();
   
@@ -54,8 +53,7 @@ export default function Messages() {
       await refetch();
       
       if (!data.already_joined) {
-        toast({
-          title: 'Joined event chat!',
+        toast.success('Joined event chat!', {
           description: 'You can now chat with all attendees'
         });
       }
@@ -63,10 +61,8 @@ export default function Messages() {
       navigate(`/attendee/app/messages/${data.conversation_id}`);
     } catch (err: any) {
       console.error('Failed to join event chat:', err);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: err.message || 'Failed to join event chat',
-        variant: 'destructive'
       });
     } finally {
       setJoiningEventChat(false);

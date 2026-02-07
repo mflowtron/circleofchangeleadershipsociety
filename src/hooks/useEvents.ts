@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export interface Event {
   id: string;
@@ -40,7 +40,6 @@ export interface UpdateEventData extends Partial<CreateEventData> {
 
 export function useEvents() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const eventsQuery = useQuery({
     queryKey: ['events'],
@@ -89,16 +88,13 @@ export function useEvents() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
-      toast({
-        title: 'Event created',
+      toast.success('Event created', {
         description: 'Your event has been created successfully.',
       });
     },
     onError: (error) => {
-      toast({
-        title: 'Error creating event',
+      toast.error('Error creating event', {
         description: error.message,
-        variant: 'destructive',
       });
     },
   });
@@ -117,16 +113,13 @@ export function useEvents() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
-      toast({
-        title: 'Event updated',
+      toast.success('Event updated', {
         description: 'Your event has been updated successfully.',
       });
     },
     onError: (error) => {
-      toast({
-        title: 'Error updating event',
+      toast.error('Error updating event', {
         description: error.message,
-        variant: 'destructive',
       });
     },
   });
@@ -142,16 +135,13 @@ export function useEvents() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
-      toast({
-        title: 'Event deleted',
+      toast.success('Event deleted', {
         description: 'The event has been deleted.',
       });
     },
     onError: (error) => {
-      toast({
-        title: 'Error deleting event',
+      toast.error('Error deleting event', {
         description: error.message,
-        variant: 'destructive',
       });
     },
   });

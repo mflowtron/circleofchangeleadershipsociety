@@ -6,11 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNetworking } from '@/hooks/useNetworking';
 import { NetworkingCard } from '@/components/attendee/NetworkingCard';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export default function Networking() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { speakers, attendees, loading, search, createDM } = useNetworking();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,10 +39,8 @@ export default function Networking() {
       );
 
       if (!result.success) {
-        toast({
-          title: 'Error',
+        toast.error('Error', {
           description: result.error || 'Failed to start conversation',
-          variant: 'destructive'
         });
         return;
       }

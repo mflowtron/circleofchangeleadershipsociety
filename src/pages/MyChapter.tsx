@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +33,6 @@ export default function MyChapter() {
   const [posts, setPosts] = useState<ChapterPost[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchChapterData();
@@ -106,9 +105,7 @@ export default function MyChapter() {
 
       setPosts(enrichedPosts);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error loading chapter data',
+      toast.error('Error loading chapter data', {
         description: error.message,
       });
     } finally {
@@ -121,12 +118,10 @@ export default function MyChapter() {
       const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
       if (error) throw error;
       
-      toast({ title: 'Post deleted' });
+      toast.success('Post deleted');
       fetchChapterData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error deleting post',
+      toast.error('Error deleting post', {
         description: error.message,
       });
     }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export interface Comment {
   id: string;
@@ -18,7 +18,6 @@ export function useComments(postId: string) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const fetchComments = useCallback(async () => {
     try {
@@ -59,15 +58,13 @@ export function useComments(postId: string) {
 
       setComments(enrichedComments);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error loading comments',
+      toast.error('Error loading comments', {
         description: error.message,
       });
     } finally {
       setLoading(false);
     }
-  }, [postId, toast]);
+  }, [postId]);
 
   useEffect(() => {
     fetchComments();
@@ -86,13 +83,11 @@ export function useComments(postId: string) {
       if (error) throw error;
       fetchComments();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error adding comment',
+      toast.error('Error adding comment', {
         description: error.message,
       });
     }
-  }, [user, postId, fetchComments, toast]);
+  }, [user, postId, fetchComments]);
 
   const deleteComment = useCallback(async (commentId: string) => {
     try {
@@ -100,13 +95,11 @@ export function useComments(postId: string) {
       if (error) throw error;
       fetchComments();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error deleting comment',
+      toast.error('Error deleting comment', {
         description: error.message,
       });
     }
-  }, [fetchComments, toast]);
+  }, [fetchComments]);
 
   return { comments, loading, addComment, deleteComment, refetch: fetchComments };
 }
