@@ -1,10 +1,11 @@
-import { memo } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageCircle, Users, Calendar, Radio } from 'lucide-react';
+import { MessageCircle, Users, Calendar, Radio, ChevronRight } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Conversation } from '@/hooks/useConversations';
+import { useAttendee } from '@/contexts/AttendeeContext';
 
 interface ConversationCardProps {
   conversation: Conversation;
@@ -12,6 +13,23 @@ interface ConversationCardProps {
 }
 
 export const ConversationCard = memo(function ConversationCard({ conversation, onClick }: ConversationCardProps) {
+  const { prefetchMessages } = useAttendee();
+  const prefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Prefetch messages on hover/focus (debounced)
+  const handleMouseEnter = useCallback(() => {
+    prefetchTimeoutRef.current = setTimeout(() => {
+      prefetchMessages(conversation.id);
+    }, 300);
+  }, [prefetchMessages, conversation.id]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (prefetchTimeoutRef.current) {
+      clearTimeout(prefetchTimeoutRef.current);
+      prefetchTimeoutRef.current = null;
+    }
+  }, []);
+
   const getIcon = () => {
     switch (conversation.type) {
       case 'event':
@@ -87,10 +105,14 @@ export const ConversationCard = memo(function ConversationCard({ conversation, o
   return (
     <button
       onClick={onClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onFocus={handleMouseEnter}
+      onBlur={handleMouseLeave}
       className={cn(
-        "w-full flex items-start gap-3 p-4 text-left transition-colors",
-        "hover:bg-accent/50 active:bg-accent",
-        "border-b border-border last:border-b-0"
+        "w-full flex items-center gap-3 p-4 text-left transition-all duration-200",
+        "hover:bg-accent/50 active:bg-accent active:scale-[0.99]",
+        "border-b border-border last:border-b-0 group"
       )}
     >
       {getAvatar()}
@@ -133,6 +155,8 @@ export const ConversationCard = memo(function ConversationCard({ conversation, o
           </p>
         )}
       </div>
+      
+      <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0 transition-transform group-hover:translate-x-0.5" />
     </button>
   );
 });

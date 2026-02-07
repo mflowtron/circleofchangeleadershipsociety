@@ -114,6 +114,22 @@ export default {
           "70%": { transform: "scale(0.9)" },
           "100%": { transform: "scale(1)", opacity: "1" },
         },
+        "slide-in-from-right": {
+          from: { transform: "translateX(100%)" },
+          to: { transform: "translateX(0)" },
+        },
+        "slide-out-to-left": {
+          from: { transform: "translateX(0)", opacity: "1" },
+          to: { transform: "translateX(-30%)", opacity: "0.5" },
+        },
+        "slide-in-from-left": {
+          from: { transform: "translateX(-30%)", opacity: "0.5" },
+          to: { transform: "translateX(0)", opacity: "1" },
+        },
+        "slide-out-to-right": {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -123,6 +139,10 @@ export default {
         "scale-in": "scale-in 0.2s ease-out forwards",
         "slide-in-left": "slide-in-left 0.3s ease-out forwards",
         "pulse-gold": "pulse-gold 2s ease-in-out infinite",
+        "slide-in-from-right": "slide-in-from-right 0.25s ease-out forwards",
+        "slide-out-to-left": "slide-out-to-left 0.25s ease-out forwards",
+        "slide-in-from-left": "slide-in-from-left 0.25s ease-out forwards",
+        "slide-out-to-right": "slide-out-to-right 0.25s ease-out forwards",
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
