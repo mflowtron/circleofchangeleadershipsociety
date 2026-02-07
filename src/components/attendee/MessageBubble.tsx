@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,7 +10,7 @@ interface MessageBubbleProps {
   showSender?: boolean;
 }
 
-export function MessageBubble({ message, showSender = true }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, showSender = true }: MessageBubbleProps) {
   const initials = message.sender.name
     .split(' ')
     .map(n => n[0])
@@ -93,4 +94,4 @@ export function MessageBubble({ message, showSender = true }: MessageBubbleProps
       </div>
     </div>
   );
-}
+});

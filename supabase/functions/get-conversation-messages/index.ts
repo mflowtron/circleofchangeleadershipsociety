@@ -58,7 +58,7 @@ serve(async (req) => {
       );
     }
 
-    // Get messages
+    // 1. Fetch all messages in one query
     let query = supabase
       .from('attendee_messages')
       .select(`
@@ -86,100 +86,166 @@ serve(async (req) => {
       throw messagesError;
     }
 
-    // Enrich messages with sender info
-    const enrichedMessages = await Promise.all(
-      (messages || []).map(async (msg) => {
-        let sender = null;
+    if (!messages || messages.length === 0) {
+      // Update last_read_at even if no messages
+      await supabase
+        .from('conversation_participants')
+        .update({ last_read_at: new Date().toISOString() })
+        .eq('conversation_id', conversation_id)
+        .eq('attendee_id', attendee_id);
 
-        if (msg.sender_attendee_id) {
-          const { data: attendee } = await supabase
-            .from('attendees')
-            .select('id, attendee_name')
-            .eq('id', msg.sender_attendee_id)
-            .single();
+      return new Response(
+        JSON.stringify({ messages: [], has_more: false }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-          const { data: profile } = await supabase
-            .from('attendee_profiles')
-            .select('display_name, avatar_url')
-            .eq('attendee_id', msg.sender_attendee_id)
-            .maybeSingle();
+    // 2. Collect unique IDs for batch queries
+    const attendeeIds = [...new Set(messages.filter(m => m.sender_attendee_id).map(m => m.sender_attendee_id))];
+    const speakerIds = [...new Set(messages.filter(m => m.sender_speaker_id).map(m => m.sender_speaker_id))];
+    const replyIds = [...new Set(messages.filter(m => m.reply_to_id).map(m => m.reply_to_id))];
 
-          sender = {
-            type: 'attendee',
-            id: attendee?.id,
-            name: profile?.display_name || attendee?.attendee_name || 'Attendee',
-            avatar_url: profile?.avatar_url
-          };
-        } else if (msg.sender_speaker_id) {
-          const { data: speaker } = await supabase
-            .from('speakers')
-            .select('id, name, photo_url, title, company')
-            .eq('id', msg.sender_speaker_id)
-            .single();
+    // 3. Batch fetch all related data in parallel (3-5 queries instead of 100-300)
+    const batchQueries: Promise<any>[] = [];
 
-          sender = {
-            type: 'speaker',
-            id: speaker?.id,
-            name: speaker?.name || 'Speaker',
-            avatar_url: speaker?.photo_url,
-            title: speaker?.title,
-            company: speaker?.company
-          };
-        }
+    // Attendees batch
+    if (attendeeIds.length > 0) {
+      batchQueries.push(
+        supabase.from('attendees').select('id, attendee_name').in('id', attendeeIds)
+      );
+      batchQueries.push(
+        supabase.from('attendee_profiles').select('attendee_id, display_name, avatar_url').in('attendee_id', attendeeIds)
+      );
+    } else {
+      batchQueries.push(Promise.resolve({ data: [] }));
+      batchQueries.push(Promise.resolve({ data: [] }));
+    }
 
-        // If this is a reply, get the original message preview
-        let replyTo = null;
-        if (msg.reply_to_id) {
-          const { data: originalMsg } = await supabase
-            .from('attendee_messages')
-            .select('id, content, sender_attendee_id, sender_speaker_id')
-            .eq('id', msg.reply_to_id)
-            .single();
+    // Speakers batch
+    if (speakerIds.length > 0) {
+      batchQueries.push(
+        supabase.from('speakers').select('id, name, photo_url, title, company').in('id', speakerIds)
+      );
+    } else {
+      batchQueries.push(Promise.resolve({ data: [] }));
+    }
 
-          if (originalMsg) {
-            let originalSenderName = 'Unknown';
-            if (originalMsg.sender_attendee_id) {
-              const { data: profile } = await supabase
-                .from('attendee_profiles')
-                .select('display_name')
-                .eq('attendee_id', originalMsg.sender_attendee_id)
-                .maybeSingle();
-              
-              if (profile?.display_name) {
-                originalSenderName = profile.display_name;
-              } else {
-                const { data: attendee } = await supabase
-                  .from('attendees')
-                  .select('attendee_name')
-                  .eq('id', originalMsg.sender_attendee_id)
-                  .single();
-                originalSenderName = attendee?.attendee_name || 'Attendee';
-              }
-            } else if (originalMsg.sender_speaker_id) {
-              const { data: speaker } = await supabase
-                .from('speakers')
-                .select('name')
-                .eq('id', originalMsg.sender_speaker_id)
-                .single();
-              originalSenderName = speaker?.name || 'Speaker';
-            }
+    // Reply messages batch
+    if (replyIds.length > 0) {
+      batchQueries.push(
+        supabase.from('attendee_messages').select('id, content, sender_attendee_id, sender_speaker_id').in('id', replyIds)
+      );
+    } else {
+      batchQueries.push(Promise.resolve({ data: [] }));
+    }
 
-            replyTo = {
-              id: originalMsg.id,
-              content: originalMsg.content.substring(0, 100),
-              sender_name: originalSenderName
-            };
-          }
-        }
+    const [attendeesRes, profilesRes, speakersRes, replyMessagesRes] = await Promise.all(batchQueries);
 
-        return {
-          ...msg,
-          sender,
-          reply_to: replyTo,
-          is_own: msg.sender_attendee_id === attendee_id
+    // 4. Build lookup maps for O(1) access
+    const attendeeMap = new Map((attendeesRes.data || []).map((a: any) => [a.id, a]));
+    const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.attendee_id, p]));
+    const speakerMap = new Map((speakersRes.data || []).map((s: any) => [s.id, s]));
+    const replyMap = new Map((replyMessagesRes.data || []).map((m: any) => [m.id, m]));
+
+    // Get reply sender info (need attendee IDs from reply messages)
+    const replyAttendeeIds = [...new Set(
+      (replyMessagesRes.data || [])
+        .filter((m: any) => m.sender_attendee_id && !attendeeMap.has(m.sender_attendee_id))
+        .map((m: any) => m.sender_attendee_id)
+    )];
+    const replySpeakerIds = [...new Set(
+      (replyMessagesRes.data || [])
+        .filter((m: any) => m.sender_speaker_id && !speakerMap.has(m.sender_speaker_id))
+        .map((m: any) => m.sender_speaker_id)
+    )];
+
+    // Fetch additional sender info for replies if needed
+    if (replyAttendeeIds.length > 0 || replySpeakerIds.length > 0) {
+      const additionalQueries: Promise<any>[] = [];
+      
+      if (replyAttendeeIds.length > 0) {
+        additionalQueries.push(
+          supabase.from('attendee_profiles').select('attendee_id, display_name').in('attendee_id', replyAttendeeIds)
+        );
+        additionalQueries.push(
+          supabase.from('attendees').select('id, attendee_name').in('id', replyAttendeeIds)
+        );
+      } else {
+        additionalQueries.push(Promise.resolve({ data: [] }));
+        additionalQueries.push(Promise.resolve({ data: [] }));
+      }
+      
+      if (replySpeakerIds.length > 0) {
+        additionalQueries.push(
+          supabase.from('speakers').select('id, name').in('id', replySpeakerIds)
+        );
+      } else {
+        additionalQueries.push(Promise.resolve({ data: [] }));
+      }
+
+      const [replyProfilesRes, replyAttendeesRes, replySpeakersRes] = await Promise.all(additionalQueries);
+      
+      // Add to maps
+      (replyProfilesRes.data || []).forEach((p: any) => profileMap.set(p.attendee_id, p));
+      (replyAttendeesRes.data || []).forEach((a: any) => attendeeMap.set(a.id, a));
+      (replySpeakersRes.data || []).forEach((s: any) => speakerMap.set(s.id, s));
+    }
+
+    // 5. Enrich messages in memory (no additional queries)
+    const enrichedMessages = messages.map(msg => {
+      let sender = null;
+
+      if (msg.sender_attendee_id) {
+        const attendee = attendeeMap.get(msg.sender_attendee_id);
+        const profile = profileMap.get(msg.sender_attendee_id);
+        sender = {
+          type: 'attendee',
+          id: attendee?.id || msg.sender_attendee_id,
+          name: profile?.display_name || attendee?.attendee_name || 'Attendee',
+          avatar_url: profile?.avatar_url
         };
-      })
-    );
+      } else if (msg.sender_speaker_id) {
+        const speaker = speakerMap.get(msg.sender_speaker_id);
+        sender = {
+          type: 'speaker',
+          id: speaker?.id || msg.sender_speaker_id,
+          name: speaker?.name || 'Speaker',
+          avatar_url: speaker?.photo_url,
+          title: speaker?.title,
+          company: speaker?.company
+        };
+      }
+
+      // Handle reply info using lookup maps
+      let replyTo = null;
+      if (msg.reply_to_id) {
+        const originalMsg = replyMap.get(msg.reply_to_id);
+        if (originalMsg) {
+          let originalSenderName = 'Unknown';
+          if (originalMsg.sender_attendee_id) {
+            const profile = profileMap.get(originalMsg.sender_attendee_id);
+            const attendee = attendeeMap.get(originalMsg.sender_attendee_id);
+            originalSenderName = profile?.display_name || attendee?.attendee_name || 'Attendee';
+          } else if (originalMsg.sender_speaker_id) {
+            const speaker = speakerMap.get(originalMsg.sender_speaker_id);
+            originalSenderName = speaker?.name || 'Speaker';
+          }
+
+          replyTo = {
+            id: originalMsg.id,
+            content: originalMsg.content.substring(0, 100),
+            sender_name: originalSenderName
+          };
+        }
+      }
+
+      return {
+        ...msg,
+        sender,
+        reply_to: replyTo,
+        is_own: msg.sender_attendee_id === attendee_id
+      };
+    });
 
     // Update last_read_at for this participant
     await supabase
@@ -191,7 +257,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         messages: enrichedMessages.reverse(), // Return in chronological order
-        has_more: messages?.length === limit
+        has_more: messages.length === limit
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

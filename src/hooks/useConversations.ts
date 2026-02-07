@@ -73,9 +73,12 @@ export function useConversations() {
     }
   }, [email, sessionToken, selectedAttendee, selectedEvent]);
 
-  // Set up realtime subscription for new messages
+  // Set up realtime subscription for new messages - scoped to user's conversations
   useEffect(() => {
-    if (!selectedAttendee || !selectedEvent) return;
+    if (!selectedAttendee || !selectedEvent || conversations.length === 0) return;
+
+    // Get conversation IDs this user is part of
+    const userConversationIds = conversations.map(c => c.id);
 
     const channel = supabase
       .channel(`conversations-${selectedAttendee.id}`)
@@ -86,9 +89,11 @@ export function useConversations() {
           schema: 'public',
           table: 'attendee_messages'
         },
-        () => {
-          // Refresh conversations when a new message arrives
-          fetchConversations();
+        (payload) => {
+          // Only refresh if the message is in one of user's conversations
+          if (userConversationIds.includes(payload.new?.conversation_id)) {
+            fetchConversations();
+          }
         }
       )
       .on(
@@ -109,7 +114,7 @@ export function useConversations() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedAttendee?.id, selectedEvent?.id, fetchConversations]);
+  }, [selectedAttendee?.id, selectedEvent?.id, conversations, fetchConversations]);
 
   useEffect(() => {
     fetchConversations();
