@@ -1,14 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Mail, Phone, Check, X, Pencil, MessageSquare, Send, AlertTriangle, Loader2, User, Building2 } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Check, X, Pencil, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -21,7 +18,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { useOrder } from '@/hooks/useOrders';
 import { useOrderAttendees, useUpdateAttendee, Attendee } from '@/hooks/useAttendees';
-import { useOrderMessages, useCreateOrderMessage } from '@/hooks/useOrderMessages';
 import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
@@ -35,16 +31,10 @@ export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
   const { data: order, isLoading: orderLoading } = useOrder(orderId);
   const { data: attendees = [], isLoading: attendeesLoading } = useOrderAttendees(orderId);
-  const { data: messages = [], isLoading: messagesLoading } = useOrderMessages(orderId);
-  const createMessage = useCreateOrderMessage();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-
-  // Message form state
-  const [newMessage, setNewMessage] = useState('');
-  const [isImportant, setIsImportant] = useState(false);
 
   const updateAttendee = useUpdateAttendee();
 
@@ -83,23 +73,6 @@ export default function OrderDetail() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!orderId || !newMessage.trim()) return;
-    
-    try {
-      await createMessage.mutateAsync({
-        orderId,
-        message: newMessage.trim(),
-        isImportant,
-      });
-      toast.success('Message sent to customer');
-      setNewMessage('');
-      setIsImportant(false);
-    } catch (error) {
-      toast.error('Failed to send message');
-    }
-  };
-
   if (orderLoading) {
     return (
       <div className="space-y-6">
@@ -127,11 +100,6 @@ export default function OrderDetail() {
     (a) => a.attendee_name && a.attendee_email
   ).length;
   const incompleteCount = attendees.length - completeCount;
-
-  // Count unread customer messages
-  const unreadCustomerMessages = messages.filter(
-    (m) => m.sender_type === 'customer' && !m.read_at
-  ).length;
 
   return (
     <div className="space-y-6">
@@ -257,7 +225,6 @@ export default function OrderDetail() {
                     <TableHead className="hidden sm:table-cell">Ticket</TableHead>
                     <TableHead>Attendee</TableHead>
                     <TableHead className="hidden md:table-cell">Email</TableHead>
-                    <TableHead className="hidden lg:table-cell">Role</TableHead>
                     <TableHead className="w-[80px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -265,10 +232,9 @@ export default function OrderDetail() {
                   {attendees.map((attendee) => {
                     const isComplete = attendee.attendee_name && attendee.attendee_email;
                     const isEditing = editingId === attendee.id;
-                    const isPurchaser = (attendee as any).is_purchaser;
 
                     return (
-                      <TableRow key={attendee.id} className={isPurchaser ? 'bg-primary/5' : ''}>
+                      <TableRow key={attendee.id}>
                         <TableCell>
                           {isComplete ? (
                             <Badge variant="default" className="bg-green-600">
@@ -322,13 +288,6 @@ export default function OrderDetail() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          {isPurchaser ? (
-                            <Badge variant="secondary" className="text-xs">Purchaser</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
                         <TableCell>
                           {isEditing ? (
                             <div className="flex gap-1">
@@ -364,121 +323,6 @@ export default function OrderDetail() {
                 </TableBody>
               </Table>
             </ResponsiveTable>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Messages Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              Messages
-              {unreadCustomerMessages > 0 && (
-                <Badge variant="default" className="ml-2">
-                  {unreadCustomerMessages} new
-                </Badge>
-              )}
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Message Composer */}
-          <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-            <Label htmlFor="message">Send a message to the customer</Label>
-            <Textarea
-              id="message"
-              placeholder="Type your message here..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              rows={3}
-            />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="important"
-                  checked={isImportant}
-                  onCheckedChange={(checked) => setIsImportant(checked === true)}
-                />
-                <Label htmlFor="important" className="text-sm cursor-pointer">
-                  Mark as important
-                </Label>
-              </div>
-              <Button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || createMessage.isPending}
-              >
-                {createMessage.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4 mr-2" />
-                )}
-                Send Message
-              </Button>
-            </div>
-          </div>
-
-          {/* Message History */}
-          {messagesLoading ? (
-            <Skeleton className="h-24 w-full" />
-          ) : messages.length === 0 ? (
-            <p className="text-center py-4 text-muted-foreground">
-              No messages yet
-            </p>
-          ) : (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground">Conversation</h4>
-              {messages.map((msg) => {
-                const isCustomer = msg.sender_type === 'customer';
-                
-                return (
-                  <div
-                    key={msg.id}
-                    className={`
-                      rounded-lg p-3 border
-                      ${isCustomer ? 'ml-0 mr-8' : 'ml-8 mr-0'}
-                      ${msg.is_important 
-                        ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-500' 
-                        : isCustomer
-                          ? 'bg-primary/5 border-primary/20'
-                          : 'bg-muted border-transparent'
-                      }
-                    `}
-                  >
-                    <div className="flex items-start gap-2">
-                      {msg.is_important ? (
-                        <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-                      ) : isCustomer ? (
-                        <User className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                      )}
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium">
-                            {isCustomer ? `Customer (${msg.sender_email || order.email})` : 'You (Organizer)'}
-                          </span>
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{format(new Date(msg.created_at), 'MMM d, yyyy • h:mm a')}</span>
-                          {!isCustomer && msg.read_at && (
-                            <span className="flex items-center gap-1 text-green-600">
-                              <Check className="h-3 w-3" />
-                              Read by customer
-                            </span>
-                          )}
-                          {!isCustomer && !msg.read_at && (
-                            <span className="text-muted-foreground">Not read yet</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           )}
         </CardContent>
       </Card>

@@ -10,8 +10,8 @@ interface ModerationFiltersProps {
   stats: {
     total: number;
     flagged: number;
-    autoFlagged: number;
     pending: number;
+    approved: number;
   };
 }
 
@@ -33,23 +33,23 @@ export function ModerationFilters({ activeTab, onTabChange, stats }: ModerationF
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-destructive/10 rounded-lg">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
+            <div className="p-2 bg-amber-500/10 rounded-lg">
+              <Flag className="h-4 w-4 text-amber-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-destructive">{stats.autoFlagged}</p>
-              <p className="text-xs text-muted-foreground">Auto-Flagged</p>
+              <p className="text-2xl font-bold text-amber-500">{stats.pending}</p>
+              <p className="text-xs text-muted-foreground">Pending</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-amber-500/10 rounded-lg">
-              <Flag className="h-4 w-4 text-amber-500" />
+            <div className="p-2 bg-destructive/10 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-amber-500">{stats.flagged}</p>
-              <p className="text-xs text-muted-foreground">Needs Review</p>
+              <p className="text-2xl font-bold text-destructive">{stats.flagged}</p>
+              <p className="text-xs text-muted-foreground">Flagged</p>
             </div>
           </CardContent>
         </Card>
@@ -59,9 +59,7 @@ export function ModerationFilters({ activeTab, onTabChange, stats }: ModerationF
               <CheckCircle className="h-4 w-4 text-emerald-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-emerald-500">
-                {stats.total - stats.flagged - stats.autoFlagged - stats.pending}
-              </p>
+              <p className="text-2xl font-bold text-emerald-500">{stats.approved}</p>
               <p className="text-xs text-muted-foreground">Approved</p>
             </div>
           </CardContent>
@@ -76,17 +74,17 @@ export function ModerationFilters({ activeTab, onTabChange, stats }: ModerationF
             <Badge variant="secondary" className="ml-1">{stats.total}</Badge>
           </TabsTrigger>
           <TabsTrigger value="flagged" className="flex items-center gap-2">
-            Needs Review
+            Flagged
             {stats.flagged > 0 && (
-              <Badge variant="outline" className="ml-1 border-amber-500 text-amber-500">
-                {stats.flagged}
-              </Badge>
+              <Badge variant="destructive" className="ml-1">{stats.flagged}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="auto_flagged" className="flex items-center gap-2">
-            Auto-Flagged
-            {stats.autoFlagged > 0 && (
-              <Badge variant="destructive" className="ml-1">{stats.autoFlagged}</Badge>
+          <TabsTrigger value="pending" className="flex items-center gap-2">
+            Pending
+            {stats.pending > 0 && (
+              <Badge variant="outline" className="ml-1 border-amber-500 text-amber-500">
+                {stats.pending}
+              </Badge>
             )}
           </TabsTrigger>
         </TabsList>

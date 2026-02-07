@@ -36,14 +36,15 @@ export default function Recordings() {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
-  const { isLMSAdmin, isLMSAdvisor } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const location = useLocation();
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
-  const canUpload = isLMSAdmin || isLMSAdvisor;
-  const canDelete = isLMSAdmin;
-  const canReorder = isLMSAdmin;
-  const canManageResources = isLMSAdmin || isLMSAdvisor;
+  const isAdvisor = profile?.role === 'advisor';
+  const canUpload = isAdmin || isAdvisor;
+  const canDelete = isAdmin;
+  const canReorder = isAdmin;
+  const canManageResources = isAdmin || isAdvisor;
 
   const deleteRecording = async (recordingId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -90,7 +91,7 @@ export default function Recordings() {
   const fetchRecordings = async () => {
     try {
       const { data, error } = await supabase
-        .from('lms_recordings')
+        .from('recordings')
         .select('*')
         .in('status', ['ready', 'preparing'])
         .order('sort_order', { ascending: true });
@@ -116,7 +117,7 @@ export default function Recordings() {
 
       for (const update of updates) {
         const { error } = await supabase
-          .from('lms_recordings')
+          .from('recordings')
           .update({ sort_order: update.sort_order })
           .eq('id', update.id);
         

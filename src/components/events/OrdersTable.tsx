@@ -239,9 +239,7 @@ export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: Or
                                         <TableCell>
                                           {item.ticket_type?.name || 'Unknown'}
                                         </TableCell>
-                                        <TableCell>
-                                          {item.attendee_name || item.attendee_email || '—'}
-                                        </TableCell>
+                                        <TableCell>—</TableCell>
                                         <TableCell className="text-center">
                                           {item.quantity}
                                         </TableCell>

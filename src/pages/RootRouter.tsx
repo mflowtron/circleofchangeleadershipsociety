@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
-import { useAuth, AccessArea, AppRole } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { FullPageLoader } from '@/components/ui/circle-loader';
 
 /**
@@ -10,53 +10,19 @@ import { FullPageLoader } from '@/components/ui/circle-loader';
  * 1. Not logged in → /auth
  * 2. Not approved → /pending-approval
  * 3. Has default_role set → redirect to that area's home
- * 4. Has only one accessible area → redirect to that area's home
- * 5. Has multiple accessible areas → show area selector
+ * 4. Has LMS access → go to LMS
+ * 5. Has events access → go to events
+ * 6. Otherwise → pending approval
  */
 export default function RootRouter() {
   const { 
     user, 
     loading, 
     isApproved, 
-    defaultRole,
-    accessibleAreas,
-    hasLMSAccess,
-    hasEMAccess,
-    hasAttendeeAccess,
+    profile,
+    hasModuleAccess,
   } = useAuth();
   const navigate = useNavigate();
-
-  // Helper to get home route for an area
-  const getAreaHome = (area: AccessArea): string => {
-    switch (area) {
-      case 'lms':
-        return '/lms';
-      case 'em':
-        return '/events/manage';
-      case 'attendee':
-        return '/attendee/app/home';
-    }
-  };
-
-  // Helper to get home route for a specific role
-  const getRoleHome = (role: AppRole): string => {
-    // LMS roles
-    if (['lms_student', 'lms_advisor', 'lms_admin'].includes(role)) {
-      return '/lms';
-    }
-    // EM roles
-    if (['em_admin', 'em_manager'].includes(role)) {
-      return '/events/manage';
-    }
-    if (role === 'em_advisor') {
-      return '/my-orders';
-    }
-    // Attendee roles
-    if (['attendee_student', 'attendee_advisor'].includes(role)) {
-      return '/attendee/app/home';
-    }
-    return '/lms';
-  };
 
   useEffect(() => {
     if (loading) return;
@@ -74,36 +40,45 @@ export default function RootRouter() {
     }
 
     // Has a default role preference
-    if (defaultRole) {
-      navigate(getRoleHome(defaultRole), { replace: true });
-      return;
+    if (profile?.default_role) {
+      const defaultRole = profile.default_role;
+      if (defaultRole.includes('lms')) {
+        navigate('/lms', { replace: true });
+        return;
+      }
+      if (defaultRole.includes('events')) {
+        navigate('/events/manage', { replace: true });
+        return;
+      }
+      if (defaultRole.includes('attendee')) {
+        navigate('/attendee/app/home', { replace: true });
+        return;
+      }
     }
 
-    // Only one accessible area
-    if (accessibleAreas.length === 1) {
-      navigate(getAreaHome(accessibleAreas[0]), { replace: true });
-      return;
-    }
+    // Determine accessible areas
+    const hasLMS = hasModuleAccess('lms');
+    const hasEvents = hasModuleAccess('events');
+
+    // Count accessible areas
+    const accessCount = (hasLMS ? 1 : 0) + (hasEvents ? 1 : 0) + 1; // +1 for attendee (always available)
 
     // Multiple areas - show selector
-    if (accessibleAreas.length > 1) {
+    if (accessCount > 1) {
       navigate('/select-dashboard', { replace: true });
       return;
     }
 
-    // Fallback: No roles assigned (shouldn't happen, but handle gracefully)
-    // Default to LMS if they have access, otherwise auth
-    if (hasLMSAccess) {
+    // Single area - go directly
+    if (hasLMS) {
       navigate('/lms', { replace: true });
-    } else if (hasEMAccess) {
+    } else if (hasEvents) {
       navigate('/events/manage', { replace: true });
-    } else if (hasAttendeeAccess) {
-      navigate('/attendee/app/home', { replace: true });
     } else {
-      // No access at all - might be a new user without roles
-      navigate('/pending-approval', { replace: true });
+      // Default to attendee app
+      navigate('/attendee/app/home', { replace: true });
     }
-  }, [loading, user, isApproved, defaultRole, accessibleAreas, navigate, hasLMSAccess, hasEMAccess, hasAttendeeAccess]);
+  }, [loading, user, isApproved, profile, navigate, hasModuleAccess]);
 
   if (loading) {
     return <FullPageLoader />;

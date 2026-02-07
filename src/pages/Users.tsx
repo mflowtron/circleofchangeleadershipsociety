@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -34,14 +34,14 @@ import { format } from 'date-fns';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import type { Database } from '@/integrations/supabase/types';
 
-type AppRole = Database['public']['Enums']['app_role'];
+type UserRole = Database['public']['Enums']['user_role'];
 
 interface User {
   id: string;
   user_id: string;
   full_name: string;
   avatar_url: string | null;
-  role: AppRole;
+  role: UserRole;
   chapter_id: string | null;
   chapter_name: string | null;
   is_approved: boolean;
@@ -56,47 +56,38 @@ interface Chapter {
 export default function Users() {
   const queryClient = useQueryClient();
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editRole, setEditRole] = useState<AppRole>('lms_student');
+  const [editRole, setEditRole] = useState<UserRole>('member');
   const [editChapter, setEditChapter] = useState<string>('none');
-  const [pendingChanges, setPendingChanges] = useState<Record<string, { role?: AppRole; chapter_id?: string }>>({});
-  
+  const [pendingChanges, setPendingChanges] = useState<Record<string, { role?: UserRole; chapter_id?: string }>>({});
 
   // Fetch all profiles with approval status
   const { data: allUsers, isLoading } = useQuery({
     queryKey: ['all-users-with-approval'],
     queryFn: async () => {
-      // Fetch all profiles
+      // Fetch all profiles with role
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, user_id, full_name, avatar_url, chapter_id, is_approved, created_at')
+        .select('id, user_id, full_name, avatar_url, chapter_id, is_approved, created_at, role')
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
 
-      // Fetch all roles
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      if (rolesError) throw rolesError;
-
       // Fetch chapters
       const { data: chaptersData, error: chaptersError } = await supabase
-        .from('lms_chapters')
+        .from('chapters')
         .select('id, name');
 
       if (chaptersError) throw chaptersError;
 
       // Combine data
       const combinedUsers: User[] = (profilesData || []).map((profile) => {
-        const roleEntry = rolesData?.find((r) => r.user_id === profile.user_id);
         const chapter = chaptersData?.find((c) => c.id === profile.chapter_id);
         return {
           id: profile.id,
           user_id: profile.user_id,
           full_name: profile.full_name,
           avatar_url: profile.avatar_url,
-          role: roleEntry?.role || 'lms_student',
+          role: profile.role || 'member',
           chapter_id: profile.chapter_id,
           chapter_name: chapter?.name || null,
           is_approved: profile.is_approved,
@@ -123,19 +114,16 @@ export default function Users() {
     if (!editingUser) return;
 
     try {
-      // Update role using upsert to avoid delete-then-insert race condition
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .update({ role: editRole })
-        .eq('user_id', editingUser.user_id);
-
-      if (roleError) throw roleError;
-
-      // Update chapter
-      await supabase
+      // Update profile with role and chapter
+      const { error } = await supabase
         .from('profiles')
-        .update({ chapter_id: editChapter === 'none' ? null : editChapter })
+        .update({ 
+          role: editRole,
+          chapter_id: editChapter === 'none' ? null : editChapter 
+        })
         .eq('user_id', editingUser.user_id);
+
+      if (error) throw error;
 
       toast.success('User updated', {
         description: 'User role and chapter have been updated.',
@@ -152,27 +140,21 @@ export default function Users() {
 
   // Approve user mutation
   const approveMutation = useMutation({
-    mutationFn: async ({ userId, chapterId, role }: { userId: string; chapterId?: string; role?: AppRole }) => {
-      const profileUpdate: { is_approved: boolean; chapter_id?: string } = { is_approved: true };
+    mutationFn: async ({ userId, chapterId, role }: { userId: string; chapterId?: string; role?: UserRole }) => {
+      const profileUpdate: { is_approved: boolean; chapter_id?: string; role?: UserRole } = { is_approved: true };
       if (chapterId) {
         profileUpdate.chapter_id = chapterId;
       }
+      if (role) {
+        profileUpdate.role = role;
+      }
       
-      const { error: profileError } = await supabase
+      const { error } = await supabase
         .from('profiles')
         .update(profileUpdate)
         .eq('user_id', userId);
       
-      if (profileError) throw profileError;
-
-      if (role) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .update({ role })
-          .eq('user_id', userId);
-        
-        if (roleError) throw roleError;
-      }
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-users-with-approval'] });
@@ -209,8 +191,8 @@ export default function Users() {
     });
   };
 
-  const getSelectedRole = (user: User): AppRole => {
-    return pendingChanges[user.user_id]?.role || user.role || 'lms_student';
+  const getSelectedRole = (user: User): UserRole => {
+    return pendingChanges[user.user_id]?.role || user.role || 'member';
   };
 
   const getSelectedChapter = (user: User): string => {
@@ -292,17 +274,15 @@ export default function Users() {
                             <div className="space-y-4 py-4">
                               <div className="space-y-2">
                                 <Label>Role</Label>
-                                <Select value={editRole} onValueChange={(v) => setEditRole(v as AppRole)}>
+                                <Select value={editRole} onValueChange={(v) => setEditRole(v as UserRole)}>
                                   <SelectTrigger>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="lms_student">LMS Student</SelectItem>
-                                    <SelectItem value="lms_advisor">LMS Advisor</SelectItem>
-                                    <SelectItem value="lms_admin">LMS Admin</SelectItem>
-                                    <SelectItem value="em_advisor">EM Purchaser</SelectItem>
-                                    <SelectItem value="em_manager">EM Manager</SelectItem>
-                                    <SelectItem value="em_admin">EM Admin</SelectItem>
+                                    <SelectItem value="member">Member</SelectItem>
+                                    <SelectItem value="advisor">Advisor</SelectItem>
+                                    <SelectItem value="organizer">Organizer</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -358,108 +338,10 @@ export default function Users() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Desktop table view */}
-                  <div className="hidden md:block">
-                    <ResponsiveTable>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Registered</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead>Chapter</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                  <TableBody>
-                    {pendingUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              {user.avatar_url ? (
-                                <img 
-                                  src={user.avatar_url} 
-                                  alt={user.full_name} 
-                                  className="h-10 w-10 rounded-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-sm font-medium text-primary">
-                                  {user.full_name.charAt(0).toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-medium">{user.full_name}</p>
-                              <Badge variant="secondary" className="text-xs">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Pending
-                              </Badge>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {format(new Date(user.created_at), 'MMM d, yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={getSelectedRole(user)}
-                            onValueChange={(value) => handlePendingChange(user.user_id, 'role', value)}
-                          >
-                            <SelectTrigger className="w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="lms_student">LMS Student</SelectItem>
-                              <SelectItem value="lms_advisor">LMS Advisor</SelectItem>
-                              <SelectItem value="lms_admin">LMS Admin</SelectItem>
-                              <SelectItem value="em_advisor">EM Purchaser</SelectItem>
-                              <SelectItem value="em_manager">EM Manager</SelectItem>
-                              <SelectItem value="em_admin">EM Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={getSelectedChapter(user)}
-                            onValueChange={(value) => handlePendingChange(user.user_id, 'chapter_id', value)}
-                          >
-                            <SelectTrigger className="w-[180px]">
-                              <SelectValue placeholder="Select chapter..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {chapters.map((chapter) => (
-                                <SelectItem key={chapter.id} value={chapter.id}>
-                                  {chapter.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleApprove(user.user_id)}
-                            disabled={approveMutation.isPending}
-                            className="gap-1"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Approve
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                      </TableBody>
-                    </Table>
-                  </ResponsiveTable>
-                </div>
-                
-                {/* Mobile card view */}
-                <div className="md:hidden space-y-3">
                   {pendingUsers.map((user) => (
-                    <Card key={user.id} className="p-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                           {user.avatar_url ? (
                             <img 
                               src={user.avatar_url} 
@@ -472,71 +354,55 @@ export default function Users() {
                             </span>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{user.full_name}</p>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs">
-                              <Clock className="h-3 w-3 mr-1" />
-                              Pending
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {format(new Date(user.created_at), 'MMM d')}
-                            </span>
-                          </div>
+                        <div>
+                          <p className="font-medium">{user.full_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(user.created_at), 'MMM d, yyyy')}
+                          </p>
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-xs w-16">Role</Label>
-                          <Select
-                            value={getSelectedRole(user)}
-                            onValueChange={(value) => handlePendingChange(user.user_id, 'role', value)}
-                          >
-                            <SelectTrigger className="flex-1 h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="lms_student">LMS Student</SelectItem>
-                              <SelectItem value="lms_advisor">LMS Advisor</SelectItem>
-                              <SelectItem value="lms_admin">LMS Admin</SelectItem>
-                              <SelectItem value="em_advisor">EM Purchaser</SelectItem>
-                              <SelectItem value="em_manager">EM Manager</SelectItem>
-                              <SelectItem value="em_admin">EM Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Label className="text-xs w-16">Chapter</Label>
-                          <Select
-                            value={getSelectedChapter(user)}
-                            onValueChange={(value) => handlePendingChange(user.user_id, 'chapter_id', value)}
-                          >
-                            <SelectTrigger className="flex-1 h-8">
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {chapters.map((chapter) => (
-                                <SelectItem key={chapter.id} value={chapter.id}>
-                                  {chapter.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={getSelectedRole(user)}
+                          onValueChange={(value) => handlePendingChange(user.user_id, 'role', value)}
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="member">Member</SelectItem>
+                            <SelectItem value="advisor">Advisor</SelectItem>
+                            <SelectItem value="organizer">Organizer</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={getSelectedChapter(user)}
+                          onValueChange={(value) => handlePendingChange(user.user_id, 'chapter_id', value)}
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Select chapter..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {chapters.map((chapter) => (
+                              <SelectItem key={chapter.id} value={chapter.id}>
+                                {chapter.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <Button 
                           size="sm" 
                           onClick={() => handleApprove(user.user_id)}
                           disabled={approveMutation.isPending}
-                          className="w-full mt-2"
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
+                          <CheckCircle className="h-4 w-4 mr-1" />
                           Approve
                         </Button>
                       </div>
-                    </Card>
+                    </div>
                   ))}
                 </div>
-              </div>
               )}
             </CardContent>
           </Card>
