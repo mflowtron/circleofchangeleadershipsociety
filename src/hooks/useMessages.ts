@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAttendee } from '@/contexts/AttendeeContext';
+import { fileToBase64 } from '@/lib/fileUtils';
 
 export interface MessageSender {
   type: 'attendee' | 'speaker';
@@ -23,6 +24,13 @@ export interface MessageReaction {
   reacted: boolean;
 }
 
+export interface MessageAttachment {
+  url: string;
+  type: string;
+  name: string;
+  size: number;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -36,6 +44,7 @@ export interface Message {
   is_own: boolean;
   status?: 'sending' | 'sent' | 'failed';
   reactions?: MessageReaction[];
+  attachment?: MessageAttachment;
 }
 
 export function useMessages(conversationId: string | null) {
@@ -218,6 +227,100 @@ export function useMessages(conversationId: string | null) {
     }
   }, [email, sessionToken, selectedAttendee, conversationId]);
 
+  const sendMessageWithAttachment = useCallback(async (content: string, file: File) => {
+    if (!email || !sessionToken || !selectedAttendee || !conversationId) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Create optimistic message with temporary ID
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
+      conversation_id: conversationId,
+      content,
+      is_deleted: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      sender: {
+        type: 'attendee',
+        id: selectedAttendee.id,
+        name: selectedAttendee.attendee_name || 'You',
+        avatar_url: undefined,
+      },
+      is_own: true,
+      status: 'sending',
+      attachment: {
+        url: URL.createObjectURL(file),
+        type: file.type,
+        name: file.name,
+        size: file.size
+      }
+    };
+
+    // Add to list immediately
+    setMessages(prev => [...prev, optimisticMessage]);
+    setSending(true);
+
+    try {
+      // 1. Upload file to storage via edge function
+      const base64File = await fileToBase64(file);
+      const { data: uploadData, error: uploadError } = await supabase.functions.invoke('upload-chat-attachment', {
+        body: {
+          email,
+          session_token: sessionToken,
+          attendee_id: selectedAttendee.id,
+          conversation_id: conversationId,
+          file: base64File,
+          filename: file.name,
+          content_type: file.type
+        }
+      });
+
+      if (uploadError) throw uploadError;
+      if (uploadData?.error) throw new Error(uploadData.error);
+
+      // 2. Send message with attachment metadata
+      const { data, error: sendError } = await supabase.functions.invoke('send-attendee-message', {
+        body: {
+          email,
+          session_token: sessionToken,
+          attendee_id: selectedAttendee.id,
+          conversation_id: conversationId,
+          content: content || '',
+          attachment_url: uploadData.url,
+          attachment_type: file.type,
+          attachment_name: file.name,
+          attachment_size: uploadData.size || file.size
+        }
+      });
+
+      if (sendError) throw sendError;
+      if (data?.error) throw new Error(data.error);
+
+      // Replace temp message with real one
+      if (data?.message) {
+        setMessages(prev => prev.map(m => 
+          m.id === tempId 
+            ? { ...data.message, status: 'sent' as const }
+            : m
+        ));
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Failed to send message with attachment:', err);
+      // Mark as failed
+      setMessages(prev => prev.map(m => 
+        m.id === tempId 
+          ? { ...m, status: 'failed' as const }
+          : m
+      ));
+      return { success: false, error: err.message };
+    } finally {
+      setSending(false);
+    }
+  }, [email, sessionToken, selectedAttendee, conversationId]);
+
   const loadMore = useCallback(() => {
     if (messages.length > 0 && hasMore) {
       fetchMessages(messages[0].created_at);
@@ -294,6 +397,7 @@ export function useMessages(conversationId: string | null) {
     sending,
     hasMore,
     sendMessage,
+    sendMessageWithAttachment,
     loadMore,
     toggleReaction,
     refetch: fetchMessages

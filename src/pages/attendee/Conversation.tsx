@@ -23,7 +23,7 @@ export default function ConversationPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const { conversations, loading: convsLoading } = useConversations();
-  const { messages, loading, sending, hasMore, sendMessage, loadMore, toggleReaction } = useMessages(conversationId || null);
+  const { messages, loading, sending, hasMore, sendMessage, sendMessageWithAttachment, loadMore, toggleReaction } = useMessages(conversationId || null);
   
   const [conversation, setConversation] = useState<Conversation | null>(null);
 
@@ -44,6 +44,17 @@ export default function ConversationPage() {
 
   const handleSend = async (content: string) => {
     const result = await sendMessage(content);
+    if (!result.success) {
+      toast({
+        title: 'Failed to send',
+        description: result.error || 'Please try again',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleSendWithAttachment = async (content: string, file: File) => {
+    const result = await sendMessageWithAttachment(content, file);
     if (!result.success) {
       toast({
         title: 'Failed to send',
@@ -219,6 +230,7 @@ export default function ConversationPage() {
       <div className="shrink-0">
         <MessageInput
           onSend={handleSend}
+          onSendWithAttachment={handleSendWithAttachment}
           disabled={sending}
         />
       </div>
