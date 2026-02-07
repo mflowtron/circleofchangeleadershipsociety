@@ -47,13 +47,23 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // First, find order IDs where user is an attendee (not just purchaser)
-    const { data: attendeeOrders } = await supabaseAdmin
+    // Find attendee records for this user to get their order_item_ids
+    const { data: attendeeRecords } = await supabaseAdmin
       .from('attendees')
-      .select('order_id')
+      .select('order_item_id')
       .ilike('attendee_email', normalizedEmail);
 
-    const attendeeOrderIds = attendeeOrders?.map(a => a.order_id) || [];
+    const orderItemIds = attendeeRecords?.map(a => a.order_item_id).filter(Boolean) || [];
+
+    // Get order IDs from order_items
+    let attendeeOrderIds: string[] = [];
+    if (orderItemIds.length > 0) {
+      const { data: orderItems } = await supabaseAdmin
+        .from('order_items')
+        .select('order_id')
+        .in('id', orderItemIds);
+      attendeeOrderIds = orderItems?.map(oi => oi.order_id) || [];
+    }
 
     // Fetch orders where user is purchaser OR an attendee
     const { data: orders, error: ordersError } = await supabaseAdmin
@@ -78,23 +88,6 @@ serve(async (req: Request) => {
             name,
             description
           )
-        ),
-        attendees (
-          id,
-          attendee_name,
-          attendee_email,
-          ticket_type_id,
-          order_item_id,
-          is_purchaser
-        ),
-        order_messages (
-          id,
-          message,
-          is_important,
-          read_at,
-          created_at,
-          sender_type,
-          sender_email
         )
       `)
       .or(`email.ilike.${normalizedEmail},id.in.(${attendeeOrderIds.length > 0 ? attendeeOrderIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
@@ -108,20 +101,49 @@ serve(async (req: Request) => {
       );
     }
 
+    // Fetch attendees for these orders through order_items
+    const orderIds = orders?.map(o => o.id) || [];
+    let attendeesByOrderItem: Map<string, any[]> = new Map();
+    
+    if (orderIds.length > 0) {
+      // Get all order_item_ids for these orders
+      const allOrderItemIds = orders?.flatMap(o => o.order_items?.map((oi: any) => oi.id) || []) || [];
+      
+      if (allOrderItemIds.length > 0) {
+        const { data: attendees } = await supabaseAdmin
+          .from('attendees')
+          .select('id, attendee_name, attendee_email, order_item_id')
+          .in('order_item_id', allOrderItemIds);
+        
+        attendees?.forEach(a => {
+          if (!attendeesByOrderItem.has(a.order_item_id)) {
+            attendeesByOrderItem.set(a.order_item_id, []);
+          }
+          attendeesByOrderItem.get(a.order_item_id)!.push(a);
+        });
+      }
+    }
+
     // Calculate attendee stats for each order
     const ordersWithStats = orders?.map(order => {
+      // Collect all attendees for this order's items
+      const orderAttendees: any[] = [];
+      order.order_items?.forEach((item: any) => {
+        const itemAttendees = attendeesByOrderItem.get(item.id) || [];
+        orderAttendees.push(...itemAttendees);
+      });
+
       const totalTickets = order.order_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
-      const registeredAttendees = order.attendees?.filter((a: any) => a.attendee_name && a.attendee_email).length || 0;
-      const unreadMessages = order.order_messages?.filter((m: any) => !m.read_at).length || 0;
+      const registeredAttendees = orderAttendees.filter(a => a.attendee_name && a.attendee_email).length;
 
       return {
         ...order,
+        attendees: orderAttendees,
         attendee_stats: {
           total: totalTickets,
           registered: registeredAttendees,
           remaining: totalTickets - registeredAttendees,
         },
-        unread_messages: unreadMessages,
       };
     }) || [];
 
