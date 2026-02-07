@@ -1,60 +1,338 @@
 
 
-# Add Admin Interface to Manage Hotels for Events
+# Add Group and Direct Messaging to Attendee App
 
 ## Overview
 
-Create a full CRUD admin interface for managing hotel options per event, following the existing patterns used for Speakers management. This will include a new page, form component, card component, and an enhanced hook with mutation capabilities.
-
-## Implementation Approach
-
-The implementation will follow the exact same patterns established in the Speakers management feature:
-- Page component with grid layout and empty state
-- Form dialog for add/edit operations
-- Card component with dropdown menu actions
-- Enhanced hook with React Query mutations
-- Route registration and sidebar navigation
+Implement a fully-featured real-time messaging system for the attendee mobile app (`/attendee`) that enables:
+- **Direct messages** between attendees and speakers at the same event
+- **Group chats**: Event-wide, session-based, and custom attendee-created groups
+- **Privacy controls**: Opt-in "Open to Networking" setting for discoverability
+- **Real-time updates** via Supabase Realtime
 
 ---
 
 ## Architecture
 
 ```text
-+------------------------------------------------------------------+
-|  /events/manage/hotels                                            |
-+------------------------------------------------------------------+
-|                                                                   |
-|  Header: "Hotels" + "X hotels added" + [Add Hotel] button        |
-|                                                                   |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------------+  +-------------------------+         |
-|  |  [Hotel Image]          |  |  [Hotel Image]          |         |
-|  |  **Courtyard Marriott** |  |  **Hampton Inn**        |         |
-|  |  2825 NE 191st Street   |  |  1000 S Federal Hwy     |  [...]  |
-|  |  $239/night             |  |  $199/night             |         |
-|  |  [Edit] [Delete]        |  |  [Edit] [Delete]        |         |
-|  +-------------------------+  +-------------------------+         |
-|                                                                   |
-+------------------------------------------------------------------+
-
-Form Dialog:
-+------------------------------------------------------------------+
-|  Add/Edit Hotel                                            [X]   |
-+------------------------------------------------------------------+
-|  [Image Upload]                                                   |
-|                                                                   |
-|  Hotel Name *          [________________________]                 |
-|  Address *             [________________________]                 |
-|  Phone                 [________________________]                 |
-|  Description           [________________________]                 |
-|                        [________________________]                 |
-|  Rate Description      [________________________]                 |
-|  Booking URL           [________________________]                 |
-|                                                                   |
-|                              [Cancel]  [Save Hotel]               |
-+------------------------------------------------------------------+
+                         MESSAGING SYSTEM
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │   Direct    │    │   Group     │    │   Session   │         │
+│  │   Messages  │    │   Chats     │    │   Chats     │         │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘         │
+│         │                  │                  │                 │
+│         └──────────┬───────┴──────────────────┘                 │
+│                    │                                            │
+│         ┌──────────▼──────────┐                                │
+│         │  Supabase Realtime  │                                │
+│         │   (Live Updates)    │                                │
+│         └──────────┬──────────┘                                │
+│                    │                                            │
+│  ┌─────────────────▼─────────────────────────────────────────┐ │
+│  │                   DATABASE TABLES                          │ │
+│  │  • attendee_conversations (DM threads)                     │ │
+│  │  • conversation_participants (who's in each convo)         │ │
+│  │  • attendee_messages (all messages)                        │ │
+│  │  • attendee_profiles (networking opt-in, avatar)           │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Database Schema
+
+### New Tables
+
+| Table | Purpose |
+|-------|---------|
+| `attendee_profiles` | Extended profile with networking opt-in, avatar, bio |
+| `attendee_conversations` | Conversation metadata (DM, group, session-based) |
+| `conversation_participants` | Maps attendees/speakers to conversations |
+| `attendee_messages` | Individual messages with read receipts |
+| `message_read_receipts` | Track who has read which message |
+
+### Table Details
+
+**attendee_profiles** - Networking profile for attendees
+```sql
+CREATE TABLE public.attendee_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attendee_id UUID NOT NULL REFERENCES public.attendees(id) ON DELETE CASCADE,
+  display_name TEXT,
+  avatar_url TEXT,
+  bio TEXT,
+  company TEXT,
+  title TEXT,
+  open_to_networking BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(attendee_id)
+);
+```
+
+**attendee_conversations** - Conversation/thread container
+```sql
+CREATE TABLE public.attendee_conversations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('direct', 'group', 'session', 'event')),
+  name TEXT, -- For group chats
+  description TEXT, -- Optional group description
+  agenda_item_id UUID REFERENCES public.agenda_items(id) ON DELETE SET NULL, -- For session chats
+  created_by_attendee_id UUID REFERENCES public.attendees(id) ON DELETE SET NULL,
+  created_by_speaker_id UUID REFERENCES public.speakers(id) ON DELETE SET NULL,
+  is_archived BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**conversation_participants** - Who is in each conversation
+```sql
+CREATE TABLE public.conversation_participants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES public.attendee_conversations(id) ON DELETE CASCADE,
+  attendee_id UUID REFERENCES public.attendees(id) ON DELETE CASCADE,
+  speaker_id UUID REFERENCES public.speakers(id) ON DELETE CASCADE,
+  role TEXT DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
+  joined_at TIMESTAMPTZ DEFAULT now(),
+  left_at TIMESTAMPTZ,
+  muted_until TIMESTAMPTZ,
+  last_read_at TIMESTAMPTZ,
+  UNIQUE(conversation_id, attendee_id),
+  UNIQUE(conversation_id, speaker_id),
+  CHECK (
+    (attendee_id IS NOT NULL AND speaker_id IS NULL) OR
+    (attendee_id IS NULL AND speaker_id IS NOT NULL)
+  )
+);
+```
+
+**attendee_messages** - Individual messages
+```sql
+CREATE TABLE public.attendee_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES public.attendee_conversations(id) ON DELETE CASCADE,
+  sender_attendee_id UUID REFERENCES public.attendees(id) ON DELETE SET NULL,
+  sender_speaker_id UUID REFERENCES public.speakers(id) ON DELETE SET NULL,
+  content TEXT NOT NULL,
+  reply_to_id UUID REFERENCES public.attendee_messages(id) ON DELETE SET NULL,
+  is_deleted BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  CHECK (
+    (sender_attendee_id IS NOT NULL AND sender_speaker_id IS NULL) OR
+    (sender_attendee_id IS NULL AND sender_speaker_id IS NOT NULL)
+  )
+);
+```
+
+### RLS Policies
+
+Security is critical - attendees can only:
+- See conversations they're participants of
+- Message in conversations they've joined
+- See profiles of people who have opted-in OR are in shared conversations
+
+---
+
+## UI Components
+
+### Bottom Navigation Update
+
+Add a new "Messages" tab to the bottom navigation:
+
+| Icon | Label | Route |
+|------|-------|-------|
+| MessageCircle | Messages | `/attendee/app/messages` |
+
+### New Pages
+
+| Page | Route | Purpose |
+|------|-------|---------|
+| Messages Hub | `/attendee/app/messages` | List all conversations (DMs + Groups) |
+| Conversation | `/attendee/app/messages/:conversationId` | Chat view with message list and input |
+| New Message | `/attendee/app/messages/new` | Start new DM or group |
+| Attendee Directory | `/attendee/app/networking` | Browse attendees open to networking |
+| My Profile | `/attendee/app/profile` | Edit networking profile |
+
+### Messages Hub Layout
+
+```text
+┌─────────────────────────────────────────┐
+│  Messages                    [+] [👤]   │
+├─────────────────────────────────────────┤
+│  [Search conversations...]              │
+├─────────────────────────────────────────┤
+│ ┌─────────────────────────────────────┐ │
+│ │ 🟢 First Gen 2026 General Chat      │ │  ← Event-wide group
+│ │    Welcome everyone! Looking forward│ │
+│ │    12:34 PM               ●●● unread│ │
+│ └─────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────┐ │
+│ │ 📌 Workshop: Resume Building        │ │  ← Session group
+│ │    Great tips! Thanks Dr. Chen      │ │
+│ │    11:20 AM                         │ │
+│ └─────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────┐ │
+│ │ [Avatar] Sarah Johnson              │ │  ← Direct message
+│ │    Would love to connect!           │ │
+│ │    Yesterday               ●●● unread│ │
+│ └─────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────┐ │
+│ │ 👥 Miami Networking Circle          │ │  ← Custom group
+│ │    Anyone going to dinner tonight?  │ │
+│ │    2h ago                           │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
+
+### Conversation View Layout
+
+```text
+┌─────────────────────────────────────────┐
+│  ← Sarah Johnson                 [···]  │
+├─────────────────────────────────────────┤
+│                                         │
+│         ┌───────────────────┐          │
+│         │  Hi! I saw you're │          │
+│         │  also from Texas. │          │
+│         │  2:30 PM          │          │
+│         └───────────────────┘          │
+│                                         │
+│  ┌───────────────────┐                 │
+│  │ Yes! Hook 'em! 🤘  │                 │
+│  │ 2:31 PM       ✓✓  │                 │
+│  └───────────────────┘                 │
+│                                         │
+│         ┌───────────────────┐          │
+│         │  Would you like   │          │
+│         │  to grab coffee?  │          │
+│         │  2:32 PM          │          │
+│         └───────────────────┘          │
+│                                         │
+├─────────────────────────────────────────┤
+│  [Type a message...]            [Send]  │
+└─────────────────────────────────────────┘
+```
+
+### Networking Directory Layout
+
+```text
+┌─────────────────────────────────────────┐
+│  ← Networking                   [🔍]    │
+├─────────────────────────────────────────┤
+│  [Search by name, company, title...]    │
+├─────────────────────────────────────────┤
+│                                         │
+│  SPEAKERS                               │
+│  ┌─────────────────────────────────────┐│
+│  │ [Photo] Dr. Sarah Chen              ││
+│  │         CEO, TechStart              ││
+│  │         [Message]                   ││
+│  └─────────────────────────────────────┘│
+│                                         │
+│  OPEN TO NETWORKING (12)                │
+│  ┌─────────────────────────────────────┐│
+│  │ [Avatar] Marcus Williams            ││
+│  │          Engineer, Google           ││
+│  │          Looking for mentors        ││
+│  │          [Message]                  ││
+│  └─────────────────────────────────────┘│
+│  ┌─────────────────────────────────────┐│
+│  │ [Avatar] Lisa Thompson              ││
+│  │          Student, UT Austin         ││
+│  │          Career advice welcome!     ││
+│  │          [Message]                  ││
+│  └─────────────────────────────────────┘│
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## Features Breakdown
+
+### 1. Direct Messages (DMs)
+
+- Start from networking directory or attendee profile
+- One-on-one conversations between two people
+- Speakers automatically discoverable (no opt-in needed)
+- Attendees need "Open to Networking" enabled to be found
+- Can still DM someone you meet in a group chat
+
+### 2. Event-Wide Group Chat
+
+- Auto-created for each event
+- All attendees auto-joined when they first access messaging
+- Good for announcements, general Q&A
+- Moderated by event organizers
+
+### 3. Session-Based Groups
+
+- Auto-created for each agenda session
+- Attendees who bookmarked a session get a prompt to join
+- Persists after the session for follow-up discussion
+- Great for workshop discussions, speaker Q&A
+
+### 4. Custom Groups
+
+- Any attendee can create a group
+- Invite others from networking directory or DM contacts
+- Set group name, description
+- Roles: Owner (creator), Admin (can add people), Member
+
+### 5. Profile & Privacy
+
+- Edit display name, avatar, bio, company, title
+- Toggle "Open to Networking" (off by default)
+- When off: Not visible in directory, can't receive new DMs
+- Can still participate in groups and respond to existing DMs
+
+---
+
+## Real-time Implementation
+
+Enable Supabase Realtime for instant message delivery:
+
+```sql
+ALTER PUBLICATION supabase_realtime 
+  ADD TABLE public.attendee_messages,
+  ADD TABLE public.conversation_participants;
+```
+
+React hook pattern:
+```typescript
+// Subscribe to new messages in a conversation
+const channel = supabase
+  .channel(`messages-${conversationId}`)
+  .on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'attendee_messages',
+    filter: `conversation_id=eq.${conversationId}`
+  }, (payload) => {
+    // Add new message to list
+  })
+  .subscribe();
+```
+
+---
+
+## Edge Functions
+
+| Function | Purpose |
+|----------|---------|
+| `create-dm-conversation` | Start a new DM (validates both parties) |
+| `create-group-conversation` | Create custom group with participants |
+| `send-attendee-message` | Send message (validates membership) |
+| `join-session-chat` | Join a session-based group |
+| `update-attendee-profile` | Update networking profile |
+| `get-networkable-attendees` | Fetch attendees open to networking |
 
 ---
 
@@ -62,144 +340,81 @@ Form Dialog:
 
 | File | Description |
 |------|-------------|
-| `src/pages/events/manage/Hotels.tsx` | Main hotels management page |
-| `src/components/events/hotels/HotelCard.tsx` | Hotel card with edit/delete actions |
-| `src/components/events/hotels/HotelForm.tsx` | Dialog form for add/edit hotel |
+| **Pages** | |
+| `src/pages/attendee/Messages.tsx` | Messages hub with conversation list |
+| `src/pages/attendee/Conversation.tsx` | Individual chat view |
+| `src/pages/attendee/NewMessage.tsx` | Start new DM or group |
+| `src/pages/attendee/Networking.tsx` | Attendee/speaker directory |
+| `src/pages/attendee/AttendeeProfile.tsx` | Edit own networking profile |
+| **Components** | |
+| `src/components/attendee/ConversationCard.tsx` | Conversation list item |
+| `src/components/attendee/MessageBubble.tsx` | Individual message |
+| `src/components/attendee/MessageInput.tsx` | Compose message input |
+| `src/components/attendee/NetworkingCard.tsx` | Attendee card in directory |
+| `src/components/attendee/CreateGroupDialog.tsx` | Create custom group |
+| `src/components/attendee/ProfileEditForm.tsx` | Edit networking profile |
+| **Hooks** | |
+| `src/hooks/useAttendeeMessages.ts` | Fetch/send messages with realtime |
+| `src/hooks/useConversations.ts` | List conversations |
+| `src/hooks/useNetworking.ts` | Directory queries |
+| `src/hooks/useAttendeeProfile.ts` | Profile management |
+| **Edge Functions** | |
+| `supabase/functions/create-dm-conversation/index.ts` | Start DM |
+| `supabase/functions/create-group-conversation/index.ts` | Create group |
+| `supabase/functions/send-attendee-message/index.ts` | Send message |
+| `supabase/functions/join-session-chat/index.ts` | Join session group |
+| `supabase/functions/update-attendee-profile/index.ts` | Update profile |
+| `supabase/functions/get-networkable-attendees/index.ts` | Directory API |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/hooks/useEventHotels.ts` | Add mutation functions (create, update, delete) |
-| `src/components/events/EventsDashboardSidebar.tsx` | Add "Hotels" nav item |
-| `src/App.tsx` | Add route for `/events/manage/hotels` |
+| `src/components/attendee/BottomNavigation.tsx` | Add Messages tab |
+| `src/contexts/AttendeeContext.tsx` | Add unread message count |
+| `src/pages/attendee/Dashboard.tsx` | Add routes for new pages |
+| `src/App.tsx` | Register new attendee routes |
 
 ---
 
-## Detailed Implementation
+## Implementation Phases
 
-### 1. Enhanced useEventHotels Hook
+### Phase 1: Foundation
+- Database tables and RLS policies
+- Attendee profile with opt-in
+- Edge function for profile updates
 
-Extend the existing hook with CRUD mutations:
+### Phase 2: Direct Messaging
+- DM conversation creation
+- Message sending/receiving
+- Real-time subscriptions
+- Conversation list UI
 
-```typescript
-// Types
-export type HotelInsert = Omit<EventHotel, 'id' | 'created_at'>;
-export type HotelUpdate = Partial<Omit<EventHotel, 'id' | 'event_id' | 'created_at'>>;
+### Phase 3: Networking Directory
+- Directory page with search
+- Speaker listing (always visible)
+- Attendee listing (opt-in only)
+- Start DM from directory
 
-// New mutations
-- createHotel: Insert new hotel record
-- updateHotel: Update existing hotel by ID
-- deleteHotel: Delete hotel by ID
-- uploadImage: Upload hotel image to storage bucket
-```
+### Phase 4: Group Chats
+- Event-wide group (auto-join)
+- Session-based groups
+- Custom group creation
+- Group management (add/remove members)
 
-### 2. HotelCard Component
-
-Display hotel information in a card format with:
-- Hotel image (or placeholder)
-- Hotel name
-- Address
-- Phone number (if available)
-- Rate description
-- Booking URL link
-- Dropdown menu with Edit/Delete actions
-
-### 3. HotelForm Component
-
-Dialog form with fields:
-- Image upload with preview
-- Name (required)
-- Address (required)
-- Phone (optional)
-- Description (optional, textarea)
-- Rate Description (optional, e.g., "$199/night")
-- Booking URL (optional, validated as URL)
-
-Uses react-hook-form with zod validation.
-
-### 4. Hotels Page
-
-Main management page with:
-- Header with title and "Add Hotel" button
-- Empty state when no hotels exist
-- Grid of HotelCard components
-- SpeakerForm-style dialog for add/edit
-- Delete confirmation dialog
-
-### 5. Navigation & Routing
-
-Add to sidebar navigation:
-```typescript
-{ path: '/events/manage/hotels', label: 'Hotels', icon: Building2 }
-```
-
-Add protected route:
-```typescript
-<Route path="/events/manage/hotels" element={...} />
-```
+### Phase 5: Polish
+- Unread badges in navigation
+- Message search
+- Reply threading
+- Message reactions (optional)
 
 ---
 
-## Component Details
+## Security Considerations
 
-### HotelCard Layout
-
-```text
-+-----------------------------------------------+
-|  [Image Placeholder / Hotel Image]            |
-|                                               |
-|  **Hotel Name**                      [...]    |
-|  123 Main Street, City, State 12345           |
-|  Phone: 555-123-4567                          |
-|                                               |
-|  Description text truncated to 2 lines...     |
-|                                               |
-|  **$199.00/night**                            |
-|  [Reserve Now ->]  (if booking_url exists)    |
-+-----------------------------------------------+
-```
-
-### Form Validation Schema
-
-```typescript
-const hotelSchema = z.object({
-  name: z.string().min(1, 'Hotel name is required'),
-  address: z.string().min(1, 'Address is required'),
-  phone: z.string().optional(),
-  description: z.string().optional(),
-  rate_description: z.string().optional(),
-  booking_url: z.string().url().optional().or(z.literal('')),
-});
-```
-
----
-
-## Database Considerations
-
-No schema changes needed - the `event_hotels` table already exists with all required columns:
-- id, event_id, name, address, phone, description
-- image_url, rate_description, booking_url, sort_order, created_at
-
-RLS policies are already in place:
-- Public read access
-- Event owner and admins can insert/update/delete
-
----
-
-## Image Storage
-
-Hotel images will be stored in the existing `event-images` bucket:
-- Path: `hotels/{eventId}/{hotelId}.{ext}`
-- Same pattern used for speaker photos
-
----
-
-## Implementation Order
-
-1. **Enhance Hook** - Add mutations to `useEventHotels.ts`
-2. **Create HotelCard** - Reusable card component
-3. **Create HotelForm** - Dialog form for CRUD
-4. **Create Hotels Page** - Main management interface
-5. **Add Navigation** - Sidebar link and route
+1. **Privacy First**: Attendees hidden by default unless they opt-in
+2. **Event Scoped**: Can only message people from same event
+3. **Validated Membership**: Edge functions verify conversation membership before sending
+4. **Session Authentication**: Uses existing email OTP session tokens
+5. **RLS Everywhere**: Database-level enforcement of access rules
 
