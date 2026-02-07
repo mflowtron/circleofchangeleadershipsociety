@@ -45,7 +45,7 @@ export default function MyChapter() {
     try {
       // Get advisor's assigned chapters
       const { data: advisorChapters, error: advisorError } = await supabase
-        .from('advisor_chapters')
+        .from('lms_advisor_chapters')
         .select('chapter_id')
         .eq('user_id', user.id);
 
@@ -60,7 +60,7 @@ export default function MyChapter() {
 
       // Get chapter details
       const { data: chapterData, error: chapterError } = await supabase
-        .from('chapters')
+        .from('lms_chapters')
         .select('id, name, description')
         .eq('id', chapterId)
         .single();

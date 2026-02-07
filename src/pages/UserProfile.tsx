@@ -58,7 +58,7 @@ export default function UserProfile() {
           avatar_url,
           linkedin_url,
           headline,
-          chapter:chapters(name)
+          chapter:lms_chapters(name)
         `)
         .eq('user_id', userId)
         .single();

@@ -50,35 +50,6 @@ export type Database = {
         }
         Relationships: []
       }
-      advisor_chapters: {
-        Row: {
-          chapter_id: string
-          created_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          chapter_id: string
-          created_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          chapter_id?: string
-          created_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "advisor_chapters_chapter_id_fkey"
-            columns: ["chapter_id"]
-            isOneToOne: false
-            referencedRelation: "chapters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       agenda_item_speakers: {
         Row: {
           agenda_item_id: string
@@ -555,30 +526,6 @@ export type Database = {
           },
         ]
       }
-      chapters: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       conversation_participants: {
         Row: {
           attendee_id: string | null
@@ -744,6 +691,35 @@ export type Database = {
         }
         Relationships: []
       }
+      lms_advisor_chapters: {
+        Row: {
+          chapter_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          chapter_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          chapter_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advisor_chapters_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "lms_chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lms_announcements: {
         Row: {
           content: string
@@ -771,6 +747,30 @@ export type Database = {
           id?: string
           is_active?: boolean
           title?: string
+        }
+        Relationships: []
+      }
+      lms_chapters: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -940,7 +940,7 @@ export type Database = {
             foreignKeyName: "posts_chapter_id_fkey"
             columns: ["chapter_id"]
             isOneToOne: false
-            referencedRelation: "chapters"
+            referencedRelation: "lms_chapters"
             referencedColumns: ["id"]
           },
         ]
@@ -1312,7 +1312,7 @@ export type Database = {
             foreignKeyName: "profiles_chapter_id_fkey"
             columns: ["chapter_id"]
             isOneToOne: false
-            referencedRelation: "chapters"
+            referencedRelation: "lms_chapters"
             referencedColumns: ["id"]
           },
         ]

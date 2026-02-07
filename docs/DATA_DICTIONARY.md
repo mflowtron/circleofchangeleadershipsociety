@@ -50,7 +50,7 @@ Stores user profile information for authenticated users. Automatically created o
 - `Admins can update any profile` (UPDATE): Admins can modify any profile
 
 **Foreign Keys:**
-- `chapter_id` → `chapters.id`
+- `chapter_id` → `lms_chapters.id`
 
 ---
 
@@ -74,9 +74,9 @@ Assigns application roles to users. Each user can have one role.
 
 ---
 
-### chapters
+### lms_chapters
 
-Organizational chapters/branches for grouping users.
+Organizational chapters/branches for grouping LMS users.
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
@@ -94,9 +94,9 @@ Organizational chapters/branches for grouping users.
 
 ---
 
-### advisor_chapters
+### lms_advisor_chapters
 
-Links advisor users to the chapters they manage.
+Links advisor users to the LMS chapters they manage.
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
@@ -110,7 +110,7 @@ Links advisor users to the chapters they manage.
 - `Admins can manage advisor chapters` (ALL): Full access for admins
 
 **Foreign Keys:**
-- `chapter_id` → `chapters.id`
+- `chapter_id` → `lms_chapters.id`
 
 ---
 
