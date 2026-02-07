@@ -1,83 +1,127 @@
 
 
-# Add Test User to First Gen 2026 Event
+# Fix Attendee App Tab Switching Performance
 
 ## Problem
 
-The user `mflotron91@gmail.com` cannot access the attendee app at `/attendee/app/home` because:
-1. They have no orders associated with their email address
-2. They are not listed as an attendee on any existing order
-3. The `get-orders-by-email` edge function only matches on the **order purchaser email**, not attendee emails
+When switching between tabs in the Attendee app (Home, Agenda, Messages, Bookmarks, QR), the entire page appears to reload with loading skeletons, creating a jarring user experience.
+
+## Root Causes
+
+After exploring the codebase, I identified **two issues** causing the reload waterfalls:
+
+### 1. SuspenseWithErrorBoundary Key Prop
+
+In `App.tsx`, the `SuspenseWithErrorBoundary` component uses `key={location.pathname}`:
+
+```typescript
+function SuspenseWithErrorBoundary({ children }) {
+  const location = useLocation();
+  return (
+    <RouteErrorBoundary key={location.pathname}>
+      <Suspense fallback={<PageLoader />}>
+        {children}
+      </Suspense>
+    </RouteErrorBoundary>
+  );
+}
+```
+
+This causes the entire Suspense boundary and all its children to **unmount and remount** whenever the URL changes. Every tab switch triggers a fresh lazy load and new component mount.
+
+### 2. Each Child Route Wrapped in SuspenseWithErrorBoundary
+
+Each attendee child route is individually wrapped:
+
+```text
+<Route path="home" element={
+  <SuspenseWithErrorBoundary>    <-- Remounts on path change
+    <AttendeeHome />
+  </SuspenseWithErrorBoundary>
+} />
+<Route path="agenda" element={
+  <SuspenseWithErrorBoundary>    <-- Also remounts
+    <AttendeeAgenda />
+  </SuspenseWithErrorBoundary>
+} />
+```
+
+Combined with the key prop issue, this causes each tab switch to:
+1. Unmount the previous component
+2. Show the loading fallback
+3. Re-fetch lazy loaded code
+4. Re-run all useEffect hooks (triggering data fetches)
+
+---
 
 ## Solution
 
-Two changes are needed:
+### Step 1: Remove Key Prop from Error Boundary
 
-### 1. Create Test Order for User
+Remove the `key={location.pathname}` from `SuspenseWithErrorBoundary`. The error boundary can reset itself via other means (like a retry button).
 
-Insert a complete test order with:
-- Order for `mflotron91@gmail.com` with status `completed`
-- Order item with 1 "In-Person - Early Bird" ticket
-- Attendee record linking to the order item
+### Step 2: Remove Individual Suspense Wrappers from Child Routes
 
-### 2. Update Edge Function (Enhancement)
+Since the parent route (`AttendeeDashboard`) already handles auth loading states and the pages handle their own loading states via React Query, the individual Suspense boundaries on child routes are unnecessary.
 
-Modify `get-orders-by-email` to also find orders where the user is listed as an attendee (not just as the purchaser). This ensures:
-- Purchasers can see their orders (current behavior)
-- Named attendees can also access the app for events they're registered for
+Remove `SuspenseWithErrorBoundary` wrappers from all `/attendee/app/*` child routes. The parent's Suspense boundary is sufficient for the initial lazy load.
 
----
+### Step 3: Preload Adjacent Tabs (Optional Enhancement)
 
-## Database Changes
-
-### Insert Test Order
-
-| Table | Data |
-|-------|------|
-| `orders` | Order for mflotron91@gmail.com, status=completed, event=First Gen 2026 |
-| `order_items` | 1x In-Person Early Bird ticket ($325) |
-| `attendees` | Matt Flotron as attendee with email mflotron91@gmail.com |
-
-SQL will use CTEs to:
-1. Insert the order and capture its ID
-2. Insert the order item referencing the order
-3. Insert the attendee referencing both order and order item
+To make navigation even snappier, preload sibling tab components when the user lands on a tab. This can be done by importing the lazy modules eagerly after initial render.
 
 ---
 
-## Edge Function Changes
+## Implementation Details
 
-### File: `supabase/functions/get-orders-by-email/index.ts`
+### Changes to App.tsx
 
-Update the query to find orders where:
-- The order email matches the user (current), OR
-- The user's email appears in the attendees list for that order (new)
+| Location | Change |
+|----------|--------|
+| `SuspenseWithErrorBoundary` | Remove `key={location.pathname}` from the error boundary |
+| Attendee child routes | Remove individual `SuspenseWithErrorBoundary` wrappers |
 
-This change uses a subquery to find order IDs where the user appears as an attendee, then combines results with the purchaser query.
-
----
-
-## Technical Details
-
-### Order Data
-
-| Field | Value |
-|-------|-------|
-| order_number | ORD-20260208-TEST1 |
-| email | mflotron91@gmail.com |
-| full_name | Matt Flotron |
-| status | completed |
-| event_id | 2e062f79-1693-4883-a3c5-623121810c57 |
-| ticket_type | In-Person - Early Bird (c51357f9-a41a-4e9b-8d77-031f4f65d724) |
-| price | $325.00 |
-
-### Updated Query Logic
+### Before (current structure):
 
 ```text
-Current:  WHERE orders.email = user_email
-New:      WHERE orders.email = user_email 
-             OR orders.id IN (SELECT order_id FROM attendees WHERE attendee_email = user_email)
+<Route path="/attendee/app" element={<SuspenseWithErrorBoundary><AttendeeDashboard /></SuspenseWithErrorBoundary>}>
+  <Route path="home" element={<SuspenseWithErrorBoundary><AttendeeHome /></SuspenseWithErrorBoundary>} />
+  <Route path="agenda" element={<SuspenseWithErrorBoundary><AttendeeAgenda /></SuspenseWithErrorBoundary>} />
+  ...
+</Route>
 ```
+
+### After (optimized structure):
+
+```text
+<Route path="/attendee/app" element={<SuspenseWithErrorBoundary><AttendeeDashboard /></SuspenseWithErrorBoundary>}>
+  <Route path="home" element={<AttendeeHome />} />
+  <Route path="agenda" element={<AttendeeAgenda />} />
+  ...
+</Route>
+```
+
+---
+
+## Technical Considerations
+
+### Why This Works
+
+1. **Lazy loading still works**: The components remain lazy-loaded. The first time a tab is visited, it loads the chunk. Subsequent visits use the cached chunk.
+
+2. **Data fetching is unaffected**: React Query caches data. Components use `useAgendaItems`, `useBookmarks`, etc. which return cached data instantly on remount.
+
+3. **Error boundaries still work**: Errors in child routes bubble up to the parent's error boundary. Each page can optionally have its own error handling.
+
+4. **Context is preserved**: The `AttendeeProviders` (auth, events, bookmarks, conversations) stay mounted at the Dashboard level, so state persists across tab switches.
+
+### What About Error Boundary Reset?
+
+The original `key={location.pathname}` was intended to reset error boundaries on navigation. Instead:
+
+- The error boundary's "Try Again" button already resets state
+- Navigation away from an errored route naturally unmounts that component
+- If needed, a custom reset mechanism can be added later
 
 ---
 
@@ -85,16 +129,16 @@ New:      WHERE orders.email = user_email
 
 | File | Change |
 |------|--------|
-| Database migration | Insert order, order_item, attendee records |
-| `supabase/functions/get-orders-by-email/index.ts` | Add attendee email matching |
+| `src/App.tsx` | Remove key prop and unwrap child routes |
 
 ---
 
 ## Expected Result
 
-After these changes:
-1. `mflotron91@gmail.com` can log in via magic link at `/attendee`
-2. The First Gen 2026 event appears in their event list
-3. They can access all attendee app features (agenda, networking, messages, etc.)
-4. Other registered attendees (not just purchasers) can also access their events
+After this change:
+
+- Switching tabs will be nearly instant (no loading skeleton flash)
+- Cached data displays immediately
+- Lazy chunks load once and stay cached
+- The overall navigation feels native and smooth
 
