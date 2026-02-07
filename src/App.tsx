@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
@@ -12,6 +12,7 @@ import AuthCallback from "@/pages/AuthCallback";
 import NotFound from "@/pages/NotFound";
 import { CircleLoader, FullPageLoader } from "@/components/ui/circle-loader";
 import { useNativelyThemeSync } from "@/hooks/useNativelyThemeSync";
+import RouteErrorBoundary from "@/components/ui/error-boundary";
 
 // Lazy load pages for better initial bundle size
 const Feed = lazy(() => import("@/pages/Feed"));
@@ -86,6 +87,18 @@ function PageLoader() {
   );
 }
 
+// Helper component that wraps Suspense with error boundary
+function SuspenseWithErrorBoundary({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return (
+    <RouteErrorBoundary key={location.pathname}>
+      <Suspense fallback={<PageLoader />}>
+        {children}
+      </Suspense>
+    </RouteErrorBoundary>
+  );
+}
+
 function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApproval = true }: { 
   children: React.ReactNode; 
   allowedRoles?: string[]; 
@@ -114,9 +127,9 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
   
   if (useEventsLayout) {
     return (
-      <Suspense fallback={<PageLoader />}>
+      <SuspenseWithErrorBoundary>
         <EventsDashboardLayout>{children}</EventsDashboardLayout>
-      </Suspense>
+      </SuspenseWithErrorBoundary>
     );
   }
   
@@ -130,12 +143,6 @@ function AppRoutes() {
     return <FullPageLoader />;
   }
 
-  if (loading) {
-    return <FullPageLoader />;
-  }
-
-
-
   return (
     <Routes>
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
@@ -146,53 +153,53 @@ function AppRoutes() {
         ) : isApproved ? (
           <Navigate to="/" replace />
         ) : (
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <PendingApproval />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         )
       } />
       
       {/* Smart Root Router - redirects based on roles */}
       <Route path="/" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <RootRouter />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       
       {/* Area/Dashboard Selector for multi-role users */}
       <Route path="/select-dashboard" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <AreaSelector />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       
       {/* LMS Routes - now under /lms prefix */}
       <Route path="/lms" element={
         <ProtectedRoute>
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <Feed />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         </ProtectedRoute>
       } />
       <Route path="/lms/recordings" element={
         <ProtectedRoute>
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <Recordings />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         </ProtectedRoute>
       } />
       <Route path="/lms/profile/:userId" element={
         <ProtectedRoute>
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <UserProfile />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         </ProtectedRoute>
       } />
       <Route path="/lms/profile" element={
         <ProtectedRoute>
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <Profile />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         </ProtectedRoute>
       } />
       
@@ -201,9 +208,9 @@ function AppRoutes() {
         path="/lms/my-chapter" 
         element={
           <ProtectedRoute allowedRoles={['lms_advisor', 'lms_admin']}>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <MyChapter />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -213,9 +220,9 @@ function AppRoutes() {
         path="/lms/admin/users" 
         element={
           <ProtectedRoute allowedRoles={['lms_admin']}>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <Users />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -223,9 +230,9 @@ function AppRoutes() {
         path="/lms/admin/chapters" 
         element={
           <ProtectedRoute allowedRoles={['lms_admin']}>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <Chapters />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -233,9 +240,9 @@ function AppRoutes() {
         path="/lms/admin/moderation" 
         element={
           <ProtectedRoute allowedRoles={['lms_admin']}>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <Moderation />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -243,9 +250,9 @@ function AppRoutes() {
         path="/lms/admin/announcements" 
         element={
           <ProtectedRoute allowedRoles={['lms_admin']}>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <Announcements />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -253,9 +260,9 @@ function AppRoutes() {
         path="/lms/events" 
         element={
           <ProtectedRoute>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <LMSEvents />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -263,9 +270,9 @@ function AppRoutes() {
         path="/lms/admin" 
         element={
           <ProtectedRoute allowedRoles={['lms_admin']}>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <AdminDashboard />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -274,94 +281,94 @@ function AppRoutes() {
 
       
       <Route path="/events" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <EventsIndex />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       <Route path="/events/:slug" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <EventDetail />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       <Route path="/events/:slug/checkout" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <Checkout />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       <Route path="/events/:slug/checkout/success" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <CheckoutSuccess />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       <Route path="/events/:slug/order/:orderId/attendees" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <OrderAttendees />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       
       {/* Order Portal Routes (Public) */}
       <Route path="/my-orders" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <OrderPortalIndex />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       <Route path="/my-orders/dashboard" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <OrderPortalDashboard />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       
       {/* Attendee App Routes (Public - uses session token auth) */}
       <Route path="/attendee" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <AttendeeLogin />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       } />
       <Route path="/attendee/app" element={
-        <Suspense fallback={<PageLoader />}>
+        <SuspenseWithErrorBoundary>
           <AttendeeDashboard />
-        </Suspense>
+        </SuspenseWithErrorBoundary>
       }>
         <Route index element={<Navigate to="/attendee/app/home" replace />} />
         <Route path="home" element={
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <AttendeeHome />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         } />
         <Route path="agenda" element={
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <AttendeeAgenda />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         } />
         <Route path="messages" element={
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <AttendeeMessages />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         } />
         <Route path="messages/:conversationId" element={
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <AttendeeConversation />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         } />
         <Route path="networking" element={
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <AttendeeNetworking />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         } />
         <Route path="profile" element={
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <AttendeeProfilePage />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         } />
         <Route path="bookmarks" element={
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <AttendeeBookmarks />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         } />
         <Route path="qr" element={
-          <Suspense fallback={<PageLoader />}>
+          <SuspenseWithErrorBoundary>
             <AttendeeQRCode />
-          </Suspense>
+          </SuspenseWithErrorBoundary>
         } />
       </Route>
       {/* Event Management Routes (Protected with Events Dashboard Layout) */}
@@ -369,9 +376,9 @@ function AppRoutes() {
         path="/events/manage" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <ManageEventsIndex />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -379,9 +386,9 @@ function AppRoutes() {
         path="/events/manage/orders" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <ManageOrders />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -389,9 +396,9 @@ function AppRoutes() {
         path="/events/manage/orders/:orderId" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <OrderDetail />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -399,9 +406,9 @@ function AppRoutes() {
         path="/events/manage/attendees" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <ManageAttendees />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -409,9 +416,9 @@ function AppRoutes() {
         path="/events/manage/new" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <NewEvent />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -419,9 +426,9 @@ function AppRoutes() {
         path="/events/manage/:id" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <EditEvent />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -429,9 +436,9 @@ function AppRoutes() {
         path="/events/manage/:id/tickets" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <ManageTickets />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -439,9 +446,9 @@ function AppRoutes() {
         path="/events/manage/:id/orders" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <EventOrders />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -449,9 +456,9 @@ function AppRoutes() {
         path="/events/manage/:id/badges" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <BadgeDesigner />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -459,9 +466,9 @@ function AppRoutes() {
         path="/events/manage/speakers" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <ManageSpeakers />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -469,9 +476,9 @@ function AppRoutes() {
         path="/events/manage/agenda" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <ManageAgenda />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -479,9 +486,9 @@ function AppRoutes() {
         path="/events/manage/checkin" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <ManageCheckIn />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
@@ -489,9 +496,9 @@ function AppRoutes() {
         path="/events/manage/hotels" 
         element={
           <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <Suspense fallback={<PageLoader />}>
+            <SuspenseWithErrorBoundary>
               <ManageHotels />
-            </Suspense>
+            </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
       />
