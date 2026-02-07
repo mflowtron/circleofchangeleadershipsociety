@@ -616,6 +616,7 @@ export type Database = {
           short_description: string | null
           slug: string
           starts_at: string
+          timezone: string | null
           title: string
           travel_contact_email: string | null
           travel_info: string | null
@@ -634,6 +635,7 @@ export type Database = {
           short_description?: string | null
           slug: string
           starts_at: string
+          timezone?: string | null
           title: string
           travel_contact_email?: string | null
           travel_info?: string | null
@@ -652,6 +654,7 @@ export type Database = {
           short_description?: string | null
           slug?: string
           starts_at?: string
+          timezone?: string | null
           title?: string
           travel_contact_email?: string | null
           travel_info?: string | null

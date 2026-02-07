@@ -19,6 +19,7 @@ export interface Event {
   updated_at: string;
   travel_info: string | null;
   travel_contact_email: string | null;
+  timezone: string | null;
 }
 
 export interface CreateEventData {
@@ -32,6 +33,7 @@ export interface CreateEventData {
   ends_at?: string;
   cover_image_url?: string;
   is_published?: boolean;
+  timezone?: string;
 }
 
 export interface UpdateEventData extends Partial<CreateEventData> {

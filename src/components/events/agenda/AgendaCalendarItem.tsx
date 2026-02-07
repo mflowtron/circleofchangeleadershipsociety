@@ -1,6 +1,7 @@
-import { format, differenceInMinutes, addMinutes } from 'date-fns';
+import { differenceInMinutes, addMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AgendaTypeIcon, getAgendaTypeConfig } from './AgendaTypeIcon';
+import { formatInTimezone, getTimeInTimezone } from '@/lib/timezoneUtils';
 import type { AgendaItem, AgendaItemType } from '@/hooks/useAgendaItems';
 import {
   Tooltip,
@@ -23,24 +24,28 @@ interface AgendaCalendarItemProps {
   startHour: number;
   endHour: number;
   onClick: (item: AgendaItem) => void;
+  displayTimezone: string;
 }
 
-export function AgendaCalendarItem({ item, startHour, endHour, onClick }: AgendaCalendarItemProps) {
+export function AgendaCalendarItem({ item, startHour, endHour, onClick, displayTimezone }: AgendaCalendarItemProps) {
   const itemStart = new Date(item.starts_at);
   const itemEnd = item.ends_at ? new Date(item.ends_at) : addMinutes(itemStart, 30);
   
-  // Get local hours for visibility check
-  const itemStartHour = itemStart.getHours() + itemStart.getMinutes() / 60;
-  const itemEndHour = itemEnd.getHours() + itemEnd.getMinutes() / 60;
+  // Get hours in the display timezone for visibility check and positioning
+  const startTime = getTimeInTimezone(itemStart, displayTimezone);
+  const endTime = getTimeInTimezone(itemEnd, displayTimezone);
+  
+  const itemStartHour = startTime.hours + startTime.minutes / 60;
+  const itemEndHour = endTime.hours + endTime.minutes / 60;
   
   // Skip rendering if completely outside visible range
   if (itemEndHour <= startHour || itemStartHour >= endHour) {
     return null;
   }
   
-  // Calculate position relative to the grid start hour using local time
+  // Calculate position relative to the grid start hour using display timezone
   const gridStartMinutes = startHour * 60;
-  const itemStartMinutes = itemStart.getHours() * 60 + itemStart.getMinutes();
+  const itemStartMinutes = startTime.hours * 60 + startTime.minutes;
   const minutesFromGridStart = itemStartMinutes - gridStartMinutes;
   
   // Clamp to visible area if item starts before grid
@@ -55,7 +60,7 @@ export function AgendaCalendarItem({ item, startHour, endHour, onClick }: Agenda
   
   // Also clamp if item extends past grid end
   const gridEndMinutes = endHour * 60;
-  const itemEndMinutes = itemEnd.getHours() * 60 + itemEnd.getMinutes();
+  const itemEndMinutes = endTime.hours * 60 + endTime.minutes;
   const finalVisibleDuration = itemEndMinutes > gridEndMinutes 
     ? visibleDuration - (itemEndMinutes - gridEndMinutes)
     : visibleDuration;
@@ -97,7 +102,7 @@ export function AgendaCalendarItem({ item, startHour, endHour, onClick }: Agenda
               </p>
               {!isCompact && (
                 <p className="text-xs text-muted-foreground truncate line-clamp-1 flex-shrink-0">
-                  {format(itemStart, 'h:mm a')} - {format(itemEnd, 'h:mm a')}
+                  {formatInTimezone(itemStart, displayTimezone, 'h:mm a')} - {formatInTimezone(itemEnd, displayTimezone, 'h:mm a')}
                 </p>
               )}
             </div>
@@ -111,7 +116,7 @@ export function AgendaCalendarItem({ item, startHour, endHour, onClick }: Agenda
             <span className="font-semibold">{item.title}</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            {format(itemStart, 'h:mm a')} - {format(itemEnd, 'h:mm a')}
+            {formatInTimezone(itemStart, displayTimezone, 'h:mm a')} - {formatInTimezone(itemEnd, displayTimezone, 'h:mm a')}
           </p>
           {item.location && (
             <p className="text-sm">📍 {item.location}</p>

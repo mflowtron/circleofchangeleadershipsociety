@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Calendar, MapPin, FileText, Image, Link as LinkIcon } from 'lucide-react';
+import { Calendar, MapPin, FileText, Image, Link as LinkIcon, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { COMMON_TIMEZONES, getTimezoneAbbreviation } from '@/lib/timezoneUtils';
 import type { Event, CreateEventData, UpdateEventData } from '@/hooks/useEvents';
 
 interface EventFormProps {
@@ -36,6 +44,7 @@ export function EventForm({ event, onSubmit, isSubmitting }: EventFormProps) {
   const [venueAddress, setVenueAddress] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
+  const [timezone, setTimezone] = useState('America/New_York');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [isPublished, setIsPublished] = useState(false);
 
@@ -50,6 +59,7 @@ export function EventForm({ event, onSubmit, isSubmitting }: EventFormProps) {
       setVenueAddress(event.venue_address || '');
       setStartsAt(event.starts_at ? format(new Date(event.starts_at), "yyyy-MM-dd'T'HH:mm") : '');
       setEndsAt(event.ends_at ? format(new Date(event.ends_at), "yyyy-MM-dd'T'HH:mm") : '');
+      setTimezone(event.timezone || 'America/New_York');
       setCoverImageUrl(event.cover_image_url || '');
       setIsPublished(event.is_published);
     }
@@ -76,6 +86,7 @@ export function EventForm({ event, onSubmit, isSubmitting }: EventFormProps) {
       ends_at: endsAt ? new Date(endsAt).toISOString() : undefined,
       cover_image_url: coverImageUrl || undefined,
       is_published: isPublished,
+      timezone,
     };
 
     await onSubmit(data);
@@ -174,6 +185,28 @@ export function EventForm({ event, onSubmit, isSubmitting }: EventFormProps) {
                 onChange={(e) => setEndsAt(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="timezone">Event Timezone</Label>
+            <Select value={timezone} onValueChange={setTimezone}>
+              <SelectTrigger id="timezone" className="w-full">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Select timezone" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {COMMON_TIMEZONES.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>
+                    {tz.label} ({getTimezoneAbbreviation(tz.value)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              All agenda times will be displayed in this timezone by default
+            </p>
           </div>
         </CardContent>
       </Card>

@@ -1,10 +1,19 @@
 import { useState, useMemo } from 'react';
-import { format, addDays, addMinutes, startOfDay, isSameDay, isToday } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, addDays, addMinutes, startOfDay } from 'date-fns';
+import { ChevronLeft, ChevronRight, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AgendaCalendarItem, ROW_HEIGHT } from './AgendaCalendarItem';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  getLocalTimezone,
+  getTimezoneAbbreviation,
+  getDateInTimezone,
+  isTodayInTimezone,
+  getTimeInTimezone,
+  createDateInTimezone,
+} from '@/lib/timezoneUtils';
 import type { AgendaItem } from '@/hooks/useAgendaItems';
 
 interface AgendaCalendarViewProps {
@@ -14,7 +23,10 @@ interface AgendaCalendarViewProps {
   eventStartDate?: Date;
   startHour?: number;
   endHour?: number;
+  eventTimezone?: string;
 }
+
+type TimezoneMode = 'local' | 'event';
 
 interface TimeSlot {
   hour: number;
@@ -31,9 +43,13 @@ function generateTimeSlots(startHour: number, endHour: number): TimeSlot[] {
   return slots;
 }
 
-function getInitialStartDate(agendaItems: AgendaItem[], eventStartDate?: Date): Date {
+function getInitialStartDate(agendaItems: AgendaItem[], eventStartDate?: Date, timezone?: string): Date {
   if (agendaItems.length > 0) {
-    return startOfDay(new Date(agendaItems[0].starts_at));
+    // Use timezone-aware date extraction
+    const dateStr = timezone 
+      ? getDateInTimezone(agendaItems[0].starts_at, timezone)
+      : format(new Date(agendaItems[0].starts_at), 'yyyy-MM-dd');
+    return startOfDay(new Date(dateStr + 'T00:00:00'));
   }
   if (eventStartDate) {
     return startOfDay(eventStartDate);
@@ -48,9 +64,16 @@ export function AgendaCalendarView({
   eventStartDate,
   startHour: defaultStartHour = 6,
   endHour: defaultEndHour = 22,
+  eventTimezone = 'America/New_York',
 }: AgendaCalendarViewProps) {
+  const localTimezone = useMemo(() => getLocalTimezone(), []);
+  const [timezoneMode, setTimezoneMode] = useState<TimezoneMode>('event');
+  
+  // Determine which timezone to use for display
+  const displayTimezone = timezoneMode === 'event' ? eventTimezone : localTimezone;
+  
   const [viewStartDate, setViewStartDate] = useState<Date>(() =>
-    getInitialStartDate(agendaItems, eventStartDate)
+    getInitialStartDate(agendaItems, eventStartDate, displayTimezone)
   );
 
   // Generate the 3 days to display
@@ -58,18 +81,19 @@ export function AgendaCalendarView({
     return [0, 1, 2].map(offset => addDays(viewStartDate, offset));
   }, [viewStartDate]);
 
-  // Group items by day
+  // Group items by day using timezone-aware date comparison
   const itemsByDay = useMemo(() => {
     const grouped: Record<string, AgendaItem[]> = {};
     days.forEach(day => {
       const dayKey = format(day, 'yyyy-MM-dd');
       grouped[dayKey] = agendaItems.filter(item => {
-        const itemDate = new Date(item.starts_at);
-        return isSameDay(itemDate, day);
+        // Get the date of this item in the display timezone
+        const itemDateStr = getDateInTimezone(item.starts_at, displayTimezone);
+        return itemDateStr === dayKey;
       });
     });
     return grouped;
-  }, [agendaItems, days]);
+  }, [agendaItems, days, displayTimezone]);
 
   // Calculate dynamic hours based on VISIBLE agenda items only (current 3-day period)
   const { startHour, endHour } = useMemo(() => {
@@ -87,17 +111,18 @@ export function AgendaCalendarView({
     let latest = 0;
     
     visibleItems.forEach(item => {
-      const start = new Date(item.starts_at);
-      const end = item.ends_at ? new Date(item.ends_at) : addMinutes(start, 30);
-      earliest = Math.min(earliest, start.getHours());
-      latest = Math.max(latest, end.getHours() + 1);
+      const startTime = getTimeInTimezone(item.starts_at, displayTimezone);
+      const end = item.ends_at ? new Date(item.ends_at) : addMinutes(new Date(item.starts_at), 30);
+      const endTime = getTimeInTimezone(end, displayTimezone);
+      earliest = Math.min(earliest, startTime.hours);
+      latest = Math.max(latest, endTime.hours + 1);
     });
     
     return {
       startHour: Math.min(earliest, defaultStartHour),
       endHour: Math.max(latest, defaultEndHour)
     };
-  }, [days, itemsByDay, defaultStartHour, defaultEndHour]);
+  }, [days, itemsByDay, defaultStartHour, defaultEndHour, displayTimezone]);
 
   const timeSlots = useMemo(() => generateTimeSlots(startHour, endHour), [startHour, endHour]);
   const totalSlots = timeSlots.length;
@@ -112,14 +137,13 @@ export function AgendaCalendarView({
   };
 
   const handleToday = () => {
-    setViewStartDate(getInitialStartDate(agendaItems, eventStartDate));
+    setViewStartDate(getInitialStartDate(agendaItems, eventStartDate, displayTimezone));
   };
 
-  // Calculate current time indicator position
+  // Calculate current time indicator position using display timezone
   const now = new Date();
   const currentTimePosition = useMemo(() => {
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const { hours: currentHour, minutes: currentMinute } = getTimeInTimezone(now, displayTimezone);
     
     if (currentHour < startHour || currentHour >= endHour) {
       return null;
@@ -127,13 +151,19 @@ export function AgendaCalendarView({
     
     const minutesFromStart = (currentHour - startHour) * 60 + currentMinute;
     return (minutesFromStart / 15) * ROW_HEIGHT;
-  }, [now, startHour, endHour]);
+  }, [now, startHour, endHour, displayTimezone]);
+
+  // Check if a day is "today" in the display timezone
+  const isDayToday = (day: Date) => isTodayInTimezone(day, displayTimezone);
+
+  // Get timezone abbreviation for display
+  const timezoneAbbr = getTimezoneAbbreviation(displayTimezone);
 
   return (
     <TooltipProvider delayDuration={300}>
     <div className="flex flex-col h-full">
       {/* Navigation header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={handlePrevious}>
             <ChevronLeft className="h-4 w-4" />
@@ -145,6 +175,23 @@ export function AgendaCalendarView({
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
+
+        {/* Timezone toggle */}
+        <ToggleGroup
+          type="single"
+          value={timezoneMode}
+          onValueChange={(value) => value && setTimezoneMode(value as TimezoneMode)}
+          className="border rounded-lg"
+        >
+          <ToggleGroupItem value="local" aria-label="My timezone" className="px-3 text-xs">
+            My Time
+          </ToggleGroupItem>
+          <ToggleGroupItem value="event" aria-label="Event timezone" className="px-3 text-xs">
+            <Globe className="h-3 w-3 mr-1" />
+            Event ({timezoneAbbr})
+          </ToggleGroupItem>
+        </ToggleGroup>
+
         <p className="text-sm text-muted-foreground">
           {format(days[0], 'MMM d')} - {format(days[2], 'MMM d, yyyy')}
         </p>
@@ -180,7 +227,8 @@ export function AgendaCalendarView({
           {days.map((day, dayIndex) => {
             const dayKey = format(day, 'yyyy-MM-dd');
             const dayItems = itemsByDay[dayKey] || [];
-            const showCurrentTime = isToday(day) && currentTimePosition !== null;
+            const isCurrentDay = isDayToday(day);
+            const showCurrentTime = isCurrentDay && currentTimePosition !== null;
 
             return (
               <div
@@ -194,7 +242,7 @@ export function AgendaCalendarView({
                 <div
                   className={cn(
                     'h-12 border-b flex flex-col items-center justify-center sticky top-0 z-10',
-                    isToday(day) ? 'bg-primary/10' : 'bg-background'
+                    isCurrentDay ? 'bg-primary/10' : 'bg-background'
                   )}
                 >
                   <span className="text-xs font-medium text-muted-foreground uppercase">
@@ -203,7 +251,7 @@ export function AgendaCalendarView({
                   <span
                     className={cn(
                       'text-lg font-semibold',
-                      isToday(day) && 'text-primary'
+                      isCurrentDay && 'text-primary'
                     )}
                   >
                     {format(day, 'd')}
@@ -222,9 +270,15 @@ export function AgendaCalendarView({
                       )}
                       style={{ top: `${index * ROW_HEIGHT}px`, height: `${ROW_HEIGHT}px` }}
                       onClick={() => {
-                        const dateTime = new Date(day);
-                        dateTime.setHours(slot.hour, slot.minute, 0, 0);
-                        onCreateItem(dateTime);
+                        // When in event timezone mode, create date in event timezone
+                        if (timezoneMode === 'event') {
+                          const dateTime = createDateInTimezone(day, slot.hour, slot.minute, displayTimezone);
+                          onCreateItem(dateTime);
+                        } else {
+                          const dateTime = new Date(day);
+                          dateTime.setHours(slot.hour, slot.minute, 0, 0);
+                          onCreateItem(dateTime);
+                        }
                       }}
                     />
                   ))}
@@ -250,6 +304,7 @@ export function AgendaCalendarView({
                       startHour={startHour}
                       endHour={endHour}
                       onClick={onEditItem}
+                      displayTimezone={displayTimezone}
                     />
                   ))}
                 </div>
