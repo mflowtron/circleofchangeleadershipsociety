@@ -89,7 +89,7 @@ export default function Header() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link to="/profile" className="flex items-center gap-2 cursor-pointer rounded-lg">
+            <Link to="/lms/profile" className="flex items-center gap-2 cursor-pointer rounded-lg">
               <User className="h-4 w-4" />
               View Profile
             </Link>
