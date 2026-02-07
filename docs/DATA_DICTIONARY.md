@@ -343,6 +343,7 @@ Purchase records for event tickets.
 | stripe_payment_intent_id | text | Yes | - | Stripe reference |
 | user_id | uuid | Yes | - | Logged-in purchaser (optional) |
 | edit_token | uuid | Yes | gen_random_uuid() | Token for order modification |
+| purchaser_is_attending | boolean | Yes | null | Whether the purchaser is personally attending |
 | completed_at | timestamptz | Yes | - | When order was completed |
 | created_at | timestamptz | No | now() | Creation timestamp |
 
@@ -393,6 +394,7 @@ Individual ticket holders within an order.
 | ticket_type_id | uuid | No | - | Ticket type |
 | attendee_name | text | Yes | - | Attendee name |
 | attendee_email | text | Yes | - | Attendee email |
+| is_purchaser | boolean | No | false | Whether this attendee is the order purchaser |
 | additional_info | jsonb | Yes | - | Custom fields |
 | created_at | timestamptz | No | now() | Creation timestamp |
 | updated_at | timestamptz | No | now() | Last update timestamp |

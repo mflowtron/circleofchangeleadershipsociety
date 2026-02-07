@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { EventsLayout } from '@/layouts/EventsLayout';
 import { TicketSelector } from '@/components/events/TicketSelector';
 import { useEvent } from '@/hooks/useEvents';
@@ -28,6 +29,7 @@ export default function Checkout() {
   const [buyerName, setBuyerName] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [purchaserIsAttending, setPurchaserIsAttending] = useState<boolean | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -104,6 +106,7 @@ export default function Checkout() {
           buyer_email: buyerEmail.trim(),
           buyer_name: buyerName.trim(),
           buyer_phone: buyerPhone.trim() || undefined,
+          purchaser_is_attending: purchaserIsAttending,
         },
       });
 
@@ -240,6 +243,35 @@ export default function Checkout() {
                   placeholder="+1 (555) 000-0000"
                   disabled={isSubmitting}
                 />
+              </div>
+
+              <div className="space-y-3 pt-2 border-t">
+                <Label>Will you be attending this event?</Label>
+                <RadioGroup
+                  value={purchaserIsAttending === null ? '' : purchaserIsAttending ? 'yes' : 'no'}
+                  onValueChange={(value) => setPurchaserIsAttending(value === 'yes')}
+                  disabled={isSubmitting}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="yes" id="attending-yes" />
+                    <Label htmlFor="attending-yes" className="font-normal cursor-pointer">
+                      Yes, I will attend
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="no" id="attending-no" />
+                    <Label htmlFor="attending-no" className="font-normal cursor-pointer">
+                      No, I'm registering others only
+                    </Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-muted-foreground">
+                  {purchaserIsAttending === true 
+                    ? "Great! We'll pre-fill your registration information."
+                    : purchaserIsAttending === false
+                      ? "You can still add yourself later if plans change."
+                      : "This helps us track attendance correctly."}
+                </p>
               </div>
             </CardContent>
           </Card>

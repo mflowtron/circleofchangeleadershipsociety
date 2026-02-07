@@ -37,6 +37,7 @@ interface Attendee {
   attendee_email: string | null;
   ticket_type_id: string;
   order_item_id: string;
+  is_purchaser: boolean;
 }
 
 interface OrderMessage {
@@ -57,6 +58,7 @@ export interface PortalOrder {
   full_name: string;
   total_cents: number;
   created_at: string;
+  purchaser_is_attending: boolean | null;
   event: OrderEvent | null;
   order_items: OrderItem[];
   attendees: Attendee[];

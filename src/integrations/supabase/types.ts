@@ -493,6 +493,7 @@ export type Database = {
           attendee_name: string | null
           created_at: string
           id: string
+          is_purchaser: boolean | null
           order_id: string
           order_item_id: string
           ticket_type_id: string
@@ -504,6 +505,7 @@ export type Database = {
           attendee_name?: string | null
           created_at?: string
           id?: string
+          is_purchaser?: boolean | null
           order_id: string
           order_item_id: string
           ticket_type_id: string
@@ -515,6 +517,7 @@ export type Database = {
           attendee_name?: string | null
           created_at?: string
           id?: string
+          is_purchaser?: boolean | null
           order_id?: string
           order_item_id?: string
           ticket_type_id?: string
@@ -1051,6 +1054,7 @@ export type Database = {
           id: string
           order_number: string
           phone: string | null
+          purchaser_is_attending: boolean | null
           status: Database["public"]["Enums"]["order_status"]
           stripe_payment_intent_id: string | null
           subtotal_cents: number
@@ -1068,6 +1072,7 @@ export type Database = {
           id?: string
           order_number: string
           phone?: string | null
+          purchaser_is_attending?: boolean | null
           status?: Database["public"]["Enums"]["order_status"]
           stripe_payment_intent_id?: string | null
           subtotal_cents?: number
@@ -1085,6 +1090,7 @@ export type Database = {
           id?: string
           order_number?: string
           phone?: string | null
+          purchaser_is_attending?: boolean | null
           status?: Database["public"]["Enums"]["order_status"]
           stripe_payment_intent_id?: string | null
           subtotal_cents?: number
