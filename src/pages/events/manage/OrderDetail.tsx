@@ -257,6 +257,7 @@ export default function OrderDetail() {
                     <TableHead className="hidden sm:table-cell">Ticket</TableHead>
                     <TableHead>Attendee</TableHead>
                     <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead className="hidden lg:table-cell">Role</TableHead>
                     <TableHead className="w-[80px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -264,9 +265,10 @@ export default function OrderDetail() {
                   {attendees.map((attendee) => {
                     const isComplete = attendee.attendee_name && attendee.attendee_email;
                     const isEditing = editingId === attendee.id;
+                    const isPurchaser = (attendee as any).is_purchaser;
 
                     return (
-                      <TableRow key={attendee.id}>
+                      <TableRow key={attendee.id} className={isPurchaser ? 'bg-primary/5' : ''}>
                         <TableCell>
                           {isComplete ? (
                             <Badge variant="default" className="bg-green-600">
@@ -320,6 +322,13 @@ export default function OrderDetail() {
                             </span>
                           )}
                         </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {isPurchaser ? (
+                            <Badge variant="secondary" className="text-xs">Purchaser</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           {isEditing ? (
                             <div className="flex gap-1">
@@ -349,7 +358,7 @@ export default function OrderDetail() {
                             </Button>
                           )}
                         </TableCell>
-                    </TableRow>
+                      </TableRow>
                     );
                   })}
                 </TableBody>

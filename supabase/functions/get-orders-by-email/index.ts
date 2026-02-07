@@ -55,6 +55,7 @@ serve(async (req: Request) => {
       .from('orders')
       .select(`
         *,
+        purchaser_is_attending,
         event:events (
           id,
           title,
@@ -78,7 +79,8 @@ serve(async (req: Request) => {
           attendee_name,
           attendee_email,
           ticket_type_id,
-          order_item_id
+          order_item_id,
+          is_purchaser
         ),
         order_messages (
           id,

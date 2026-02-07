@@ -11,6 +11,7 @@ interface Attendee {
   attendee_email: string | null;
   ticket_type_id: string;
   order_item_id: string;
+  is_purchaser: boolean;
 }
 
 interface OrderItem {
@@ -35,12 +36,19 @@ export function AttendeeList({ attendees, orderItems }: AttendeeListProps) {
   const [editEmail, setEditEmail] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Group attendees by ticket type
+  // Group attendees by ticket type, with purchaser first
   const ticketTypeMap = new Map<string, { name: string; attendees: Attendee[] }>();
+  
+  // Sort attendees so purchaser comes first
+  const sortedAttendees = [...attendees].sort((a, b) => {
+    if (a.is_purchaser && !b.is_purchaser) return -1;
+    if (!a.is_purchaser && b.is_purchaser) return 1;
+    return 0;
+  });
   
   orderItems.forEach(item => {
     if (item.ticket_type) {
-      const typeAttendees = attendees.filter(a => a.order_item_id === item.id);
+      const typeAttendees = sortedAttendees.filter(a => a.order_item_id === item.id);
       ticketTypeMap.set(item.ticket_type.id, {
         name: item.ticket_type.name,
         attendees: typeAttendees,
@@ -131,10 +139,15 @@ export function AttendeeList({ attendees, orderItems }: AttendeeListProps) {
                 ) : (
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm text-muted-foreground">
-                          Attendee {index + 1}
+                          {attendee.is_purchaser ? 'Your Registration' : `Attendee ${index + 1}`}
                         </span>
+                        {attendee.is_purchaser && (
+                          <Badge variant="secondary" className="text-xs">
+                            Purchaser
+                          </Badge>
+                        )}
                         {!isComplete(attendee) && (
                           <Badge variant="outline" className="text-yellow-600 border-yellow-600">
                             <AlertCircle className="h-3 w-3 mr-1" />
@@ -149,7 +162,7 @@ export function AttendeeList({ attendees, orderItems }: AttendeeListProps) {
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground italic">
-                          Please add attendee details
+                          {attendee.is_purchaser ? 'Please confirm your details' : 'Please add attendee details'}
                         </p>
                       )}
                     </div>

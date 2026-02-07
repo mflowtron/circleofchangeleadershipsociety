@@ -9,6 +9,7 @@ export interface Attendee {
   attendee_name: string | null;
   attendee_email: string | null;
   additional_info: Record<string, unknown> | null;
+  is_purchaser: boolean;
   created_at: string;
   updated_at: string;
   ticket_type?: {

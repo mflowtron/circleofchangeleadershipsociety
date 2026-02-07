@@ -18,6 +18,7 @@ interface CheckoutRequest {
   buyer_email: string;
   buyer_name: string;
   buyer_phone?: string;
+  purchaser_is_attending?: boolean | null;
 }
 
 const logStep = (step: string, details?: unknown) => {
@@ -43,7 +44,7 @@ serve(async (req) => {
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
     const body: CheckoutRequest = await req.json();
-    const { event_id, tickets, buyer_email, buyer_name, buyer_phone } = body;
+    const { event_id, tickets, buyer_email, buyer_name, buyer_phone, purchaser_is_attending } = body;
 
     if (!event_id || !tickets?.length || !buyer_email || !buyer_name) {
       throw new Error("Missing required fields");
@@ -173,6 +174,7 @@ serve(async (req) => {
         subtotal_cents: subtotalCents,
         fees_cents: 0,
         total_cents: subtotalCents,
+        purchaser_is_attending: purchaser_is_attending,
       })
       .select()
       .single();
@@ -243,13 +245,25 @@ serve(async (req) => {
 
       if (orderItemsData) {
         const attendeeRecords = [];
+        let purchaserAttendeeCreated = false;
+        
         for (const item of orderItemsData) {
           for (let i = 0; i < item.quantity; i++) {
+            // Mark first attendee as purchaser if they're attending
+            const isPurchaserAttendee = purchaser_is_attending === true && !purchaserAttendeeCreated;
+            
             attendeeRecords.push({
               order_id: order.id,
               order_item_id: item.id,
               ticket_type_id: item.ticket_type_id,
+              is_purchaser: isPurchaserAttendee,
+              attendee_name: isPurchaserAttendee ? buyer_name : null,
+              attendee_email: isPurchaserAttendee ? buyer_email : null,
             });
+            
+            if (isPurchaserAttendee) {
+              purchaserAttendeeCreated = true;
+            }
           }
         }
 
@@ -261,7 +275,7 @@ serve(async (req) => {
           if (attendeeError) {
             logStep("Failed to create attendees for free order", { error: attendeeError });
           } else {
-            logStep("Attendee records created for free order", { count: attendeeRecords.length });
+            logStep("Attendee records created for free order", { count: attendeeRecords.length, purchaserIncluded: purchaserAttendeeCreated });
           }
         }
       }

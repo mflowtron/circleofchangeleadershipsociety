@@ -189,13 +189,14 @@ export function AttendeesTable({
               <TableHead className="hidden sm:table-cell">Ticket</TableHead>
               <TableHead className="hidden lg:table-cell">Order #</TableHead>
               <TableHead className="hidden xl:table-cell">Purchaser</TableHead>
+              <TableHead className="hidden 2xl:table-cell">Role</TableHead>
               <TableHead className="w-[80px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAttendees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showEventColumn ? 8 : 7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={showEventColumn ? 9 : 8} className="text-center py-8 text-muted-foreground">
                   No attendees found
                 </TableCell>
               </TableRow>
@@ -280,6 +281,13 @@ export function AttendeesTable({
                     </TableCell>
                     <TableCell className="hidden xl:table-cell">
                       <span className="truncate block max-w-[120px]">{attendee.order?.full_name || '-'}</span>
+                    </TableCell>
+                    <TableCell className="hidden 2xl:table-cell">
+                      {attendee.is_purchaser ? (
+                        <Badge variant="secondary" className="text-xs">Purchaser</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {isEditing ? (

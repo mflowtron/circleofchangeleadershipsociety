@@ -40,7 +40,7 @@ serve(async (req) => {
     // Get the order
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('*, order_items(*)')
+      .select('*, order_items(*), purchaser_is_attending')
       .eq('id', order_id)
       .single();
 
@@ -101,13 +101,25 @@ serve(async (req) => {
 
         if (orderItems) {
           const attendeeRecords = [];
+          let purchaserAttendeeCreated = false;
+          
           for (const item of orderItems) {
             for (let i = 0; i < item.quantity; i++) {
+              // Mark first attendee as purchaser if they're attending
+              const isPurchaserAttendee = order.purchaser_is_attending === true && !purchaserAttendeeCreated;
+              
               attendeeRecords.push({
                 order_id: order_id,
                 order_item_id: item.id,
                 ticket_type_id: item.ticket_type_id,
+                is_purchaser: isPurchaserAttendee,
+                attendee_name: isPurchaserAttendee ? order.full_name : null,
+                attendee_email: isPurchaserAttendee ? order.email : null,
               });
+              
+              if (isPurchaserAttendee) {
+                purchaserAttendeeCreated = true;
+              }
             }
           }
 
@@ -119,7 +131,7 @@ serve(async (req) => {
             if (attendeeError) {
               logStep("Failed to create attendees", { error: attendeeError });
             } else {
-              logStep("Attendee records created", { count: attendeeRecords.length });
+              logStep("Attendee records created", { count: attendeeRecords.length, purchaserIncluded: purchaserAttendeeCreated });
             }
           }
         }
