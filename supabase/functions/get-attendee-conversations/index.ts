@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-serve(async (req) => {
+serve(async (req): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -165,7 +165,7 @@ serve(async (req) => {
     // 5. Get all other participants for DM conversations
     const dmConversationIds = conversations.filter(c => c.type === 'direct').map(c => c.id);
     
-    let otherParticipantsMap = new Map<string, any>();
+    const otherParticipantsMap = new Map<string, any>();
     
     if (dmConversationIds.length > 0) {
       const { data: otherParticipants } = await supabase
@@ -266,8 +266,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
