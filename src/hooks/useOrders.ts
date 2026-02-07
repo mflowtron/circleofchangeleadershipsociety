@@ -24,8 +24,6 @@ export interface OrderItem {
   ticket_type_id: string;
   quantity: number;
   unit_price_cents: number;
-  attendee_name: string | null;
-  attendee_email: string | null;
   created_at: string;
   ticket_type?: {
     name: string;

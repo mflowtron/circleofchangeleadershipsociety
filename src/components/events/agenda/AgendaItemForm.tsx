@@ -39,7 +39,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { SpeakerSelector } from './SpeakerSelector';
 import { AGENDA_ITEM_TYPES, getAgendaTypeConfig } from './AgendaTypeIcon';
-import type { AgendaItem, AgendaItemType, SpeakerAssignment } from '@/hooks/useAgendaItems';
+import type { AgendaItem, AgendaItemType, AgendaItemInsert } from '@/hooks/useAgendaItems';
 import type { Speaker } from '@/hooks/useSpeakers';
 import { cn } from '@/lib/utils';
 
@@ -65,18 +65,7 @@ interface AgendaItemFormProps {
   eventId: string;
   speakers: Speaker[];
   existingTracks: string[];
-  onSubmit: (data: {
-    title: string;
-    description: string | null;
-    item_type: AgendaItemType;
-    starts_at: string;
-    ends_at: string | null;
-    location: string | null;
-    track: string | null;
-    is_highlighted: boolean;
-    event_id: string;
-    sort_order: number;
-  }, speakerAssignments: SpeakerAssignment[]) => Promise<void>;
+  onSubmit: (data: AgendaItemInsert, speakerIds: string[]) => Promise<void>;
   onDelete?: (item: AgendaItem) => void;
   isLoading?: boolean;
 }
@@ -93,7 +82,7 @@ export function AgendaItemForm({
   onDelete,
   isLoading,
 }: AgendaItemFormProps) {
-  const [selectedSpeakers, setSelectedSpeakers] = useState<SpeakerAssignment[]>([]);
+  const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<string[]>([]);
 
   const getDefaultDate = () => {
     if (item?.starts_at) {
@@ -155,16 +144,13 @@ export function AgendaItemForm({
         is_highlighted: item?.is_highlighted || false,
       });
       
-      // Set existing speaker assignments
-      if (item?.speakers) {
-        setSelectedSpeakers(
-          item.speakers.map(s => ({
-            speaker_id: s.speaker_id,
-            role: s.role,
-          }))
-        );
+      // Set existing speaker IDs from the item
+      if (item?.speaker_ids) {
+        setSelectedSpeakerIds(item.speaker_ids);
+      } else if (item?.speakers) {
+        setSelectedSpeakerIds(item.speakers.map(s => s.id));
       } else {
-        setSelectedSpeakers([]);
+        setSelectedSpeakerIds([]);
       }
     }
   }, [open, item, defaultDateTime]);
@@ -197,10 +183,11 @@ export function AgendaItemForm({
       is_highlighted: data.is_highlighted,
       event_id: eventId,
       sort_order: item?.sort_order || 0,
-    }, isSession ? selectedSpeakers : []);
+      speaker_ids: isSession ? selectedSpeakerIds : null,
+    }, isSession ? selectedSpeakerIds : []);
 
     form.reset();
-    setSelectedSpeakers([]);
+    setSelectedSpeakerIds([]);
     onOpenChange(false);
   };
 
@@ -411,8 +398,8 @@ export function AgendaItemForm({
                 <Label>Speakers</Label>
                 <SpeakerSelector
                   speakers={speakers}
-                  selectedSpeakers={selectedSpeakers}
-                  onSelectionChange={setSelectedSpeakers}
+                  selectedSpeakerIds={selectedSpeakerIds}
+                  onSelectionChange={setSelectedSpeakerIds}
                 />
               </div>
             )}

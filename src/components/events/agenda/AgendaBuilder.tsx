@@ -25,7 +25,7 @@ import { AgendaItemCard } from './AgendaItemCard';
 import { AgendaItemForm } from './AgendaItemForm';
 import { AgendaCalendarView } from './AgendaCalendarView';
 import { getAgendaTypeConfig, AGENDA_ITEM_TYPES } from './AgendaTypeIcon';
-import { useAgendaItems, type AgendaItem, type AgendaItemType } from '@/hooks/useAgendaItems';
+import { useAgendaItems, type AgendaItem, type AgendaItemType, type AgendaItemInsert } from '@/hooks/useAgendaItems';
 import { useSpeakers } from '@/hooks/useSpeakers';
 import { useEventById } from '@/hooks/useEvents';
 
@@ -83,19 +83,23 @@ export function AgendaBuilder({ eventId }: AgendaBuilderProps) {
   };
 
   const handleSubmit = async (
-    data: Parameters<typeof createAgendaItem.mutateAsync>[0]['item'],
-    speakerAssignments: Parameters<typeof createAgendaItem.mutateAsync>[0]['speakerAssignments']
+    data: AgendaItemInsert,
+    speakerIds: string[]
   ) => {
+    // Include speaker_ids in the data
+    const itemData = {
+      ...data,
+      speaker_ids: speakerIds.length > 0 ? speakerIds : null,
+    };
+
     if (editingItem) {
       await updateAgendaItem.mutateAsync({
         id: editingItem.id,
-        updates: data,
-        speakerAssignments,
+        updates: itemData,
       });
     } else {
       await createAgendaItem.mutateAsync({
-        item: data,
-        speakerAssignments,
+        item: itemData,
       });
     }
   };
