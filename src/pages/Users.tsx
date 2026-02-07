@@ -83,7 +83,7 @@ export default function Users() {
 
       // Fetch chapters
       const { data: chaptersData, error: chaptersError } = await supabase
-        .from('chapters')
+        .from('lms_chapters')
         .select('id, name');
 
       if (chaptersError) throw chaptersError;

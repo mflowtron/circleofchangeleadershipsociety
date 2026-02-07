@@ -80,7 +80,7 @@ export function useModerationPosts(filter: FilterTab = 'all') {
           .select('user_id, full_name, avatar_url')
           .in('user_id', userIds),
         chapterIds.length > 0
-          ? supabase.from('chapters').select('id, name').in('id', chapterIds)
+          ? supabase.from('lms_chapters').select('id, name').in('id', chapterIds)
           : Promise.resolve({ data: [] }),
       ]);
 
