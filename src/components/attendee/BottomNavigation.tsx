@@ -17,7 +17,10 @@ export function BottomNavigation() {
   const { totalUnread } = useConversations();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border">
+    <nav 
+      className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <div className="flex items-center justify-around h-16">
         {navItems.map(({ path, label, icon: Icon }) => {
           const isActive = location.pathname.startsWith(path);
