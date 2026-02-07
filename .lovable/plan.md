@@ -1,26 +1,33 @@
 
 
-# Add Light/Dark Mode Switch to Attendee App
+# Add System Option to Theme Toggle
 
 ## Overview
 
-Add a theme toggle switch to the Attendee Profile page, allowing users to switch between light and dark modes. This follows the existing settings pattern already used for the "Open to Networking" toggle.
+Replace the current binary Switch toggle with a three-option segmented control that allows users to choose between Light, System (auto), or Dark themes. The "System" option follows the device's automatic light/dark preference.
 
 ---
 
-## Design Approach
+## Visual Design
 
-The switch will be placed in a new "Appearance" card on the AttendeeProfile page, using the same Card + Switch component pattern as the networking toggle. This keeps all user settings in one place.
-
-### Visual Layout
 ```text
+Current (Switch):
 ┌────────────────────────────────────────┐
-│  🌗 Appearance                         │
-│  ───────────────────────────────────── │
-│                                        │
 │  Dark Mode                      [OFF]  │
-│  Switch between light and dark theme   │
+│  Using light color scheme              │
+└────────────────────────────────────────┘
+
+New (Segmented Control):
+┌────────────────────────────────────────┐
+│  Theme                                 │
+│  Customize how the app looks           │
 │                                        │
+│  ┌─────────┬──────────┬─────────┐     │
+│  │   ☀️    │    💻    │   🌙   │      │
+│  │  Light  │  System  │  Dark   │      │
+│  └─────────┴──────────┴─────────┘     │
+│                                        │
+│  Currently using: Dark (from system)   │
 └────────────────────────────────────────┘
 ```
 
@@ -30,67 +37,92 @@ The switch will be placed in a new "Appearance" card on the AttendeeProfile page
 
 ### File: `src/pages/attendee/AttendeeProfile.tsx`
 
-1. **Add imports** for theme functionality:
-   - `useTheme` from `next-themes`
-   - `Moon` icon from `lucide-react`
+**1. Update imports:**
+- Add `Sun, Monitor` icons from lucide-react
+- Add `ToggleGroup, ToggleGroupItem` from `@/components/ui/toggle-group`
 
-2. **Add theme state and handler**:
-   ```tsx
-   const { resolvedTheme, setTheme } = useTheme();
-   
-   const toggleTheme = (enabled: boolean) => {
-     setTheme(enabled ? 'dark' : 'light');
-   };
-   ```
+**2. Update useTheme hook:**
+Change from `resolvedTheme` only to include `theme` as well:
+```tsx
+const { theme, resolvedTheme, setTheme } = useTheme();
+```
+- `theme` = the user's selection ('light', 'dark', or 'system')
+- `resolvedTheme` = the actual applied theme ('light' or 'dark')
 
-3. **Add Appearance Card** (after the Networking Toggle Card):
-   ```tsx
-   {/* Appearance Card */}
-   <Card>
-     <CardHeader className="pb-3">
-       <CardTitle className="flex items-center gap-2 text-base">
-         <Moon className="h-5 w-5 text-muted-foreground" />
-         Appearance
-       </CardTitle>
-       <CardDescription>
-         Customize how the app looks on your device
-       </CardDescription>
-     </CardHeader>
-     <CardContent>
-       <div className="flex items-center justify-between">
-         <div>
-           <span className="text-sm font-medium">Dark Mode</span>
-           <p className="text-xs text-muted-foreground">
-             {resolvedTheme === 'dark' 
-               ? 'Using dark color scheme' 
-               : 'Using light color scheme'
-             }
-           </p>
-         </div>
-         <Switch
-           checked={resolvedTheme === 'dark'}
-           onCheckedChange={toggleTheme}
-         />
-       </div>
-     </CardContent>
-   </Card>
-   ```
+**3. Remove the `toggleTheme` function** (no longer needed)
+
+**4. Replace the Appearance Card content:**
+
+```tsx
+{/* Appearance Card */}
+<Card>
+  <CardHeader className="pb-3">
+    <CardTitle className="flex items-center gap-2 text-base">
+      <Moon className="h-5 w-5 text-muted-foreground" />
+      Appearance
+    </CardTitle>
+    <CardDescription>
+      Customize how the app looks on your device
+    </CardDescription>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    <ToggleGroup
+      type="single"
+      value={theme}
+      onValueChange={(value) => value && setTheme(value)}
+      className="w-full justify-between bg-muted rounded-lg p-1"
+    >
+      <ToggleGroupItem 
+        value="light" 
+        className="flex-1 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+      >
+        <Sun className="h-4 w-4" />
+        <span className="text-xs">Light</span>
+      </ToggleGroupItem>
+      <ToggleGroupItem 
+        value="system" 
+        className="flex-1 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+      >
+        <Monitor className="h-4 w-4" />
+        <span className="text-xs">System</span>
+      </ToggleGroupItem>
+      <ToggleGroupItem 
+        value="dark" 
+        className="flex-1 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+      >
+        <Moon className="h-4 w-4" />
+        <span className="text-xs">Dark</span>
+      </ToggleGroupItem>
+    </ToggleGroup>
+    
+    <p className="text-xs text-muted-foreground text-center">
+      {theme === 'system' 
+        ? `Following system preference (${resolvedTheme})`
+        : `Using ${resolvedTheme} color scheme`
+      }
+    </p>
+  </CardContent>
+</Card>
+```
 
 ---
 
 ## Technical Notes
 
-| Component | Purpose |
-|-----------|---------|
-| `useTheme` from `next-themes` | Access and control theme state |
-| `resolvedTheme` | Returns actual theme ('light' or 'dark'), resolving 'system' preference |
-| `useNativelyThemeSync` | Already in place - automatically syncs status bar when theme changes |
+| Value | Description |
+|-------|-------------|
+| `theme` | User's explicit choice: 'light', 'dark', or 'system' |
+| `resolvedTheme` | Actual applied theme after resolving system preference: 'light' or 'dark' |
+| `setTheme('system')` | Tells next-themes to follow the OS preference |
 
-### Why This Approach?
-- **Consistent pattern**: Matches the existing networking toggle card
-- **Settings location**: Profile page is the natural home for user preferences
-- **Simple toggle**: Binary light/dark is cleaner for mobile than a 3-option dropdown
-- **Native sync**: The existing `useNativelyThemeSync` hook will automatically update the Natively status bar and background color
+### Why ToggleGroup?
+- Already available in the project (`@radix-ui/react-toggle-group`)
+- Single-select behavior built in
+- Accessible keyboard navigation
+- Clean visual for 3 mutually exclusive options
+
+### Native Sync
+The existing `useNativelyThemeSync` hook uses `resolvedTheme`, so it will continue to work correctly - it syncs the actual applied theme regardless of whether it came from an explicit choice or system preference.
 
 ---
 
@@ -98,5 +130,5 @@ The switch will be placed in a new "Appearance" card on the AttendeeProfile page
 
 | File | Changes |
 |------|---------|
-| `src/pages/attendee/AttendeeProfile.tsx` | Add `useTheme` import, Moon icon, and new Appearance card with theme switch |
+| `src/pages/attendee/AttendeeProfile.tsx` | Replace Switch with ToggleGroup, add Sun/Monitor icons, update theme logic |
 
