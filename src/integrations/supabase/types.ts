@@ -14,42 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      activity_logs: {
-        Row: {
-          action: string
-          created_at: string
-          entity_id: string
-          entity_title: string | null
-          entity_type: string
-          id: string
-          metadata: Json | null
-          user_id: string | null
-          user_name: string | null
-        }
-        Insert: {
-          action: string
-          created_at?: string
-          entity_id: string
-          entity_title?: string | null
-          entity_type: string
-          id?: string
-          metadata?: Json | null
-          user_id?: string | null
-          user_name?: string | null
-        }
-        Update: {
-          action?: string
-          created_at?: string
-          entity_id?: string
-          entity_title?: string | null
-          entity_type?: string
-          id?: string
-          metadata?: Json | null
-          user_id?: string | null
-          user_name?: string | null
-        }
-        Relationships: []
-      }
       agenda_item_speakers: {
         Row: {
           agenda_item_id: string
