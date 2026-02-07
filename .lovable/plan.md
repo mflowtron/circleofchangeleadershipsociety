@@ -1,67 +1,55 @@
 
-# Fix App Header to Respect Mobile Safe Area
+# Remove PWA Install Prompt
 
-## Problem
+## Summary
 
-The main app header in `src/components/layout/Header.tsx` is appearing behind the iOS status bar/notch area. Looking at the screenshot, the header content (hamburger menu, avatar) is overlapping with the system time and battery indicators.
-
-The header currently uses `sticky top-0` positioning but doesn't account for the safe area inset at the top of the screen on devices with notches or Dynamic Islands.
-
-## Analysis
-
-Looking at how other components in the codebase handle safe areas:
-
-| Component | Implementation |
-|-----------|----------------|
-| `BottomNavigation.tsx` | `style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}` |
-| `AttendeeLayout.tsx` | `style={{ paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' }}` |
-| `MessageInput.tsx` | `style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}` |
-| `Conversation.tsx` | `style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}` |
-| `sonner.tsx` | `mobileOffset={{ top: 'env(safe-area-inset-top)' }}` |
-
-The EventsDashboardHeader uses `pt-safe` which is not a valid Tailwind utility (not defined anywhere in the config), so it's not actually working either.
-
-## Solution
-
-Add `paddingTop: 'env(safe-area-inset-top)'` as an inline style to the Header component, matching the pattern used elsewhere in the app. This will push the header content below the status bar on devices with notches.
+Remove the PWA install banner that prompts users to install the app to their home screen. This includes the banner component, its associated hook, and the usage in the app layout.
 
 ---
 
-## Files to Modify
+## Files to Modify/Delete
 
-### File 1: `src/components/layout/Header.tsx`
+### 1. Delete: `src/components/pwa/InstallBanner.tsx`
 
-**Line 37** - Add inline style for safe area inset to the header element:
+Remove the entire component file - it's no longer needed.
 
-| Before | After |
-|--------|-------|
-| `<header className="sticky top-0 z-30 floating-header px-4 md:px-6 py-3 flex items-center justify-between">` | `<header className="sticky top-0 z-30 floating-header px-4 md:px-6 py-3 flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>` |
+### 2. Delete: `src/hooks/usePWAInstall.ts`
 
-Using `max(0.75rem, env(safe-area-inset-top))` ensures:
-- On devices with safe areas: uses the safe area inset value
-- On devices/browsers without safe areas: maintains the existing 12px (0.75rem) equivalent padding from `py-3`
+Remove the hook that manages PWA install prompt state - it's only used by InstallBanner.
 
-### File 2: `src/components/events/EventsDashboardHeader.tsx`
+### 3. Modify: `src/components/layout/AppLayout.tsx`
 
-**Line 14** - Fix the non-working `pt-safe` class by replacing with proper inline style:
+Remove the import and usage of InstallBanner:
 
-| Before | After |
-|--------|-------|
-| `<header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-safe">` | `<header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" style={{ paddingTop: 'env(safe-area-inset-top)' }}>` |
+**Line 6** - Remove the import:
+```tsx
+// DELETE THIS LINE:
+import InstallBanner from '@/components/pwa/InstallBanner';
+```
 
----
-
-## Technical Details
-
-- **`env(safe-area-inset-top)`**: CSS environment variable that returns the safe area inset for the top edge (notch, Dynamic Island, status bar). Returns `0px` on devices/browsers without safe areas.
-- The `viewport-fit=cover` meta tag in `index.html` is already configured, which enables safe area CSS variables.
-- This matches the established pattern in the codebase for handling safe areas.
+**Line 46** - Remove the component usage:
+```tsx
+// DELETE THIS LINE:
+<InstallBanner />
+```
 
 ---
 
-## Expected Results
+## Files Summary
 
-- Header content will appear below the status bar/notch on iOS devices
-- No visual change on desktop or Android devices without notches
-- Works in both portrait and landscape orientations
-- Consistent safe area handling across the entire app
+| Action | File |
+|--------|------|
+| Delete | `src/components/pwa/InstallBanner.tsx` |
+| Delete | `src/hooks/usePWAInstall.ts` |
+| Modify | `src/components/layout/AppLayout.tsx` |
+
+---
+
+## What Remains
+
+The following PWA-related files will remain intact (they handle other functionality):
+- `src/components/pwa/UpdateNotification.tsx` - Shows update notifications when new app version is available
+- `src/utils/pwaUtils.ts` - Cache clearing utilities used by the Profile page
+- `vite.config.ts` - PWA configuration (the app still works as a PWA, just without the install prompt)
+
+The app will still function as a PWA - users can still add it to their home screen manually through their browser's native "Add to Home Screen" option if they wish.
