@@ -59,3 +59,9 @@ verify_jwt = false
 
 [functions.join-session-chat]
 verify_jwt = false
+
+[functions.get-message-reactors]
+verify_jwt = false
+
+[functions.toggle-message-reaction]
+verify_jwt = false

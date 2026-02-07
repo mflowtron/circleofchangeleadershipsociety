@@ -390,6 +390,27 @@ export function useMessages(conversationId: string | null) {
     }
   }, [email, sessionToken, selectedAttendee, conversationId, fetchMessages]);
 
+  const getReactors = useCallback(async (messageId: string, emoji: string) => {
+    if (!email || !sessionToken || !selectedAttendee) {
+      throw new Error('Not authenticated');
+    }
+
+    const { data, error: fetchError } = await supabase.functions.invoke('get-message-reactors', {
+      body: {
+        email,
+        session_token: sessionToken,
+        attendee_id: selectedAttendee.id,
+        message_id: messageId,
+        emoji
+      }
+    });
+
+    if (fetchError) throw fetchError;
+    if (data?.error) throw new Error(data.error);
+
+    return data?.reactors || [];
+  }, [email, sessionToken, selectedAttendee]);
+
   return {
     messages,
     loading,
@@ -400,6 +421,7 @@ export function useMessages(conversationId: string | null) {
     sendMessageWithAttachment,
     loadMore,
     toggleReaction,
+    getReactors,
     refetch: fetchMessages
   };
 }

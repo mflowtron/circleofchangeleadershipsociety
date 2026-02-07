@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
+import { ReactionDetailsPopover, Reactor } from './ReactionDetailsPopover';
 
 export interface MessageReaction {
   emoji: string;
@@ -9,13 +10,17 @@ export interface MessageReaction {
 
 interface ReactionBarProps {
   reactions: MessageReaction[];
+  messageId: string;
   onToggle: (emoji: string) => void;
+  onFetchReactors: (messageId: string, emoji: string) => Promise<Reactor[]>;
   isOwn?: boolean;
 }
 
 export const ReactionBar = memo(function ReactionBar({ 
   reactions, 
+  messageId,
   onToggle,
+  onFetchReactors,
   isOwn = false 
 }: ReactionBarProps) {
   if (!reactions || reactions.length === 0) return null;
@@ -26,22 +31,16 @@ export const ReactionBar = memo(function ReactionBar({
       isOwn ? "justify-end" : "justify-start"
     )}>
       {reactions.map(r => (
-        <button
+        <ReactionDetailsPopover
           key={r.emoji}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle(r.emoji);
-          }}
-          className={cn(
-            "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs transition-colors",
-            r.reacted 
-              ? "bg-primary/20 text-primary border border-primary/30" 
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          )}
-        >
-          <span>{r.emoji}</span>
-          <span className="font-medium">{r.count}</span>
-        </button>
+          emoji={r.emoji}
+          count={r.count}
+          reacted={r.reacted}
+          messageId={messageId}
+          onToggle={() => onToggle(r.emoji)}
+          onFetchReactors={onFetchReactors}
+          isOwn={isOwn}
+        />
       ))}
     </div>
   );
