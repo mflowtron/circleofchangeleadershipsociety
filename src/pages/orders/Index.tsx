@@ -1,26 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useOrderPortal } from '@/hooks/useOrderPortal';
 import { Mail, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
-import { useEffect } from 'react';
 
 export default function OrderPortalIndex() {
   const navigate = useNavigate();
-  const { isAuthenticated, sendCode, verifyCode, loading, error } = useOrderPortal();
+  const { isAuthenticated, sendMagicLink, loading, error } = useOrderPortal();
   
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [step, setStep] = useState<'email' | 'code'>('email');
-  const [codeSent, setCodeSent] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    // Small delay to allow session to load from localStorage
+    // Small delay to allow session to load
     const timer = setTimeout(() => {
       setCheckingAuth(false);
     }, 100);
@@ -42,7 +38,7 @@ export default function OrderPortalIndex() {
     );
   }
 
-  const handleSendCode = async (e: React.FormEvent) => {
+  const handleSendMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
     
@@ -51,33 +47,17 @@ export default function OrderPortalIndex() {
       return;
     }
 
-    const result = await sendCode(email.trim());
+    const result = await sendMagicLink(email.trim());
     if (result.success) {
-      setCodeSent(true);
-      setStep('code');
+      setEmailSent(true);
     } else {
       setLocalError(result.message);
     }
   };
 
-  const handleVerifyCode = async () => {
+  const handleResend = async () => {
     setLocalError(null);
-    
-    if (code.length !== 6) {
-      setLocalError('Please enter the complete 6-digit code');
-      return;
-    }
-
-    const result = await verifyCode(email.trim(), code);
-    if (!result.success) {
-      setLocalError(result.message);
-    }
-  };
-
-  const handleResendCode = async () => {
-    setCode('');
-    setLocalError(null);
-    const result = await sendCode(email.trim());
+    const result = await sendMagicLink(email.trim());
     if (!result.success) {
       setLocalError(result.message);
     }
@@ -91,15 +71,15 @@ export default function OrderPortalIndex() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Manage Your Orders</CardTitle>
           <CardDescription>
-            {step === 'email' 
+            {!emailSent 
               ? 'Enter the email address you used to purchase tickets'
-              : 'Enter the 6-digit code sent to your email'
+              : 'Check your email for the sign-in link'
             }
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {step === 'email' ? (
-            <form onSubmit={handleSendCode} className="space-y-4">
+          {!emailSent ? (
+            <form onSubmit={handleSendMagicLink} className="space-y-4">
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -122,65 +102,39 @@ export default function OrderPortalIndex() {
                 ) : (
                   <ArrowRight className="h-4 w-4 mr-2" />
                 )}
-                Send Access Code
+                Send Sign-In Link
               </Button>
             </form>
           ) : (
             <div className="space-y-6">
-              {codeSent && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md">
-                  <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                  <span>Code sent to {email}</span>
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-primary" />
                 </div>
-              )}
-              
-              <div className="flex justify-center">
-                <InputOTP
-                  maxLength={6}
-                  value={code}
-                  onChange={setCode}
-                  disabled={loading}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">
+                    We sent a sign-in link to
+                  </p>
+                  <p className="font-medium">{email}</p>
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  Click the link in your email to access your orders. The link expires in 1 hour.
+                </p>
               </div>
               
-              {displayError && (
-                <p className="text-sm text-destructive text-center">{displayError}</p>
-              )}
-              
-              <Button 
-                onClick={handleVerifyCode} 
-                className="w-full" 
-                disabled={loading || code.length !== 6}
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : null}
-                Verify Code
-              </Button>
-              
-              <div className="flex flex-col gap-2 text-center">
+              <div className="flex flex-col gap-2 text-center pt-4 border-t">
                 <button
                   type="button"
-                  onClick={handleResendCode}
-                  className="text-sm text-muted-foreground hover:text-foreground underline"
+                  onClick={handleResend}
+                  className="text-sm text-primary hover:underline"
                   disabled={loading}
                 >
-                  Resend code
+                  {loading ? 'Sending...' : 'Resend link'}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setStep('email');
-                    setCode('');
+                    setEmailSent(false);
                     setLocalError(null);
                   }}
                   className="text-sm text-muted-foreground hover:text-foreground"

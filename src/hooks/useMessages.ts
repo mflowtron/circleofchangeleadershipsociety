@@ -48,7 +48,7 @@ export interface Message {
 }
 
 export function useMessages(conversationId: string | null) {
-  const { email, sessionToken, selectedAttendee, getCachedMessages, setCachedMessages } = useAttendee();
+  const { isAuthenticated, selectedAttendee, getCachedMessages, setCachedMessages } = useAttendee();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export function useMessages(conversationId: string | null) {
   }, [conversationId, getCachedMessages]);
 
   const fetchMessages = useCallback(async (before?: string) => {
-    if (!email || !sessionToken || !selectedAttendee || !conversationId) {
+    if (!isAuthenticated || !selectedAttendee || !conversationId) {
       setLoading(false);
       return;
     }
@@ -83,8 +83,6 @@ export function useMessages(conversationId: string | null) {
     try {
       const { data, error: fetchError } = await supabase.functions.invoke('get-conversation-messages', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           conversation_id: conversationId,
           before,
@@ -111,10 +109,8 @@ export function useMessages(conversationId: string | null) {
     } finally {
       setLoading(false);
     }
-  // Note: getCachedMessages removed from deps - it's a stable ref callback
-  // messages.length used for loading check but not as dependency to avoid loops
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [email, sessionToken, selectedAttendee, conversationId, setCachedMessages]);
+  }, [isAuthenticated, selectedAttendee, conversationId, setCachedMessages]);
 
   // Set up realtime subscription
   useEffect(() => {
@@ -145,8 +141,6 @@ export function useMessages(conversationId: string | null) {
           // Fetch the enriched message
           const { data } = await supabase.functions.invoke('get-conversation-messages', {
             body: {
-              email,
-              session_token: sessionToken,
               attendee_id: selectedAttendee.id,
               conversation_id: conversationId,
               limit: 1
@@ -174,10 +168,9 @@ export function useMessages(conversationId: string | null) {
         channelRef.current = null;
       }
     };
-  }, [conversationId, selectedAttendee?.id, email, sessionToken]);
+  }, [conversationId, selectedAttendee?.id]);
 
   // Fetch fresh messages on mount (after showing cached)
-  // Only reset hasFetchedRef when conversationId actually changes
   const prevConversationIdRef = useRef<string | null>(null);
   
   useEffect(() => {
@@ -194,7 +187,7 @@ export function useMessages(conversationId: string | null) {
   }, [conversationId, fetchMessages]);
 
   const sendMessage = useCallback(async (content: string, replyToId?: string) => {
-    if (!email || !sessionToken || !selectedAttendee || !conversationId) {
+    if (!isAuthenticated || !selectedAttendee || !conversationId) {
       return { success: false, error: 'Not authenticated' };
     }
 
@@ -225,8 +218,6 @@ export function useMessages(conversationId: string | null) {
     try {
       const { data, error: sendError } = await supabase.functions.invoke('send-attendee-message', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           conversation_id: conversationId,
           content,
@@ -259,10 +250,10 @@ export function useMessages(conversationId: string | null) {
     } finally {
       setSending(false);
     }
-  }, [email, sessionToken, selectedAttendee, conversationId]);
+  }, [isAuthenticated, selectedAttendee, conversationId]);
 
   const sendMessageWithAttachment = useCallback(async (content: string, file: File) => {
-    if (!email || !sessionToken || !selectedAttendee || !conversationId) {
+    if (!isAuthenticated || !selectedAttendee || !conversationId) {
       return { success: false, error: 'Not authenticated' };
     }
 
@@ -300,8 +291,6 @@ export function useMessages(conversationId: string | null) {
       const base64File = await fileToBase64(file);
       const { data: uploadData, error: uploadError } = await supabase.functions.invoke('upload-chat-attachment', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           conversation_id: conversationId,
           file: base64File,
@@ -316,8 +305,6 @@ export function useMessages(conversationId: string | null) {
       // 2. Send message with attachment metadata
       const { data, error: sendError } = await supabase.functions.invoke('send-attendee-message', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           conversation_id: conversationId,
           content: content || '',
@@ -353,7 +340,7 @@ export function useMessages(conversationId: string | null) {
     } finally {
       setSending(false);
     }
-  }, [email, sessionToken, selectedAttendee, conversationId]);
+  }, [isAuthenticated, selectedAttendee, conversationId]);
 
   const loadMore = useCallback(() => {
     if (messages.length > 0 && hasMore) {
@@ -362,7 +349,7 @@ export function useMessages(conversationId: string | null) {
   }, [messages, hasMore, fetchMessages]);
 
   const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
-    if (!email || !sessionToken || !selectedAttendee || !conversationId) {
+    if (!isAuthenticated || !selectedAttendee || !conversationId) {
       return { success: false, error: 'Not authenticated' };
     }
 
@@ -397,8 +384,6 @@ export function useMessages(conversationId: string | null) {
     try {
       const { data, error: toggleError } = await supabase.functions.invoke('toggle-message-reaction', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           message_id: messageId,
           emoji
@@ -422,17 +407,15 @@ export function useMessages(conversationId: string | null) {
       fetchMessages();
       return { success: false, error: err.message };
     }
-  }, [email, sessionToken, selectedAttendee, conversationId, fetchMessages]);
+  }, [isAuthenticated, selectedAttendee, conversationId, fetchMessages]);
 
   const getReactors = useCallback(async (messageId: string, emoji: string) => {
-    if (!email || !sessionToken || !selectedAttendee) {
+    if (!isAuthenticated || !selectedAttendee) {
       throw new Error('Not authenticated');
     }
 
     const { data, error: fetchError } = await supabase.functions.invoke('get-message-reactors', {
       body: {
-        email,
-        session_token: sessionToken,
         attendee_id: selectedAttendee.id,
         message_id: messageId,
         emoji
@@ -443,7 +426,7 @@ export function useMessages(conversationId: string | null) {
     if (data?.error) throw new Error(data.error);
 
     return data?.reactors || [];
-  }, [email, sessionToken, selectedAttendee]);
+  }, [isAuthenticated, selectedAttendee]);
 
   return {
     messages,

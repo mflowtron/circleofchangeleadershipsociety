@@ -13,14 +13,14 @@ export interface AttendeeProfile {
 }
 
 export function useAttendeeProfile() {
-  const { email, sessionToken, selectedAttendee } = useAttendee();
+  const { isAuthenticated, selectedAttendee } = useAttendee();
   const [profile, setProfile] = useState<AttendeeProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProfile = useCallback(async () => {
-    if (!email || !sessionToken || !selectedAttendee) {
+    if (!isAuthenticated || !selectedAttendee) {
       setProfile(null);
       setLoading(false);
       return;
@@ -32,8 +32,6 @@ export function useAttendeeProfile() {
     try {
       const { data, error: fetchError } = await supabase.functions.invoke('get-attendee-profile', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id
         }
       });
@@ -52,14 +50,14 @@ export function useAttendeeProfile() {
     } finally {
       setLoading(false);
     }
-  }, [email, sessionToken, selectedAttendee]);
+  }, [isAuthenticated, selectedAttendee]);
 
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
 
   const updateProfile = useCallback(async (updates: Partial<AttendeeProfile>) => {
-    if (!email || !sessionToken || !selectedAttendee) {
+    if (!isAuthenticated || !selectedAttendee) {
       return { success: false, error: 'Not authenticated' };
     }
 
@@ -69,8 +67,6 @@ export function useAttendeeProfile() {
     try {
       const { data, error: updateError } = await supabase.functions.invoke('update-attendee-profile', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           ...updates
         }
@@ -88,7 +84,7 @@ export function useAttendeeProfile() {
     } finally {
       setUpdating(false);
     }
-  }, [email, sessionToken, selectedAttendee]);
+  }, [isAuthenticated, selectedAttendee]);
 
   return {
     profile,

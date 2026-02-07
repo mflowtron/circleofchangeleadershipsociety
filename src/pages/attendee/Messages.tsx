@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Users, Search, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function Messages() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { email, sessionToken, selectedAttendee, selectedEvent } = useAttendee();
+  const { isAuthenticated, selectedAttendee, selectedEvent } = useAttendee();
   const { conversations, loading, refetch } = useConversations();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,14 +37,12 @@ export default function Messages() {
   const hasEventChat = conversations.some(c => c.type === 'event');
 
   const joinEventChat = async () => {
-    if (!email || !sessionToken || !selectedAttendee || !selectedEvent) return;
+    if (!isAuthenticated || !selectedAttendee || !selectedEvent) return;
 
     setJoiningEventChat(true);
     try {
       const { data, error } = await supabase.functions.invoke('join-event-chat', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           event_id: selectedEvent.id
         }

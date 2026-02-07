@@ -1,13 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-const STORAGE_KEY = 'order_portal_session';
-
-interface OrderPortalSession {
-  email: string;
-  session_token: string;
-  expires_at: string;
-}
+import type { User } from '@supabase/supabase-js';
 
 interface OrderEvent {
   id: string;
@@ -72,83 +65,54 @@ export interface PortalOrder {
 }
 
 export function useOrderPortal() {
-  const [session, setSession] = useState<OrderPortalSession | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<PortalOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
 
-  // Load session from localStorage on mount
+  // Listen for auth state changes
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed: OrderPortalSession = JSON.parse(stored);
-        if (new Date(parsed.expires_at) > new Date()) {
-          setSession(parsed);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-    setInitializing(false);
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setInitializing(false);
+    });
+
+    // Listen for changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setInitializing(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch orders when session is available
+  // Fetch orders when user is available
   useEffect(() => {
-    if (session) {
+    if (user?.email) {
       fetchOrders();
+    } else {
+      setOrders([]);
     }
-  }, [session]);
+  }, [user?.email]);
 
-  const sendCode = useCallback(async (email: string) => {
+  const sendMagicLink = useCallback(async (email: string) => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('send-order-access-code', {
-        body: { email },
+      const { error: authError } = await supabase.auth.signInWithOtp({
+        email: email.toLowerCase().trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/my-orders/dashboard`,
+        },
       });
 
-      if (fnError) throw fnError;
-      if (data.error) throw new Error(data.error);
+      if (authError) throw authError;
 
-      return { success: true, message: data.message };
+      return { success: true, message: 'Check your email for the magic link!' };
     } catch (err: any) {
-      const message = err.message || 'Failed to send access code';
-      setError(message);
-      return { success: false, message };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const verifyCode = useCallback(async (email: string, code: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('verify-order-access-code', {
-        body: { email, code },
-      });
-
-      if (fnError) throw fnError;
-      if (data.error) throw new Error(data.error);
-
-      if (data.valid) {
-        const newSession: OrderPortalSession = {
-          email: data.email,
-          session_token: data.session_token,
-          expires_at: data.expires_at,
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
-        setSession(newSession);
-        return { success: true };
-      } else {
-        throw new Error('Invalid code');
-      }
-    } catch (err: any) {
-      const message = err.message || 'Failed to verify code';
+      const message = err.message || 'Failed to send magic link';
       setError(message);
       return { success: false, message };
     } finally {
@@ -157,18 +121,18 @@ export function useOrderPortal() {
   }, []);
 
   const fetchOrders = useCallback(async () => {
-    if (!session) return;
+    if (!user?.email) return;
 
     setLoading(true);
     setError(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke('get-orders-by-email', {
-        body: { email: session.email, session_token: session.session_token },
+        body: {},
       });
 
       if (fnError) throw fnError;
       if (data.error) {
-        if (data.error === 'Invalid or expired session') {
+        if (data.error === 'Unauthorized') {
           logout();
         }
         throw new Error(data.error);
@@ -181,18 +145,16 @@ export function useOrderPortal() {
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [user?.email]);
 
   const updateAttendee = useCallback(async (attendeeId: string, name: string, email: string) => {
-    if (!session) return { success: false, message: 'Not authenticated' };
+    if (!user) return { success: false, message: 'Not authenticated' };
 
     setLoading(true);
     setError(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke('update-attendee-public', {
         body: {
-          email: session.email,
-          session_token: session.session_token,
           attendee_id: attendeeId,
           attendee_name: name,
           attendee_email: email,
@@ -212,16 +174,14 @@ export function useOrderPortal() {
     } finally {
       setLoading(false);
     }
-  }, [session, fetchOrders]);
+  }, [user, fetchOrders]);
 
   const markMessageRead = useCallback(async (messageId: string) => {
-    if (!session) return;
+    if (!user) return;
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('mark-message-read', {
         body: {
-          email: session.email,
-          session_token: session.session_token,
           message_id: messageId,
         },
       });
@@ -239,16 +199,14 @@ export function useOrderPortal() {
     } catch (err) {
       console.error('Failed to mark message as read:', err);
     }
-  }, [session]);
+  }, [user]);
 
   const sendMessage = useCallback(async (orderId: string, message: string) => {
-    if (!session) return { success: false, message: 'Not authenticated' };
+    if (!user) return { success: false, message: 'Not authenticated' };
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('send-customer-message', {
         body: {
-          email: session.email,
-          session_token: session.session_token,
           order_id: orderId,
           message,
         },
@@ -274,22 +232,21 @@ export function useOrderPortal() {
       const errorMessage = err.message || 'Failed to send message';
       return { success: false, message: errorMessage };
     }
-  }, [session]);
+  }, [user]);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setSession(null);
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
     setOrders([]);
   }, []);
 
   return {
-    isAuthenticated: !!session,
-    email: session?.email || null,
+    isAuthenticated: !!user,
+    email: user?.email || null,
     orders,
     loading: loading || initializing,
     error,
-    sendCode,
-    verifyCode,
+    sendMagicLink,
     fetchOrders,
     updateAttendee,
     markMessageRead,
