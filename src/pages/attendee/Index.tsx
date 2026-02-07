@@ -5,67 +5,53 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { Loader2, Mail, ArrowLeft } from 'lucide-react';
+import { Loader2, Mail, CheckCircle2 } from 'lucide-react';
 
 export default function AttendeeLogin() {
-  const { isAuthenticated, sendCode, verifyCode } = useOrderPortal();
+  const { isAuthenticated, sendMagicLink, loading } = useOrderPortal();
   
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [emailSent, setEmailSent] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
     return <Navigate to="/attendee/app/home" replace />;
   }
 
-  const handleSendCode = async (e: React.FormEvent) => {
+  const handleSendMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     
     setLocalLoading(true);
     setLocalError(null);
     
-    const result = await sendCode(email.trim());
+    const result = await sendMagicLink(email.trim());
     
     setLocalLoading(false);
     
     if (result.success) {
-      setSuccessMessage(result.message || 'Code sent!');
-      setStep('code');
+      setEmailSent(true);
     } else {
-      setLocalError(result.message || 'Failed to send code');
+      setLocalError(result.message || 'Failed to send magic link');
     }
   };
 
-  const handleVerifyCode = async (value: string) => {
-    setCode(value);
-    
-    if (value.length === 6) {
-      setLocalLoading(true);
-      setLocalError(null);
-      
-      const result = await verifyCode(email, value);
-      
-      setLocalLoading(false);
-      
-      if (!result.success) {
-        setLocalError(result.message || 'Invalid code');
-        setCode('');
-      }
-    }
-  };
-
-  const handleBack = () => {
-    setStep('email');
-    setCode('');
+  const handleResend = async () => {
+    setLocalLoading(true);
     setLocalError(null);
-    setSuccessMessage(null);
+    
+    const result = await sendMagicLink(email.trim());
+    
+    setLocalLoading(false);
+    
+    if (!result.success) {
+      setLocalError(result.message || 'Failed to send magic link');
+    }
   };
+
+  const isLoading = loading || localLoading;
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -74,15 +60,15 @@ export default function AttendeeLogin() {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Event Check-In</CardTitle>
             <CardDescription>
-              {step === 'email' 
+              {!emailSent 
                 ? 'Enter your email to access your event tickets'
-                : 'Enter the 6-digit code sent to your email'
+                : 'Check your email for the sign-in link'
               }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {step === 'email' ? (
-              <form onSubmit={handleSendCode} className="space-y-4">
+            {!emailSent ? (
+              <form onSubmit={handleSendMagicLink} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <div className="relative">
@@ -94,7 +80,7 @@ export default function AttendeeLogin() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="pl-10"
-                      disabled={localLoading}
+                      disabled={isLoading}
                       autoComplete="email"
                       autoFocus
                     />
@@ -108,68 +94,52 @@ export default function AttendeeLogin() {
                 <Button 
                   type="submit" 
                   className="w-full" 
-                  disabled={!email.trim() || localLoading}
+                  disabled={!email.trim() || isLoading}
                 >
-                  {localLoading ? (
+                  {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Sending...
                     </>
                   ) : (
-                    'Send Access Code'
+                    'Send Sign-In Link'
                   )}
                 </Button>
               </form>
             ) : (
               <div className="space-y-4">
-                <button
-                  onClick={handleBack}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </button>
-
-                {successMessage && (
-                  <p className="text-sm text-muted-foreground">{successMessage}</p>
-                )}
-
-                <div className="flex flex-col items-center gap-4">
-                  <InputOTP
-                    maxLength={6}
-                    value={code}
-                    onChange={handleVerifyCode}
-                    disabled={localLoading}
-                  >
-                    <InputOTPGroup>
-                      <InputOTPSlot index={0} />
-                      <InputOTPSlot index={1} />
-                      <InputOTPSlot index={2} />
-                      <InputOTPSlot index={3} />
-                      <InputOTPSlot index={4} />
-                      <InputOTPSlot index={5} />
-                    </InputOTPGroup>
-                  </InputOTP>
-                  
-                  {localLoading && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Verifying...
-                    </div>
-                  )}
-                  
-                  {localError && (
-                    <p className="text-sm text-destructive">{localError}</p>
-                  )}
+                <div className="flex flex-col items-center gap-4 py-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <CheckCircle2 className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">
+                      We sent a sign-in link to
+                    </p>
+                    <p className="font-medium">{email}</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Click the link in your email to access your event tickets. The link expires in 1 hour.
+                  </p>
                 </div>
 
-                <div className="text-center">
+                <div className="flex flex-col gap-2 text-center pt-4 border-t">
                   <button
-                    onClick={handleSendCode}
+                    onClick={handleResend}
                     className="text-sm text-primary hover:underline"
-                    disabled={localLoading}
+                    disabled={isLoading}
                   >
-                    Resend code
+                    {isLoading ? 'Sending...' : 'Resend link'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEmailSent(false);
+                      setLocalError(null);
+                    }}
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                    disabled={isLoading}
+                  >
+                    Use a different email
                   </button>
                 </div>
               </div>

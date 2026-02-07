@@ -3,13 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-interface GetOrdersRequest {
-  email: string;
-  session_token: string;
-}
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -17,38 +12,40 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { email, session_token }: GetOrdersRequest = await req.json();
-
-    if (!email || !session_token) {
+    // Get auth token from header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
-        JSON.stringify({ error: 'Email and session token are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Verify JWT and get user email
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims?.email) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const email = claimsData.claims.email as string;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Create Supabase client with service role
+    // Create Supabase client with service role for data access
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
-
-    // Validate session token
-    const { data: session, error: sessionError } = await supabaseAdmin
-      .from('order_access_codes')
-      .select('*')
-      .ilike('email', normalizedEmail)
-      .eq('code', session_token)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-
-    if (sessionError || !session) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired session' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Fetch orders with related data
     const { data: orders, error: ordersError } = await supabaseAdmin

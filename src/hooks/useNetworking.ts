@@ -13,14 +13,14 @@ export interface NetworkablePerson {
 }
 
 export function useNetworking() {
-  const { email, sessionToken, selectedAttendee, selectedEvent } = useAttendee();
+  const { isAuthenticated, selectedAttendee, selectedEvent } = useAttendee();
   const [speakers, setSpeakers] = useState<NetworkablePerson[]>([]);
   const [attendees, setAttendees] = useState<NetworkablePerson[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const search = useCallback(async (searchQuery?: string) => {
-    if (!email || !sessionToken || !selectedAttendee || !selectedEvent) {
+    if (!isAuthenticated || !selectedAttendee || !selectedEvent) {
       return;
     }
 
@@ -30,8 +30,6 @@ export function useNetworking() {
     try {
       const { data, error: fetchError } = await supabase.functions.invoke('get-networkable-attendees', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           event_id: selectedEvent.id,
           search: searchQuery
@@ -49,18 +47,16 @@ export function useNetworking() {
     } finally {
       setLoading(false);
     }
-  }, [email, sessionToken, selectedAttendee, selectedEvent]);
+  }, [isAuthenticated, selectedAttendee, selectedEvent]);
 
   const createDM = useCallback(async (targetAttendeeId?: string, targetSpeakerId?: string) => {
-    if (!email || !sessionToken || !selectedAttendee || !selectedEvent) {
+    if (!isAuthenticated || !selectedAttendee || !selectedEvent) {
       return { success: false, error: 'Not authenticated' };
     }
 
     try {
       const { data, error: createError } = await supabase.functions.invoke('create-dm-conversation', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           event_id: selectedEvent.id,
           target_attendee_id: targetAttendeeId,
@@ -80,7 +76,7 @@ export function useNetworking() {
       console.error('Failed to create DM:', err);
       return { success: false, error: err.message };
     }
-  }, [email, sessionToken, selectedAttendee, selectedEvent]);
+  }, [isAuthenticated, selectedAttendee, selectedEvent]);
 
   return {
     speakers,

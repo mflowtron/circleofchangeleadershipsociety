@@ -24,7 +24,7 @@ interface CreateGroupDialogProps {
 export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { email, sessionToken, selectedAttendee, selectedEvent } = useAttendee();
+  const { isAuthenticated, selectedAttendee, selectedEvent } = useAttendee();
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -40,7 +40,7 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
       return;
     }
 
-    if (!email || !sessionToken || !selectedAttendee || !selectedEvent) {
+    if (!isAuthenticated || !selectedAttendee || !selectedEvent) {
       toast({
         title: 'Error',
         description: 'Please log in to create a group',
@@ -54,8 +54,6 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
     try {
       const { data, error } = await supabase.functions.invoke('create-group-conversation', {
         body: {
-          email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           event_id: selectedEvent.id,
           name: name.trim(),

@@ -74,8 +74,7 @@ interface AttendeeContextType {
   error: string | null;
   
   // Auth methods
-  sendCode: (email: string) => Promise<{ success: boolean; message?: string }>;
-  verifyCode: (email: string, code: string) => Promise<{ success: boolean; message?: string }>;
+  sendMagicLink: (email: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   
   // Orders and events
@@ -105,9 +104,6 @@ interface AttendeeContextType {
   getCachedMessages: (conversationId: string) => Message[] | undefined;
   setCachedMessages: (conversationId: string, messages: Message[]) => void;
   prefetchMessages: (conversationId: string) => void;
-  
-  // Session info
-  sessionToken: string | null;
 }
 
 const AttendeeContext = createContext<AttendeeContextType | undefined>(undefined);
@@ -119,6 +115,7 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem(SELECTED_EVENT_KEY);
   });
   
+  // Bookmarks state
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [bookmarksLoading, setBookmarksLoading] = useState(false);
   
@@ -131,22 +128,6 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
   // Message cache for stale-while-revalidate pattern
   const messagesCacheRef = useRef<Map<string, Message[]>>(new Map());
   const prefetchingRef = useRef<Set<string>>(new Set());
-
-  // Get session token from localStorage
-  const getSessionToken = useCallback(() => {
-    const stored = localStorage.getItem('order_portal_session');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (new Date(parsed.expires_at) > new Date()) {
-          return parsed.session_token;
-        }
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }, []);
 
   // Extract unique events from orders
   const events: AttendeeEvent[] = React.useMemo(() => {
@@ -198,17 +179,12 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
 
   // Fetch bookmarks
   const refreshBookmarks = useCallback(async () => {
-    if (!orderPortal.email || !selectedAttendee) return;
-    
-    const sessionToken = getSessionToken();
-    if (!sessionToken) return;
+    if (!orderPortal.isAuthenticated || !selectedAttendee) return;
     
     setBookmarksLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('get-attendee-bookmarks', {
         body: {
-          email: orderPortal.email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
         },
       });
@@ -221,16 +197,11 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     } finally {
       setBookmarksLoading(false);
     }
-  }, [orderPortal.email, selectedAttendee, getSessionToken]);
+  }, [orderPortal.isAuthenticated, selectedAttendee]);
 
   // Toggle bookmark
   const toggleBookmark = useCallback(async (agendaItemId: string) => {
-    if (!orderPortal.email || !selectedAttendee) {
-      return { success: false };
-    }
-    
-    const sessionToken = getSessionToken();
-    if (!sessionToken) {
+    if (!orderPortal.isAuthenticated || !selectedAttendee) {
       return { success: false };
     }
 
@@ -251,8 +222,6 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase.functions.invoke('toggle-attendee-bookmark', {
         body: {
-          email: orderPortal.email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           agenda_item_id: agendaItemId,
         },
@@ -271,7 +240,7 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
       await refreshBookmarks();
       return { success: false };
     }
-  }, [orderPortal.email, selectedAttendee, bookmarks, getSessionToken, refreshBookmarks]);
+  }, [orderPortal.isAuthenticated, selectedAttendee, bookmarks, refreshBookmarks]);
 
   // Bookmarked item IDs set for quick lookup
   const bookmarkedItemIds = React.useMemo(() => {
@@ -298,12 +267,9 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
   // options.silent = true means background refresh (no loading indicator)
   const refreshConversations = useCallback(async (options?: { silent?: boolean }) => {
     // Don't clear existing data - just skip fetch if not ready
-    if (!orderPortal.email || !selectedAttendee || !selectedEvent) {
+    if (!orderPortal.isAuthenticated || !selectedAttendee || !selectedEvent) {
       return;
     }
-    
-    const sessionToken = getSessionToken();
-    if (!sessionToken) return;
 
     // Only show loading indicator if NOT a silent background refresh
     if (!options?.silent) {
@@ -314,8 +280,6 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error: fetchError } = await supabase.functions.invoke('get-attendee-conversations', {
         body: {
-          email: orderPortal.email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           event_id: selectedEvent.id
         }
@@ -331,7 +295,7 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     } finally {
       setConversationsLoading(false);
     }
-  }, [orderPortal.email, selectedAttendee, selectedEvent, getSessionToken]);
+  }, [orderPortal.isAuthenticated, selectedAttendee, selectedEvent]);
 
   // Keep conversation IDs ref in sync (for stable realtime subscription)
   useEffect(() => {
@@ -406,18 +370,13 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     if (messagesCacheRef.current.has(conversationId) || prefetchingRef.current.has(conversationId)) {
       return;
     }
-    if (!orderPortal.email || !selectedAttendee) return;
-    
-    const sessionToken = getSessionToken();
-    if (!sessionToken) return;
+    if (!orderPortal.isAuthenticated || !selectedAttendee) return;
 
     prefetchingRef.current.add(conversationId);
 
     try {
       const { data, error } = await supabase.functions.invoke('get-conversation-messages', {
         body: {
-          email: orderPortal.email,
-          session_token: sessionToken,
           attendee_id: selectedAttendee.id,
           conversation_id: conversationId,
           limit: 50
@@ -432,15 +391,14 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     } finally {
       prefetchingRef.current.delete(conversationId);
     }
-  }, [orderPortal.email, selectedAttendee, getSessionToken]);
+  }, [orderPortal.isAuthenticated, selectedAttendee]);
 
   const value: AttendeeContextType = {
     isAuthenticated: orderPortal.isAuthenticated,
     email: orderPortal.email,
     loading: orderPortal.loading || bookmarksLoading,
     error: orderPortal.error,
-    sendCode: orderPortal.sendCode,
-    verifyCode: orderPortal.verifyCode,
+    sendMagicLink: orderPortal.sendMagicLink,
     logout: orderPortal.logout,
     orders: orderPortal.orders,
     events,
@@ -460,7 +418,6 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     getCachedMessages,
     setCachedMessages,
     prefetchMessages,
-    sessionToken: getSessionToken(),
   };
 
   return (
