@@ -50,10 +50,10 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Get the message and verify access to conversation
+    // Get the message and verify access to conversation (using renamed table: messages)
     const { data: message, error: messageError } = await supabase
-      .from('attendee_messages')
-      .select('id, conversation_id')
+      .from('messages')
+      .select('id, conversation_id, reactions')
       .eq('id', message_id)
       .single()
 
@@ -80,30 +80,35 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get all reactions for this message + emoji
-    const { data: reactions, error: reactionsError } = await supabase
-      .from('message_reactions')
-      .select('id, attendee_id, speaker_id')
-      .eq('message_id', message_id)
-      .eq('emoji', emoji)
+    // Get reactors from JSONB reactions column
+    // Format: { "👍": ["attendee-uuid-1", "attendee-uuid-2"], "❤️": [...] }
+    const reactions: Record<string, string[]> = message.reactions || {};
+    const reactorIds = reactions[emoji] || [];
 
-    if (reactionsError) {
-      throw reactionsError
-    }
-
-    if (!reactions || reactions.length === 0) {
+    if (reactorIds.length === 0) {
       return new Response(
         JSON.stringify({ reactors: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Fetch attendee and speaker details
-    const attendeeIds = reactions.filter(r => r.attendee_id).map(r => r.attendee_id)
-    const speakerIds = reactions.filter(r => r.speaker_id).map(r => r.speaker_id)
+    // Fetch attendees and their profiles
+    const { data: attendees } = await supabase
+      .from('attendees')
+      .select('id, attendee_name, user_id')
+      .in('id', reactorIds)
+
+    // Get user_ids for profile lookup
+    const userIds = [...new Set((attendees || []).filter(a => a.user_id).map(a => a.user_id))];
+    
+    const { data: profiles } = userIds.length > 0 
+      ? await supabase.from('profiles').select('user_id, full_name, avatar_url, title').in('user_id', userIds)
+      : { data: [] };
+
+    const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
 
     const reactors: Array<{
-      type: 'attendee' | 'speaker'
+      type: 'attendee'
       id: string
       name: string
       avatar_url?: string
@@ -111,48 +116,17 @@ Deno.serve(async (req) => {
       is_you?: boolean
     }> = []
 
-    // Fetch attendees with their profiles
-    if (attendeeIds.length > 0) {
-      const { data: attendees } = await supabase
-        .from('attendees')
-        .select(`
-          id,
-          attendee_name,
-          attendee_profiles(display_name, avatar_url, title)
-        `)
-        .in('id', attendeeIds)
-
-      if (attendees) {
-        for (const att of attendees) {
-          const profile = (att.attendee_profiles as any)?.[0] || (att.attendee_profiles as any)
-          reactors.push({
-            type: 'attendee',
-            id: att.id,
-            name: profile?.display_name || att.attendee_name || 'Attendee',
-            avatar_url: profile?.avatar_url,
-            is_you: att.id === attendee_id
-          })
-        }
-      }
-    }
-
-    // Fetch speakers
-    if (speakerIds.length > 0) {
-      const { data: speakers } = await supabase
-        .from('speakers')
-        .select('id, name, photo_url, title')
-        .in('id', speakerIds)
-
-      if (speakers) {
-        for (const speaker of speakers) {
-          reactors.push({
-            type: 'speaker',
-            id: speaker.id,
-            name: speaker.name,
-            avatar_url: speaker.photo_url,
-            title: speaker.title || undefined
-          })
-        }
+    if (attendees) {
+      for (const att of attendees) {
+        const profile = att.user_id ? profileMap.get(att.user_id) : null;
+        reactors.push({
+          type: 'attendee',
+          id: att.id,
+          name: profile?.full_name || att.attendee_name || 'Attendee',
+          avatar_url: profile?.avatar_url,
+          title: profile?.title || undefined,
+          is_you: att.id === attendee_id
+        })
       }
     }
 
