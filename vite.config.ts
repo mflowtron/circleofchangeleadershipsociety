@@ -56,12 +56,6 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         // Clean up old caches
         cleanupOutdatedCaches: true,
-        // Offline fallback page
-        navigateFallback: '/offline.html',
-        navigateFallbackDenylist: [
-          /^\/api\//,
-          /^\/auth\//,
-        ],
         runtimeCaching: [
           {
             // Network-first for JS/CSS to ensure fresh code on updates
