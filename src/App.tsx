@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from "react-router-dom";
+import { EventSelectionProvider } from "@/contexts/EventSelectionContext";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
@@ -96,6 +97,15 @@ function SuspenseWithErrorBoundary({ children }: { children: React.ReactNode }) 
         {children}
       </Suspense>
     </RouteErrorBoundary>
+  );
+}
+
+// Wrapper to persist EventSelectionProvider across all /events/manage/* routes
+function EventsManagementWrapper() {
+  return (
+    <EventSelectionProvider>
+      <Outlet />
+    </EventSelectionProvider>
   );
 }
 
@@ -363,136 +373,138 @@ function AppRoutes() {
         } />
       </Route>
       {/* Event Management Routes (Protected with Events Dashboard Layout) */}
-      <Route 
-        path="/events/manage" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <ManageEventsIndex />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/orders" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <ManageOrders />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/orders/:orderId" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <OrderDetail />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/attendees" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <ManageAttendees />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/new" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <NewEvent />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/:id" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <EditEvent />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/:id/tickets" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <ManageTickets />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/:id/orders" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <EventOrders />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/:id/badges" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <BadgeDesigner />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/speakers" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <ManageSpeakers />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/agenda" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <ManageAgenda />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/checkin" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <ManageCheckIn />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/events/manage/hotels" 
-        element={
-          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-            <SuspenseWithErrorBoundary>
-              <ManageHotels />
-            </SuspenseWithErrorBoundary>
-          </ProtectedRoute>
-        } 
-      />
+      <Route element={<EventsManagementWrapper />}>
+        <Route 
+          path="/events/manage" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <ManageEventsIndex />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/orders" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <ManageOrders />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/orders/:orderId" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <OrderDetail />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/attendees" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <ManageAttendees />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/new" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <NewEvent />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/:id" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <EditEvent />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/:id/tickets" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <ManageTickets />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/:id/orders" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <EventOrders />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/:id/badges" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <BadgeDesigner />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/speakers" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <ManageSpeakers />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/agenda" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <ManageAgenda />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/checkin" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <ManageCheckIn />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/events/manage/hotels" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <ManageHotels />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+      </Route>
       
       <Route path="*" element={<NotFound />} />
     </Routes>
