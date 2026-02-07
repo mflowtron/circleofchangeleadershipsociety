@@ -70,7 +70,11 @@ serve(async (req) => {
         created_at,
         updated_at,
         sender_attendee_id,
-        sender_speaker_id
+        sender_speaker_id,
+        attachment_url,
+        attachment_type,
+        attachment_name,
+        attachment_size
       `)
       .eq('conversation_id', conversation_id)
       .order('created_at', { ascending: false })
@@ -272,12 +276,21 @@ serve(async (req) => {
           }))
         : [];
 
+      // Build attachment object if present
+      const attachment = msg.attachment_url ? {
+        url: msg.attachment_url,
+        type: msg.attachment_type,
+        name: msg.attachment_name,
+        size: msg.attachment_size
+      } : undefined;
+
       return {
         ...msg,
         sender,
         reply_to: replyTo,
         is_own: msg.sender_attendee_id === attendee_id,
-        reactions
+        reactions,
+        attachment
       };
     });
 

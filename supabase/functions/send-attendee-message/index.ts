@@ -12,18 +12,33 @@ serve(async (req) => {
   }
 
   try {
-    const { email, session_token, attendee_id, conversation_id, content, reply_to_id } = await req.json();
+    const { 
+      email, 
+      session_token, 
+      attendee_id, 
+      conversation_id, 
+      content, 
+      reply_to_id,
+      attachment_url,
+      attachment_type,
+      attachment_name,
+      attachment_size
+    } = await req.json();
 
-    if (!email || !session_token || !attendee_id || !conversation_id || !content) {
+    if (!email || !session_token || !attendee_id || !conversation_id) {
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (content.trim().length === 0) {
+    // Must have either content or attachment
+    const hasContent = content && content.trim().length > 0;
+    const hasAttachment = attachment_url && attachment_type && attachment_name;
+
+    if (!hasContent && !hasAttachment) {
       return new Response(
-        JSON.stringify({ error: 'Message cannot be empty' }),
+        JSON.stringify({ error: 'Message must have content or attachment' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -88,8 +103,12 @@ serve(async (req) => {
       .insert({
         conversation_id,
         sender_attendee_id: attendee_id,
-        content: content.trim(),
-        reply_to_id: reply_to_id || null
+        content: content?.trim() || '',
+        reply_to_id: reply_to_id || null,
+        attachment_url: attachment_url || null,
+        attachment_type: attachment_type || null,
+        attachment_name: attachment_name || null,
+        attachment_size: attachment_size || null
       })
       .select()
       .single();

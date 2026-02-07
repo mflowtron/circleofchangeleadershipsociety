@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Message } from '@/hooks/useMessages';
 import { ReactionPicker } from './ReactionPicker';
 import { ReactionBar, MessageReaction } from './ReactionBar';
+import { MessageAttachmentDisplay } from './MessageAttachmentDisplay';
 
 interface MessageBubbleProps {
   message: Message;
@@ -109,7 +110,17 @@ export const MessageBubble = memo(function MessageBubble({
             "bg-primary text-primary-foreground rounded-2xl rounded-tr-md px-4 py-2",
             isFailed && "bg-destructive"
           )}>
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+            {/* Attachment first */}
+            {message.attachment && (
+              <MessageAttachmentDisplay 
+                attachment={message.attachment} 
+                isOwn={true}
+              />
+            )}
+            {/* Text content */}
+            {message.content && (
+              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+            )}
           </div>
           
           {/* Reactions bar for own messages */}
@@ -183,7 +194,17 @@ export const MessageBubble = memo(function MessageBubble({
         )}
         
         <div className="bg-muted rounded-2xl rounded-tl-md px-4 py-2">
-          <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+          {/* Attachment first */}
+          {message.attachment && (
+            <MessageAttachmentDisplay 
+              attachment={message.attachment} 
+              isOwn={false}
+            />
+          )}
+          {/* Text content */}
+          {message.content && (
+            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+          )}
         </div>
         
         {/* Reactions bar */}
