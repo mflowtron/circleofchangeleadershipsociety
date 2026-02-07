@@ -56,6 +56,12 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         // Clean up old caches
         cleanupOutdatedCaches: true,
+        // Offline fallback page
+        navigateFallback: '/offline.html',
+        navigateFallbackDenylist: [
+          /^\/api\//,
+          /^\/auth\//,
+        ],
         runtimeCaching: [
           {
             // Network-first for JS/CSS to ensure fresh code on updates
@@ -71,13 +77,62 @@ export default defineConfig(({ mode }) => ({
             },
           },
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            // Supabase API calls - network first
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
             handler: "NetworkFirst",
             options: {
-              cacheName: "supabase-cache",
+              cacheName: "supabase-api",
               expiration: {
                 maxEntries: 50,
                 maxAgeSeconds: 60 * 60 * 24, // 1 day
+              },
+            },
+          },
+          {
+            // Supabase storage files (avatars, attachments) - stale-while-revalidate
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "supabase-storage",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+            },
+          },
+          {
+            // Cache images aggressively (avatars, event images)
+            urlPattern: /\.(?:png|jpg|jpeg|webp|gif|svg)$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "images-cache",
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+            },
+          },
+          {
+            // Cache fonts permanently
+            urlPattern: /\.(?:woff|woff2|ttf|otf)$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "fonts-cache",
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+            },
+          },
+          {
+            // Cache Mux video thumbnails
+            urlPattern: /^https:\/\/image\.mux\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "mux-thumbnails",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
               },
             },
           },
