@@ -47,7 +47,15 @@ serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Fetch orders with related data
+    // First, find order IDs where user is an attendee (not just purchaser)
+    const { data: attendeeOrders } = await supabaseAdmin
+      .from('attendees')
+      .select('order_id')
+      .ilike('attendee_email', normalizedEmail);
+
+    const attendeeOrderIds = attendeeOrders?.map(a => a.order_id) || [];
+
+    // Fetch orders where user is purchaser OR an attendee
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from('orders')
       .select(`
@@ -89,7 +97,7 @@ serve(async (req: Request) => {
           sender_email
         )
       `)
-      .ilike('email', normalizedEmail)
+      .or(`email.ilike.${normalizedEmail},id.in.(${attendeeOrderIds.length > 0 ? attendeeOrderIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
       .order('created_at', { ascending: false });
 
     if (ordersError) {
