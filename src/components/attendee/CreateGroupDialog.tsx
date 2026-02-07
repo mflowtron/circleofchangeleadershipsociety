@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAttendee } from '@/contexts/AttendeeContext';
 
@@ -23,7 +23,7 @@ interface CreateGroupDialogProps {
 
 export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps) {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  
   const { isAuthenticated, selectedAttendee, selectedEvent } = useAttendee();
   
   const [name, setName] = useState('');
@@ -32,20 +32,12 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a group name',
-        variant: 'destructive'
-      });
+      toast.error('Please enter a group name');
       return;
     }
 
     if (!isAuthenticated || !selectedAttendee || !selectedEvent) {
-      toast({
-        title: 'Error',
-        description: 'Please log in to create a group',
-        variant: 'destructive'
-      });
+      toast.error('Please log in to create a group');
       return;
     }
 
@@ -64,10 +56,7 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      toast({
-        title: 'Group created!',
-        description: 'You can now invite people to your group'
-      });
+      toast.success('Group created!', { description: 'You can now invite people to your group' });
 
       onOpenChange(false);
       setName('');
@@ -77,11 +66,7 @@ export function CreateGroupDialog({ open, onOpenChange }: CreateGroupDialogProps
       navigate(`/attendee/app/messages/${data.conversation_id}`);
     } catch (err: any) {
       console.error('Failed to create group:', err);
-      toast({
-        title: 'Error',
-        description: err.message || 'Failed to create group',
-        variant: 'destructive'
-      });
+      toast.error('Failed to create group', { description: err.message });
     } finally {
       setCreating(false);
     }
