@@ -51,7 +51,7 @@ export function useAdminStats() {
           .gte('created_at', weekStart),
         // Posts today
         supabase
-          .from('posts')
+          .from('lms_posts')
           .select('*', { count: 'exact', head: true })
           .gte('created_at', today),
         // Unread messages

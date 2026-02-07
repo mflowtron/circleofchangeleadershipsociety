@@ -196,7 +196,7 @@ serve(async (req) => {
 
       // Create a pending recording entry
       const { data: recording, error: insertError } = await supabase
-        .from("recordings")
+        .from("lms_recordings")
         .insert({
           title: body.title || "Untitled Recording",
           description: body.description || null,
@@ -267,7 +267,7 @@ serve(async (req) => {
         const recordingStatus = playbackId ? "ready" : asset.status;
         
         await supabase
-          .from("recordings")
+          .from("lms_recordings")
           .update({
             mux_asset_id: asset.id,
             mux_playback_id: playbackId,
@@ -289,7 +289,7 @@ serve(async (req) => {
       // Update status to preparing if upload is in progress
       if (upload.status === "waiting" || upload.status === "uploading") {
         await supabase
-          .from("recordings")
+          .from("lms_recordings")
           .update({ status: "preparing" })
           .eq("id", recording_id);
       }
@@ -314,7 +314,7 @@ serve(async (req) => {
       // If no asset_id provided, look it up from the recording
       if (!muxAssetId && recording_id) {
         const { data: recording } = await supabase
-          .from("recordings")
+          .from("lms_recordings")
           .select("mux_asset_id")
           .eq("id", recording_id)
           .single();
@@ -346,7 +346,7 @@ serve(async (req) => {
       // Delete the recording from database
       if (recording_id) {
         const { error: deleteError } = await supabase
-          .from("recordings")
+          .from("lms_recordings")
           .delete()
           .eq("id", recording_id);
 
@@ -431,7 +431,7 @@ serve(async (req) => {
       // Update recording status to generating
       if (recording_id) {
         await supabase
-          .from("recordings")
+          .from("lms_recordings")
           .update({ captions_status: "generating" })
           .eq("id", recording_id);
       }

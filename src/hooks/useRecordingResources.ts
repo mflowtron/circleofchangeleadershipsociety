@@ -35,7 +35,7 @@ export function useRecordingResources(recordingId: string | null) {
         {
           event: '*',
           schema: 'public',
-          table: 'recording_resources',
+          table: 'lms_recording_resources',
           filter: `recording_id=eq.${recordingId}`,
         },
         () => {
@@ -55,7 +55,7 @@ export function useRecordingResources(recordingId: string | null) {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('recording_resources')
+        .from('lms_recording_resources')
         .select('*')
         .eq('recording_id', recordingId)
         .order('created_at', { ascending: true });
@@ -95,7 +95,7 @@ export function useRecordingResources(recordingId: string | null) {
 
       // Insert record
       const { error: insertError } = await supabase
-        .from('recording_resources')
+        .from('lms_recording_resources')
         .insert({
           recording_id: recordingId,
           name: file.name,
@@ -135,7 +135,7 @@ export function useRecordingResources(recordingId: string | null) {
 
       // Delete database record
       const { error } = await supabase
-        .from('recording_resources')
+        .from('lms_recording_resources')
         .delete()
         .eq('id', resource.id);
 

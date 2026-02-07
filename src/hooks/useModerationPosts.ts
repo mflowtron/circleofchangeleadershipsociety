@@ -35,7 +35,7 @@ export function useModerationPosts(filter: FilterTab = 'all') {
     setLoading(true);
     try {
       let query = supabase
-        .from('posts')
+        .from('lms_posts')
         .select(`
           id,
           content,
@@ -160,7 +160,7 @@ export function useModerationPosts(filter: FilterTab = 'all') {
   const approvePost = useCallback(async (postId: string) => {
     try {
       const { error } = await supabase
-        .from('posts')
+        .from('lms_posts')
         .update({
           moderation_status: 'approved',
           moderated_at: new Date().toISOString(),
@@ -182,7 +182,7 @@ export function useModerationPosts(filter: FilterTab = 'all') {
 
   const deletePost = useCallback(async (postId: string) => {
     try {
-      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
       if (error) throw error;
 
       toast({ title: 'Post deleted' });

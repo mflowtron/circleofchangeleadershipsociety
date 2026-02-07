@@ -21,7 +21,7 @@ export function useUserPosts(userId: string | undefined) {
 
     try {
       const { data: postsData, error: postsError } = await supabase
-        .from('posts')
+        .from('lms_posts')
         .select(`
           id,
           content,
@@ -55,15 +55,15 @@ export function useUserPosts(userId: string | undefined) {
           .eq('user_id', userId)
           .maybeSingle(),
         supabase
-          .from('likes')
+          .from('lms_likes')
           .select('post_id')
           .in('post_id', postIds),
         supabase
-          .from('comments')
+          .from('lms_comments')
           .select('post_id')
           .in('post_id', postIds),
         supabase
-          .from('likes')
+          .from('lms_likes')
           .select('post_id')
           .eq('user_id', user.id)
           .in('post_id', postIds),
@@ -134,12 +134,12 @@ export function useUserPosts(userId: string | undefined) {
     try {
       if (hasLiked) {
         await supabase
-          .from('likes')
+          .from('lms_likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', user.id);
       } else {
-        await supabase.from('likes').insert({
+        await supabase.from('lms_likes').insert({
           post_id: postId,
           user_id: user.id,
         });
@@ -166,7 +166,7 @@ export function useUserPosts(userId: string | undefined) {
 
   const deletePost = useCallback(async (postId: string) => {
     try {
-      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
       if (error) throw error;
 
       toast({

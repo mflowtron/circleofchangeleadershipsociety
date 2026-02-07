@@ -39,7 +39,7 @@ export function usePosts(filter: FilterType = 'all') {
     try {
       // Build the base query
       let query = supabase
-        .from('posts')
+        .from('lms_posts')
         .select(`
           id,
           content,
@@ -82,17 +82,17 @@ export function usePosts(filter: FilterType = 'all') {
           .in('user_id', userIds),
         // Batch fetch likes counts
         supabase
-          .from('likes')
+          .from('lms_likes')
           .select('post_id')
           .in('post_id', postIds),
         // Batch fetch comments counts
         supabase
-          .from('comments')
+          .from('lms_comments')
           .select('post_id')
           .in('post_id', postIds),
         // Batch fetch user's likes
         supabase
-          .from('likes')
+          .from('lms_likes')
           .select('post_id')
           .eq('user_id', user.id)
           .in('post_id', postIds),
@@ -182,7 +182,7 @@ export function usePosts(filter: FilterType = 'all') {
         imageUrl = await uploadImage(imageFile);
       }
 
-      const { error } = await supabase.from('posts').insert({
+      const { error } = await supabase.from('lms_posts').insert({
         user_id: user.id,
         content,
         is_global: isGlobal,
@@ -227,12 +227,12 @@ export function usePosts(filter: FilterType = 'all') {
     try {
       if (hasLiked) {
         await supabase
-          .from('likes')
+          .from('lms_likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', user.id);
       } else {
-        await supabase.from('likes').insert({
+        await supabase.from('lms_likes').insert({
           post_id: postId,
           user_id: user.id,
         });
@@ -260,7 +260,7 @@ export function usePosts(filter: FilterType = 'all') {
 
   const deletePost = useCallback(async (postId: string) => {
     try {
-      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
       if (error) throw error;
       
       toast({
