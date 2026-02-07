@@ -58,7 +58,7 @@ export function BookmarkButton({
         isAnimating && "scale-125",
         className
       )}
-      aria-label={isBookmarked ? 'Remove from schedule' : 'Add to schedule'}
+      aria-label={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
     >
       <Bookmark 
         className={cn(

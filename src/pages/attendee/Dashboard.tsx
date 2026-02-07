@@ -68,7 +68,7 @@ function DashboardContent() {
     if (location.pathname.includes('/networking')) return 'Networking';
     if (location.pathname.includes('/profile')) return 'Profile';
     if (location.pathname.includes('/agenda')) return 'Agenda';
-    if (location.pathname.includes('/schedule')) return 'My Schedule';
+    if (location.pathname.includes('/bookmarks')) return 'Bookmarks';
     if (location.pathname.includes('/qr')) return 'My QR Code';
     return selectedEvent?.title || 'Event';
   };
