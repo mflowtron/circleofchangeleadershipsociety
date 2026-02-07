@@ -32,7 +32,7 @@ export function useAnnouncements() {
     try {
       // Fetch all announcements for admin view
       const { data: allData, error: allError } = await supabase
-        .from('announcements')
+        .from('lms_announcements')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -42,7 +42,7 @@ export function useAnnouncements() {
       // Fetch active, non-expired announcements for regular view
       const now = new Date().toISOString();
       const { data: activeData, error: activeError } = await supabase
-        .from('announcements')
+        .from('lms_announcements')
         .select('*')
         .eq('is_active', true)
         .or(`expires_at.is.null,expires_at.gt.${now}`)
@@ -68,7 +68,7 @@ export function useAnnouncements() {
     if (!user || role !== 'admin') return;
 
     const { error } = await supabase
-      .from('announcements')
+      .from('lms_announcements')
       .insert({
         title: data.title,
         content: data.content,
@@ -97,7 +97,7 @@ export function useAnnouncements() {
     if (!user || role !== 'admin') return;
 
     const { error } = await supabase
-      .from('announcements')
+      .from('lms_announcements')
       .update(data)
       .eq('id', id);
 
@@ -121,7 +121,7 @@ export function useAnnouncements() {
     if (!user || role !== 'admin') return;
 
     const { error } = await supabase
-      .from('announcements')
+      .from('lms_announcements')
       .delete()
       .eq('id', id);
 

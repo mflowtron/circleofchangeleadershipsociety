@@ -105,7 +105,7 @@ serve(async (req) => {
         // Find recording by mux_asset_id or mux_upload_id
         // First try by asset_id
         let { data: recording, error } = await supabase
-          .from("recordings")
+          .from("lms_recordings")
           .select("id")
           .eq("mux_asset_id", assetId)
           .maybeSingle();
@@ -113,7 +113,7 @@ serve(async (req) => {
         // If not found, try to find by checking uploads
         if (!recording && asset.upload_id) {
           const result = await supabase
-            .from("recordings")
+            .from("lms_recordings")
             .select("id")
             .eq("mux_upload_id", asset.upload_id)
             .maybeSingle();
@@ -123,7 +123,7 @@ serve(async (req) => {
 
         if (recording) {
           await supabase
-            .from("recordings")
+            .from("lms_recordings")
             .update({
               mux_asset_id: assetId,
               mux_playback_id: playbackId,
@@ -142,7 +142,7 @@ serve(async (req) => {
         // Also update any posts that use this playback ID with the aspect ratio
         if (playbackId && aspectRatio) {
           await supabase
-            .from("posts")
+            .from("lms_posts")
             .update({ video_aspect_ratio: aspectRatio })
             .eq("video_url", playbackId);
           
@@ -161,7 +161,7 @@ serve(async (req) => {
         if (uploadId) {
           // Update recording with asset ID
           await supabase
-            .from("recordings")
+            .from("lms_recordings")
             .update({
               mux_asset_id: assetId,
               status: "preparing",
@@ -179,7 +179,7 @@ serve(async (req) => {
 
         // Update recording status to error
         await supabase
-          .from("recordings")
+          .from("lms_recordings")
           .update({ status: "error" })
           .eq("mux_asset_id", assetId);
         break;
@@ -194,7 +194,7 @@ serve(async (req) => {
 
         // Link upload to asset
         await supabase
-          .from("recordings")
+          .from("lms_recordings")
           .update({
             mux_asset_id: assetId,
             status: "preparing",
@@ -216,14 +216,14 @@ serve(async (req) => {
         if (textSource === "generated_vod") {
           // Find recording by asset ID
           const { data: recording } = await supabase
-            .from("recordings")
+            .from("lms_recordings")
             .select("id")
             .eq("mux_asset_id", assetId)
             .maybeSingle();
 
           if (recording) {
             await supabase
-              .from("recordings")
+              .from("lms_recordings")
               .update({
                 captions_status: "ready",
                 captions_track_id: trackId,

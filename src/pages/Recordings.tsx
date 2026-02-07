@@ -89,7 +89,7 @@ export default function Recordings() {
         {
           event: '*',
           schema: 'public',
-          table: 'recordings',
+          table: 'lms_recordings',
         },
         () => {
           fetchRecordings();
@@ -108,7 +108,7 @@ export default function Recordings() {
   const fetchRecordings = async () => {
     try {
       const { data, error } = await supabase
-        .from('recordings')
+        .from('lms_recordings')
         .select('*')
         .in('status', ['ready', 'preparing'])
         .order('sort_order', { ascending: true });
@@ -136,7 +136,7 @@ export default function Recordings() {
 
       for (const update of updates) {
         const { error } = await supabase
-          .from('recordings')
+          .from('lms_recordings')
           .update({ sort_order: update.sort_order })
           .eq('id', update.id);
         

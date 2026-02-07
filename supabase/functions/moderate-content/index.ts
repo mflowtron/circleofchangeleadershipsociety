@@ -307,7 +307,7 @@ serve(async (req) => {
 
     // Update post with moderation results
     const { error: updateError } = await supabase
-      .from("posts")
+      .from("lms_posts")
       .update({
         moderation_status: status,
         moderation_score: overallScore,

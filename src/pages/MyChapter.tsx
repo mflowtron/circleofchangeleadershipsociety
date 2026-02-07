@@ -79,7 +79,7 @@ export default function MyChapter() {
 
       // Get chapter posts
       const { data: postsData, error: postsError } = await supabase
-        .from('posts')
+        .from('lms_posts')
         .select('id, content, created_at, user_id')
         .eq('chapter_id', chapterId)
         .order('created_at', { ascending: false });
@@ -118,7 +118,7 @@ export default function MyChapter() {
 
   const handleDeletePost = async (postId: string) => {
     try {
-      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
       if (error) throw error;
       
       toast({ title: 'Post deleted' });

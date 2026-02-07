@@ -177,36 +177,6 @@ export type Database = {
           },
         ]
       }
-      announcements: {
-        Row: {
-          content: string
-          created_at: string
-          created_by: string
-          expires_at: string | null
-          id: string
-          is_active: boolean
-          title: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          created_by: string
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean
-          title: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          created_by?: string
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean
-          title?: string
-        }
-        Relationships: []
-      }
       attendee_bookmarks: {
         Row: {
           agenda_item_id: string
@@ -609,38 +579,6 @@ export type Database = {
         }
         Relationships: []
       }
-      comments: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          post_id: string
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          post_id: string
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          post_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "comments_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "posts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       conversation_participants: {
         Row: {
           attendee_id: string | null
@@ -806,20 +744,53 @@ export type Database = {
         }
         Relationships: []
       }
-      likes: {
+      lms_announcements: {
         Row: {
+          content: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+        }
+        Relationships: []
+      }
+      lms_comments: {
+        Row: {
+          content: string
           created_at: string
           id: string
           post_id: string
           user_id: string
         }
         Insert: {
+          content: string
           created_at?: string
           id?: string
           post_id: string
           user_id: string
         }
         Update: {
+          content?: string
           created_at?: string
           id?: string
           post_id?: string
@@ -827,10 +798,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "likes_post_id_fkey"
+            foreignKeyName: "comments_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
-            referencedRelation: "posts"
+            referencedRelation: "lms_posts"
             referencedColumns: ["id"]
           },
         ]
@@ -871,6 +842,198 @@ export type Database = {
           starts_at?: string
           title?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      lms_likes: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "lms_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lms_posts: {
+        Row: {
+          chapter_id: string | null
+          content: string
+          created_at: string
+          id: string
+          image_url: string | null
+          is_global: boolean
+          link_url: string | null
+          moderated_at: string | null
+          moderated_by: string | null
+          moderation_reasons: string[] | null
+          moderation_score: number | null
+          moderation_status:
+            | Database["public"]["Enums"]["moderation_status"]
+            | null
+          updated_at: string
+          user_id: string
+          video_aspect_ratio: string | null
+          video_url: string | null
+        }
+        Insert: {
+          chapter_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_global?: boolean
+          link_url?: string | null
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_reasons?: string[] | null
+          moderation_score?: number | null
+          moderation_status?:
+            | Database["public"]["Enums"]["moderation_status"]
+            | null
+          updated_at?: string
+          user_id: string
+          video_aspect_ratio?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          chapter_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_global?: boolean
+          link_url?: string | null
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_reasons?: string[] | null
+          moderation_score?: number | null
+          moderation_status?:
+            | Database["public"]["Enums"]["moderation_status"]
+            | null
+          updated_at?: string
+          user_id?: string
+          video_aspect_ratio?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lms_recording_resources: {
+        Row: {
+          created_at: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id: string
+          name: string
+          recording_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_size?: number
+          file_type: string
+          file_url: string
+          id?: string
+          name: string
+          recording_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_size?: number
+          file_type?: string
+          file_url?: string
+          id?: string
+          name?: string
+          recording_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recording_resources_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "lms_recordings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lms_recordings: {
+        Row: {
+          captions_status: string | null
+          captions_track_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          mux_asset_id: string | null
+          mux_playback_id: string | null
+          mux_upload_id: string | null
+          sort_order: number | null
+          status: string | null
+          thumbnail_url: string | null
+          title: string
+          uploaded_by: string
+          video_url: string | null
+        }
+        Insert: {
+          captions_status?: string | null
+          captions_track_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          mux_asset_id?: string | null
+          mux_playback_id?: string | null
+          mux_upload_id?: string | null
+          sort_order?: number | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title: string
+          uploaded_by: string
+          video_url?: string | null
+        }
+        Update: {
+          captions_status?: string | null
+          captions_track_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          mux_asset_id?: string | null
+          mux_playback_id?: string | null
+          mux_upload_id?: string | null
+          sort_order?: number | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          uploaded_by?: string
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -1107,77 +1270,6 @@ export type Database = {
           },
         ]
       }
-      posts: {
-        Row: {
-          chapter_id: string | null
-          content: string
-          created_at: string
-          id: string
-          image_url: string | null
-          is_global: boolean
-          link_url: string | null
-          moderated_at: string | null
-          moderated_by: string | null
-          moderation_reasons: string[] | null
-          moderation_score: number | null
-          moderation_status:
-            | Database["public"]["Enums"]["moderation_status"]
-            | null
-          updated_at: string
-          user_id: string
-          video_aspect_ratio: string | null
-          video_url: string | null
-        }
-        Insert: {
-          chapter_id?: string | null
-          content: string
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          is_global?: boolean
-          link_url?: string | null
-          moderated_at?: string | null
-          moderated_by?: string | null
-          moderation_reasons?: string[] | null
-          moderation_score?: number | null
-          moderation_status?:
-            | Database["public"]["Enums"]["moderation_status"]
-            | null
-          updated_at?: string
-          user_id: string
-          video_aspect_ratio?: string | null
-          video_url?: string | null
-        }
-        Update: {
-          chapter_id?: string | null
-          content?: string
-          created_at?: string
-          id?: string
-          image_url?: string | null
-          is_global?: boolean
-          link_url?: string | null
-          moderated_at?: string | null
-          moderated_by?: string | null
-          moderation_reasons?: string[] | null
-          moderation_score?: number | null
-          moderation_status?:
-            | Database["public"]["Enums"]["moderation_status"]
-            | null
-          updated_at?: string
-          user_id?: string
-          video_aspect_ratio?: string | null
-          video_url?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "posts_chapter_id_fkey"
-            columns: ["chapter_id"]
-            isOneToOne: false
-            referencedRelation: "chapters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1249,98 +1341,6 @@ export type Database = {
           id?: string
           p256dh?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      recording_resources: {
-        Row: {
-          created_at: string
-          file_size: number
-          file_type: string
-          file_url: string
-          id: string
-          name: string
-          recording_id: string
-          uploaded_by: string
-        }
-        Insert: {
-          created_at?: string
-          file_size?: number
-          file_type: string
-          file_url: string
-          id?: string
-          name: string
-          recording_id: string
-          uploaded_by: string
-        }
-        Update: {
-          created_at?: string
-          file_size?: number
-          file_type?: string
-          file_url?: string
-          id?: string
-          name?: string
-          recording_id?: string
-          uploaded_by?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "recording_resources_recording_id_fkey"
-            columns: ["recording_id"]
-            isOneToOne: false
-            referencedRelation: "recordings"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      recordings: {
-        Row: {
-          captions_status: string | null
-          captions_track_id: string | null
-          created_at: string
-          description: string | null
-          id: string
-          mux_asset_id: string | null
-          mux_playback_id: string | null
-          mux_upload_id: string | null
-          sort_order: number | null
-          status: string | null
-          thumbnail_url: string | null
-          title: string
-          uploaded_by: string
-          video_url: string | null
-        }
-        Insert: {
-          captions_status?: string | null
-          captions_track_id?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          mux_asset_id?: string | null
-          mux_playback_id?: string | null
-          mux_upload_id?: string | null
-          sort_order?: number | null
-          status?: string | null
-          thumbnail_url?: string | null
-          title: string
-          uploaded_by: string
-          video_url?: string | null
-        }
-        Update: {
-          captions_status?: string | null
-          captions_track_id?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          mux_asset_id?: string | null
-          mux_playback_id?: string | null
-          mux_upload_id?: string | null
-          sort_order?: number | null
-          status?: string | null
-          thumbnail_url?: string | null
-          title?: string
-          uploaded_by?: string
-          video_url?: string | null
         }
         Relationships: []
       }

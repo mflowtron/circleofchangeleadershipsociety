@@ -23,7 +23,7 @@ export function useComments(postId: string) {
   const fetchComments = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('comments')
+        .from('lms_comments')
         .select('id, content, created_at, user_id')
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
@@ -77,7 +77,7 @@ export function useComments(postId: string) {
     if (!user) return;
 
     try {
-      const { error } = await supabase.from('comments').insert({
+      const { error } = await supabase.from('lms_comments').insert({
         post_id: postId,
         user_id: user.id,
         content,
@@ -96,7 +96,7 @@ export function useComments(postId: string) {
 
   const deleteComment = useCallback(async (commentId: string) => {
     try {
-      const { error } = await supabase.from('comments').delete().eq('id', commentId);
+      const { error } = await supabase.from('lms_comments').delete().eq('id', commentId);
       if (error) throw error;
       fetchComments();
     } catch (error: any) {
