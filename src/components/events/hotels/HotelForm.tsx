@@ -103,17 +103,18 @@ export function HotelForm({
   };
 
   const handleSubmit = async (data: HotelFormData) => {
-    const formData = {
-      ...data,
-      event_id: eventId,
-      sort_order: hotel?.sort_order || 0,
+    const formData: HotelInsert = {
+      name: data.name,
+      address: data.address,
       phone: data.phone || null,
       description: data.description || null,
+      image_url: hotel?.image_url || null,
       rate_description: data.rate_description || null,
       booking_url: data.booking_url || null,
+      sort_order: hotel?.sort_order || 0,
     };
 
-    await onSubmit(formData as HotelInsert, imageFile || undefined);
+    await onSubmit(formData, imageFile || undefined);
     form.reset();
     setImageFile(null);
     setImagePreview(null);
