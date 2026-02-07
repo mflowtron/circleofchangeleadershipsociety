@@ -17,6 +17,12 @@ export interface ReplyTo {
   sender_name: string;
 }
 
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  reacted: boolean;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -29,6 +35,7 @@ export interface Message {
   reply_to?: ReplyTo;
   is_own: boolean;
   status?: 'sending' | 'sent' | 'failed';
+  reactions?: MessageReaction[];
 }
 
 export function useMessages(conversationId: string | null) {
@@ -217,6 +224,69 @@ export function useMessages(conversationId: string | null) {
     }
   }, [messages, hasMore, fetchMessages]);
 
+  const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
+    if (!email || !sessionToken || !selectedAttendee || !conversationId) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Optimistic update
+    setMessages(prev => prev.map(msg => {
+      if (msg.id !== messageId) return msg;
+      
+      const reactions = [...(msg.reactions || [])];
+      const existingIndex = reactions.findIndex(r => r.emoji === emoji);
+      
+      if (existingIndex >= 0) {
+        const existing = reactions[existingIndex];
+        if (existing.reacted) {
+          // Remove our reaction
+          if (existing.count === 1) {
+            reactions.splice(existingIndex, 1);
+          } else {
+            reactions[existingIndex] = { ...existing, count: existing.count - 1, reacted: false };
+          }
+        } else {
+          // Add our reaction
+          reactions[existingIndex] = { ...existing, count: existing.count + 1, reacted: true };
+        }
+      } else {
+        // New reaction
+        reactions.push({ emoji, count: 1, reacted: true });
+      }
+      
+      return { ...msg, reactions };
+    }));
+
+    try {
+      const { data, error: toggleError } = await supabase.functions.invoke('toggle-message-reaction', {
+        body: {
+          email,
+          session_token: sessionToken,
+          attendee_id: selectedAttendee.id,
+          message_id: messageId,
+          emoji
+        }
+      });
+
+      if (toggleError) throw toggleError;
+      if (data?.error) throw new Error(data.error);
+
+      // Update with server response
+      if (data?.reactions) {
+        setMessages(prev => prev.map(msg => 
+          msg.id === messageId ? { ...msg, reactions: data.reactions } : msg
+        ));
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Failed to toggle reaction:', err);
+      // Revert optimistic update by refetching
+      fetchMessages();
+      return { success: false, error: err.message };
+    }
+  }, [email, sessionToken, selectedAttendee, conversationId, fetchMessages]);
+
   return {
     messages,
     loading,
@@ -225,6 +295,7 @@ export function useMessages(conversationId: string | null) {
     hasMore,
     sendMessage,
     loadMore,
+    toggleReaction,
     refetch: fetchMessages
   };
 }
