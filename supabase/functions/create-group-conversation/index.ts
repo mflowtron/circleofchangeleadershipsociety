@@ -42,8 +42,7 @@ serve(async (req): Promise<Response> => {
       event_id,
       name,
       description,
-      participant_attendee_ids = [],
-      participant_speaker_ids = []
+      participant_attendee_ids = []
     } = await req.json();
 
     if (!attendee_id || !event_id || !name) {
@@ -58,15 +57,15 @@ serve(async (req): Promise<Response> => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Create group conversation
+    // Create group conversation (using renamed table: conversations, column: created_by)
     const { data: conversation, error: convError } = await supabase
-      .from('attendee_conversations')
+      .from('conversations')
       .insert({
         event_id,
         type: 'group',
         name: name.trim(),
         description: description?.trim() || null,
-        created_by_attendee_id: attendee_id
+        created_by: attendee_id
       })
       .select()
       .single();
@@ -87,15 +86,6 @@ serve(async (req): Promise<Response> => {
           role: 'member'
         });
       }
-    }
-
-    // Add speaker participants
-    for (const id of participant_speaker_ids) {
-      participants.push({
-        conversation_id: conversation.id,
-        speaker_id: id,
-        role: 'member'
-      });
     }
 
     const { error: partError } = await supabase

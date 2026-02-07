@@ -66,7 +66,7 @@ serve(async (req) => {
 
     if (speakersError) throw speakersError;
 
-    // Get attendees who have opted in to networking for this event
+    // Get completed orders for this event, then get order_items, then attendees
     const { data: orders } = await supabase
       .from('orders')
       .select('id')
@@ -85,74 +85,84 @@ serve(async (req) => {
       );
     }
 
-    // Get attendees with profiles that have networking enabled
+    // Get order_items for these orders
+    const { data: orderItems } = await supabase
+      .from('order_items')
+      .select('id')
+      .in('order_id', orderIds);
+
+    const orderItemIds = orderItems?.map(oi => oi.id) || [];
+
+    if (orderItemIds.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          speakers: speakers?.map(s => ({ ...s, type: 'speaker' })) || [],
+          attendees: [] 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get attendees for these order_items (excluding current attendee)
     const { data: attendees, error: attendeesError } = await supabase
       .from('attendees')
-      .select(`
-        id,
-        attendee_name,
-        attendee_email
-      `)
-      .in('order_id', orderIds)
+      .select('id, attendee_name, attendee_email, user_id')
+      .in('order_item_id', orderItemIds)
       .neq('id', attendee_id);
 
     if (attendeesError) throw attendeesError;
 
-    const attendeeIds = attendees?.map(a => a.id) || [];
+    // Get user_ids that are linked to attendees
+    const userIds = [...new Set((attendees || []).filter(a => a.user_id).map(a => a.user_id))];
 
-    // Get profiles for these attendees that have open_to_networking = true
+    // Get profiles for these users where open_to_networking = true
     let profilesQuery = supabase
-      .from('attendee_profiles')
+      .from('profiles')
       .select('*')
-      .in('attendee_id', attendeeIds)
+      .in('user_id', userIds)
       .eq('open_to_networking', true);
 
     if (search) {
-      profilesQuery = profilesQuery.or(`display_name.ilike.%${search}%,company.ilike.%${search}%,title.ilike.%${search}%,bio.ilike.%${search}%`);
+      profilesQuery = profilesQuery.or(`full_name.ilike.%${search}%,company.ilike.%${search}%,title.ilike.%${search}%,bio.ilike.%${search}%`);
     }
 
     const { data: profiles, error: profilesError } = await profilesQuery;
 
     if (profilesError) throw profilesError;
 
-    // Merge attendee and profile data
-    const networkableAttendees = (profiles || []).map(profile => {
-      const attendee = attendees?.find(a => a.id === profile.attendee_id);
-      return {
-        id: profile.attendee_id,
-        type: 'attendee',
-        name: profile.display_name || attendee?.attendee_name || 'Attendee',
-        title: profile.title,
-        company: profile.company,
-        bio: profile.bio,
-        avatar_url: profile.avatar_url
-      };
-    });
+    // Build a map of user_id -> profile
+    const profileByUserId = new Map((profiles || []).map(p => [p.user_id, p]));
+
+    // Merge attendee and profile data - only include attendees with open_to_networking profiles
+    const networkableAttendees = (attendees || [])
+      .filter(a => a.user_id && profileByUserId.has(a.user_id))
+      .map(attendee => {
+        const profile = profileByUserId.get(attendee.user_id);
+        return {
+          id: attendee.id,
+          type: 'attendee',
+          name: profile?.full_name || attendee.attendee_name || 'Attendee',
+          title: profile?.title,
+          company: profile?.company,
+          bio: profile?.bio,
+          avatar_url: profile?.avatar_url
+        };
+      });
 
     // If search is provided and no profiles match, also search by attendee_name
-    if (search && networkableAttendees.length === 0) {
-      const { data: matchingAttendees } = await supabase
-        .from('attendees')
-        .select('id')
-        .in('order_id', orderIds)
-        .neq('id', attendee_id)
-        .ilike('attendee_name', `%${search}%`);
+    if (search && networkableAttendees.length === 0 && attendees && attendees.length > 0) {
+      const matchingAttendees = attendees.filter(a => 
+        a.attendee_name?.toLowerCase().includes(search.toLowerCase())
+      );
 
-      if (matchingAttendees && matchingAttendees.length > 0) {
-        const matchingIds = matchingAttendees.map(a => a.id);
-        const { data: matchingProfiles } = await supabase
-          .from('attendee_profiles')
-          .select('*')
-          .in('attendee_id', matchingIds)
-          .eq('open_to_networking', true);
-
-        if (matchingProfiles) {
-          for (const profile of matchingProfiles) {
-            const attendee = attendees?.find(a => a.id === profile.attendee_id);
+      for (const attendee of matchingAttendees) {
+        if (attendee.user_id) {
+          const profile = profileByUserId.get(attendee.user_id);
+          if (profile) {
             networkableAttendees.push({
-              id: profile.attendee_id,
+              id: attendee.id,
               type: 'attendee',
-              name: profile.display_name || attendee?.attendee_name || 'Attendee',
+              name: profile.full_name || attendee.attendee_name || 'Attendee',
               title: profile.title,
               company: profile.company,
               bio: profile.bio,

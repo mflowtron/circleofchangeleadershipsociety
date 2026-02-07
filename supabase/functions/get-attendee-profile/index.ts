@@ -56,7 +56,7 @@ serve(async (req): Promise<Response> => {
     // Verify the attendee belongs to this email
     const { data: attendee, error: attendeeError } = await supabaseAdmin
       .from('attendees')
-      .select('id, attendee_name, attendee_email')
+      .select('id, attendee_name, attendee_email, user_id')
       .eq('id', attendee_id)
       .single();
 
@@ -75,12 +75,17 @@ serve(async (req): Promise<Response> => {
       );
     }
 
-    // Get profile if exists
-    const { data: profile } = await supabaseAdmin
-      .from('attendee_profiles')
-      .select('*')
-      .eq('attendee_id', attendee_id)
-      .maybeSingle();
+    // Get profile from profiles table via user_id if linked
+    let profile = null;
+    if (attendee.user_id) {
+      const { data: profileData } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('user_id', attendee.user_id)
+        .maybeSingle();
+      
+      profile = profileData;
+    }
 
     return new Response(
       JSON.stringify({ 

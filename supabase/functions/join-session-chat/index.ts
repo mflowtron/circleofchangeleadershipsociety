@@ -65,9 +65,9 @@ serve(async (req) => {
       );
     }
 
-    // Check if session chat exists for this agenda item
+    // Check if session chat exists for this agenda item (using renamed table: conversations)
     let { data: sessionChat } = await supabase
-      .from('attendee_conversations')
+      .from('conversations')
       .select('id')
       .eq('event_id', agendaItem.event_id)
       .eq('type', 'session')
@@ -77,7 +77,7 @@ serve(async (req) => {
     // Create session chat if it doesn't exist
     if (!sessionChat) {
       const { data: newChat, error: createError } = await supabase
-        .from('attendee_conversations')
+        .from('conversations')
         .insert({
           event_id: agendaItem.event_id,
           type: 'session',

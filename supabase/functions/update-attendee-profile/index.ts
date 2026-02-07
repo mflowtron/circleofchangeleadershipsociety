@@ -64,7 +64,7 @@ serve(async (req) => {
     // Verify attendee exists and email matches
     const { data: attendee, error: attendeeError } = await supabaseAdmin
       .from('attendees')
-      .select('id, attendee_email')
+      .select('id, attendee_email, user_id')
       .eq('id', attendee_id)
       .single();
 
@@ -82,47 +82,35 @@ serve(async (req) => {
       );
     }
 
-    // Check if profile exists
-    const { data: existingProfile } = await supabaseAdmin
-      .from('attendee_profiles')
-      .select('id')
-      .eq('attendee_id', attendee_id)
-      .maybeSingle();
+    // If attendee has no linked user_id, we can't update a profile
+    if (!attendee.user_id) {
+      return new Response(
+        JSON.stringify({ error: 'Attendee not linked to a user account' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
+    // Update profile in the profiles table via user_id
     const profileData: Record<string, any> = {
       updated_at: new Date().toISOString()
     };
 
-    if (display_name !== undefined) profileData.display_name = display_name;
+    if (display_name !== undefined) profileData.full_name = display_name;
     if (bio !== undefined) profileData.bio = bio;
     if (company !== undefined) profileData.company = company;
     if (title !== undefined) profileData.title = title;
     if (open_to_networking !== undefined) profileData.open_to_networking = open_to_networking;
     if (avatar_url !== undefined) profileData.avatar_url = avatar_url;
 
-    let profile;
-    if (existingProfile) {
-      const { data, error } = await supabaseAdmin
-        .from('attendee_profiles')
-        .update(profileData)
-        .eq('attendee_id', attendee_id)
-        .select()
-        .single();
+    const { data: profile, error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update(profileData)
+      .eq('user_id', attendee.user_id)
+      .select()
+      .single();
 
-      if (error) throw error;
-      profile = data;
-    } else {
-      const { data, error } = await supabaseAdmin
-        .from('attendee_profiles')
-        .insert({
-          attendee_id,
-          ...profileData
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      profile = data;
+    if (updateError) {
+      throw updateError;
     }
 
     return new Response(

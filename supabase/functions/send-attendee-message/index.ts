@@ -87,10 +87,10 @@ serve(async (req) => {
       );
     }
 
-    // Validate reply_to_id if provided
+    // Validate reply_to_id if provided (using renamed table: messages)
     if (reply_to_id) {
       const { data: replyMsg } = await supabase
-        .from('attendee_messages')
+        .from('messages')
         .select('id')
         .eq('id', reply_to_id)
         .eq('conversation_id', conversation_id)
@@ -104,12 +104,12 @@ serve(async (req) => {
       }
     }
 
-    // Insert the message
+    // Insert the message (using renamed table: messages, column: sender_id)
     const { data: message, error: messageError } = await supabase
-      .from('attendee_messages')
+      .from('messages')
       .insert({
         conversation_id,
-        sender_attendee_id: attendee_id,
+        sender_id: attendee_id,
         content: content?.trim() || '',
         reply_to_id: reply_to_id || null,
         attachment_url: attachment_url || null,
@@ -124,9 +124,9 @@ serve(async (req) => {
       throw messageError;
     }
 
-    // Update conversation's updated_at
+    // Update conversation's updated_at (using renamed table: conversations)
     await supabase
-      .from('attendee_conversations')
+      .from('conversations')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', conversation_id);
 
@@ -140,15 +140,20 @@ serve(async (req) => {
     // Get sender info for response
     const { data: attendee } = await supabase
       .from('attendees')
-      .select('id, attendee_name')
+      .select('id, attendee_name, user_id')
       .eq('id', attendee_id)
       .single();
 
-    const { data: profile } = await supabase
-      .from('attendee_profiles')
-      .select('display_name, avatar_url')
-      .eq('attendee_id', attendee_id)
-      .maybeSingle();
+    // Get profile from profiles table via user_id
+    let profile = null;
+    if (attendee?.user_id) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('user_id', attendee.user_id)
+        .maybeSingle();
+      profile = profileData;
+    }
 
     return new Response(
       JSON.stringify({
@@ -158,7 +163,7 @@ serve(async (req) => {
           sender: {
             type: 'attendee',
             id: attendee?.id,
-            name: profile?.display_name || attendee?.attendee_name || 'Attendee',
+            name: profile?.full_name || attendee?.attendee_name || 'Attendee',
             avatar_url: profile?.avatar_url
           },
           is_own: true

@@ -80,9 +80,9 @@ serve(async (req): Promise<Response> => {
     // Build participant lookup map
     const participantMap = new Map(participants?.map(p => [p.conversation_id, p]));
 
-    // 2. Get all conversations in one query
+    // 2. Get all conversations in one query (using renamed table: conversations)
     const { data: conversations, error: convError } = await supabase
-      .from('attendee_conversations')
+      .from('conversations')
       .select(`
         id,
         event_id,
@@ -112,16 +112,15 @@ serve(async (req): Promise<Response> => {
 
     const activeConversationIds = conversations.map(c => c.id);
 
-    // 3. Batch fetch last messages for all conversations
+    // 3. Batch fetch last messages for all conversations (using renamed table: messages)
     const { data: lastMessages } = await supabase
-      .from('attendee_messages')
+      .from('messages')
       .select(`
         id,
         conversation_id,
         content,
         created_at,
-        sender_attendee_id,
-        sender_speaker_id
+        sender_id
       `)
       .in('conversation_id', activeConversationIds)
       .eq('is_deleted', false)
@@ -143,11 +142,11 @@ serve(async (req): Promise<Response> => {
       const lastReadAt = participant?.last_read_at;
       
       let query = supabase
-        .from('attendee_messages')
+        .from('messages')
         .select('*', { count: 'exact', head: true })
         .eq('conversation_id', convId)
         .eq('is_deleted', false)
-        .neq('sender_attendee_id', attendee_id);
+        .neq('sender_id', attendee_id);
       
       if (lastReadAt) {
         query = query.gt('created_at', lastReadAt);
@@ -172,49 +171,37 @@ serve(async (req): Promise<Response> => {
         .from('conversation_participants')
         .select(`
           conversation_id,
-          attendee_id,
-          speaker_id
+          attendee_id
         `)
         .in('conversation_id', dmConversationIds)
         .neq('attendee_id', attendee_id)
         .is('left_at', null);
 
       const otherAttendeeIds = [...new Set((otherParticipants || []).filter(p => p.attendee_id).map(p => p.attendee_id))];
-      const otherSpeakerIds = [...new Set((otherParticipants || []).filter(p => p.speaker_id).map(p => p.speaker_id))];
 
-      const [attendeesRes, profilesRes, speakersRes] = await Promise.all([
+      const [attendeesRes, profilesRes] = await Promise.all([
         otherAttendeeIds.length > 0 
-          ? supabase.from('attendees').select('id, attendee_name, attendee_email').in('id', otherAttendeeIds)
+          ? supabase.from('attendees').select('id, attendee_name, user_id').in('id', otherAttendeeIds)
           : Promise.resolve({ data: [] }),
         otherAttendeeIds.length > 0 
-          ? supabase.from('attendee_profiles').select('attendee_id, display_name, avatar_url').in('attendee_id', otherAttendeeIds)
-          : Promise.resolve({ data: [] }),
-        otherSpeakerIds.length > 0 
-          ? supabase.from('speakers').select('id, name, photo_url').in('id', otherSpeakerIds)
+          ? supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', 
+              (await supabase.from('attendees').select('user_id').in('id', otherAttendeeIds).not('user_id', 'is', null)).data?.map((a: any) => a.user_id) || []
+            )
           : Promise.resolve({ data: [] })
       ]);
 
       const attendeeMap = new Map((attendeesRes.data || []).map((a: any) => [a.id, a]));
-      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.attendee_id, p]));
-      const speakerMap = new Map((speakersRes.data || []).map((s: any) => [s.id, s]));
+      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p]));
 
       (otherParticipants || []).forEach((op: any) => {
         if (op.attendee_id) {
           const attendee = attendeeMap.get(op.attendee_id);
-          const profile = profileMap.get(op.attendee_id);
+          const profile = attendee?.user_id ? profileMap.get(attendee.user_id) : null;
           otherParticipantsMap.set(op.conversation_id, {
             type: 'attendee',
             id: attendee?.id,
-            name: profile?.display_name || attendee?.attendee_name,
+            name: profile?.full_name || attendee?.attendee_name,
             avatar_url: profile?.avatar_url
-          });
-        } else if (op.speaker_id) {
-          const speaker = speakerMap.get(op.speaker_id);
-          otherParticipantsMap.set(op.conversation_id, {
-            type: 'speaker',
-            id: speaker?.id,
-            name: speaker?.name,
-            avatar_url: speaker?.photo_url
           });
         }
       });
