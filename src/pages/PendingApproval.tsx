@@ -33,24 +33,8 @@ export default function PendingApproval() {
           const newProfile = payload.new as { is_approved: boolean };
           
           if (newProfile.is_approved) {
-            // Fetch role to determine redirect
-            const { data: roleData } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', user.id)
-              .single();
-
-            const role = roleData?.role;
-            const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
-            const hasEventsAccess = role === 'admin' || role === 'event_organizer';
-
-            if (hasLMSAccess && hasEventsAccess) {
-              navigate('/select-dashboard');
-            } else if (hasEventsAccess && !hasLMSAccess) {
-              navigate('/events/manage');
-            } else {
-              navigate('/');
-            }
+            // Redirect to root - let RootRouter handle routing based on roles
+            navigate('/');
           }
         }
       )

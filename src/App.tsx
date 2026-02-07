@@ -24,7 +24,6 @@ const Chapters = lazy(() => import("@/pages/Chapters"));
 const Moderation = lazy(() => import("@/pages/Moderation"));
 const MyChapter = lazy(() => import("@/pages/MyChapter"));
 const Announcements = lazy(() => import("@/pages/Announcements"));
-const DashboardSelector = lazy(() => import("@/pages/DashboardSelector"));
 const AreaSelector = lazy(() => import("@/pages/AreaSelector"));
 const RootRouter = lazy(() => import("@/pages/RootRouter"));
 const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
@@ -94,7 +93,7 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
   useEventsLayout?: boolean;
   requireApproval?: boolean;
 }) {
-  const { roles, loading, isApproved, isLMSAdmin, isLMSAdvisor, isEMAdmin, isEMManager } = useAuth();
+  const { roles, loading, isApproved } = useAuth();
   
   if (loading) return null;
   
@@ -103,16 +102,11 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
     return <Navigate to="/pending-approval" replace />;
   }
   
-  // Check role access - convert new role checks if legacy roles are specified
+  // Check role access
   if (allowedRoles && allowedRoles.length > 0) {
-    const hasAccess = allowedRoles.some(allowedRole => {
-      // Handle legacy role names
-      if (allowedRole === 'admin') return isLMSAdmin;
-      if (allowedRole === 'advisor') return isLMSAdvisor;
-      if (allowedRole === 'event_organizer') return isEMManager;
-      // Check if user has the exact role
-      return roles.includes(allowedRole as any);
-    });
+    const hasAccess = allowedRoles.some(allowedRole => 
+      roles.includes(allowedRole as any)
+    );
     
     if (!hasAccess) {
       return <Navigate to="/" replace />;
@@ -131,34 +125,17 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
 }
 
 function AppRoutes() {
-  const { user, loading, hasLMSAccess, hasEventsAccess, hasDualAccess, isApproved } = useAuth();
+  const { user, loading, hasLMSAccess, hasEMAccess, isApproved, accessibleAreas } = useAuth();
 
   if (loading) {
     return <FullPageLoader />;
   }
 
-  // Determine default route based on user role
-  const getDefaultRoute = () => {
-    if (!user) return '/auth';
-    
-    // Unapproved users go to pending approval page
-    if (!isApproved) {
-      return '/pending-approval';
-    }
-    
-    // Users with dual access: always go to selector
-    if (hasDualAccess) {
-      return '/select-dashboard';
-    }
-    
-    // Event organizer only: go to events dashboard
-    if (hasEventsAccess && !hasLMSAccess) {
-      return '/events/manage';
-    }
-    
-    // LMS users: go to feed
-    return '/';
-  };
+  if (loading) {
+    return <FullPageLoader />;
+  }
+
+
 
   return (
     <Routes>
@@ -224,7 +201,7 @@ function AppRoutes() {
       <Route 
         path="/lms/my-chapter" 
         element={
-          <ProtectedRoute allowedRoles={['advisor', 'admin']}>
+          <ProtectedRoute allowedRoles={['lms_advisor', 'lms_admin']}>
             <Suspense fallback={<PageLoader />}>
               <MyChapter />
             </Suspense>
@@ -236,7 +213,7 @@ function AppRoutes() {
       <Route 
         path="/lms/admin/users" 
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute allowedRoles={['lms_admin']}>
             <Suspense fallback={<PageLoader />}>
               <Users />
             </Suspense>
@@ -246,7 +223,7 @@ function AppRoutes() {
       <Route 
         path="/lms/admin/chapters" 
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute allowedRoles={['lms_admin']}>
             <Suspense fallback={<PageLoader />}>
               <Chapters />
             </Suspense>
@@ -256,7 +233,7 @@ function AppRoutes() {
       <Route 
         path="/lms/admin/moderation" 
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute allowedRoles={['lms_admin']}>
             <Suspense fallback={<PageLoader />}>
               <Moderation />
             </Suspense>
@@ -266,7 +243,7 @@ function AppRoutes() {
       <Route 
         path="/lms/admin/announcements" 
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute allowedRoles={['lms_admin']}>
             <Suspense fallback={<PageLoader />}>
               <Announcements />
             </Suspense>
@@ -286,7 +263,7 @@ function AppRoutes() {
       <Route 
         path="/lms/admin" 
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute allowedRoles={['lms_admin']}>
             <Suspense fallback={<PageLoader />}>
               <AdminDashboard />
             </Suspense>
@@ -294,17 +271,8 @@ function AppRoutes() {
         } 
       />
       
-      {/* Legacy routes - redirect to new LMS paths for backwards compatibility */}
-      <Route path="/recordings" element={<Navigate to="/lms/recordings" replace />} />
-      <Route path="/profile/:userId" element={<Navigate to="/lms/profile/:userId" replace />} />
-      <Route path="/profile" element={<Navigate to="/lms/profile" replace />} />
-      <Route path="/my-chapter" element={<Navigate to="/lms/my-chapter" replace />} />
-      <Route path="/users" element={<Navigate to="/lms/admin/users" replace />} />
-      <Route path="/chapters" element={<Navigate to="/lms/admin/chapters" replace />} />
-      <Route path="/moderation" element={<Navigate to="/lms/admin/moderation" replace />} />
-      <Route path="/announcements" element={<Navigate to="/lms/admin/announcements" replace />} />
-      <Route path="/lms-events" element={<Navigate to="/lms/events" replace />} />
-      <Route path="/admin" element={<Navigate to="/lms/admin" replace />} />
+      
+
       
       <Route path="/events" element={
         <Suspense fallback={<PageLoader />}>
@@ -401,7 +369,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <ManageEventsIndex />
             </Suspense>
@@ -411,7 +379,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/orders" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <ManageOrders />
             </Suspense>
@@ -421,7 +389,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/orders/:orderId" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <OrderDetail />
             </Suspense>
@@ -431,7 +399,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/attendees" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <ManageAttendees />
             </Suspense>
@@ -441,7 +409,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/new" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <NewEvent />
             </Suspense>
@@ -451,7 +419,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/:id" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <EditEvent />
             </Suspense>
@@ -461,7 +429,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/:id/tickets" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <ManageTickets />
             </Suspense>
@@ -471,7 +439,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/:id/orders" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <EventOrders />
             </Suspense>
@@ -481,7 +449,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/:id/badges" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <BadgeDesigner />
             </Suspense>
@@ -491,7 +459,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/speakers" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <ManageSpeakers />
             </Suspense>
@@ -501,7 +469,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/agenda" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <ManageAgenda />
             </Suspense>
@@ -511,7 +479,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/checkin" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <ManageCheckIn />
             </Suspense>
@@ -521,7 +489,7 @@ function AppRoutes() {
       <Route 
         path="/events/manage/hotels" 
         element={
-          <ProtectedRoute allowedRoles={['admin', 'event_organizer']} useEventsLayout>
+          <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
             <Suspense fallback={<PageLoader />}>
               <ManageHotels />
             </Suspense>

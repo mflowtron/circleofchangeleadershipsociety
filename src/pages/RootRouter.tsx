@@ -41,15 +41,15 @@ export default function RootRouter() {
   // Helper to get home route for a specific role
   const getRoleHome = (role: AppRole): string => {
     // LMS roles
-    if (['lms_student', 'lms_advisor', 'lms_admin', 'admin', 'advisor', 'student'].includes(role)) {
+    if (['lms_student', 'lms_advisor', 'lms_admin'].includes(role)) {
       return '/lms';
     }
     // EM roles
-    if (['em_admin', 'em_manager', 'event_organizer'].includes(role)) {
+    if (['em_admin', 'em_manager'].includes(role)) {
       return '/events/manage';
     }
     if (role === 'em_advisor') {
-      return '/events/my-orders';
+      return '/my-orders';
     }
     // Attendee roles
     if (['attendee_student', 'attendee_advisor'].includes(role)) {

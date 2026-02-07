@@ -57,7 +57,7 @@ interface Chapter {
 export default function Users() {
   const queryClient = useQueryClient();
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editRole, setEditRole] = useState<AppRole>('student');
+  const [editRole, setEditRole] = useState<AppRole>('lms_student');
   const [editChapter, setEditChapter] = useState<string>('none');
   const [pendingChanges, setPendingChanges] = useState<Record<string, { role?: AppRole; chapter_id?: string }>>({});
   const { toast: showToast } = useToast();
@@ -97,7 +97,7 @@ export default function Users() {
           user_id: profile.user_id,
           full_name: profile.full_name,
           avatar_url: profile.avatar_url,
-          role: roleEntry?.role || 'student',
+          role: roleEntry?.role || 'lms_student',
           chapter_id: profile.chapter_id,
           chapter_name: chapter?.name || null,
           is_approved: profile.is_approved,
@@ -214,7 +214,7 @@ export default function Users() {
   };
 
   const getSelectedRole = (user: User): AppRole => {
-    return pendingChanges[user.user_id]?.role || user.role || 'student';
+    return pendingChanges[user.user_id]?.role || user.role || 'lms_student';
   };
 
   const getSelectedChapter = (user: User): string => {
@@ -301,10 +301,12 @@ export default function Users() {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="student">Student</SelectItem>
-                                    <SelectItem value="advisor">Advisor</SelectItem>
-                                    <SelectItem value="event_organizer">Event Organizer</SelectItem>
-                                    <SelectItem value="admin">Admin</SelectItem>
+                                    <SelectItem value="lms_student">LMS Student</SelectItem>
+                                    <SelectItem value="lms_advisor">LMS Advisor</SelectItem>
+                                    <SelectItem value="lms_admin">LMS Admin</SelectItem>
+                                    <SelectItem value="em_advisor">EM Purchaser</SelectItem>
+                                    <SelectItem value="em_manager">EM Manager</SelectItem>
+                                    <SelectItem value="em_admin">EM Admin</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -412,10 +414,12 @@ export default function Users() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="student">Student</SelectItem>
-                              <SelectItem value="advisor">Advisor</SelectItem>
-                              <SelectItem value="event_organizer">Event Organizer</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="lms_student">LMS Student</SelectItem>
+                              <SelectItem value="lms_advisor">LMS Advisor</SelectItem>
+                              <SelectItem value="lms_admin">LMS Admin</SelectItem>
+                              <SelectItem value="em_advisor">EM Purchaser</SelectItem>
+                              <SelectItem value="em_manager">EM Manager</SelectItem>
+                              <SelectItem value="em_admin">EM Admin</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -496,10 +500,12 @@ export default function Users() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="student">Student</SelectItem>
-                              <SelectItem value="advisor">Advisor</SelectItem>
-                              <SelectItem value="event_organizer">Event Organizer</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="lms_student">LMS Student</SelectItem>
+                              <SelectItem value="lms_advisor">LMS Advisor</SelectItem>
+                              <SelectItem value="lms_admin">LMS Admin</SelectItem>
+                              <SelectItem value="em_advisor">EM Purchaser</SelectItem>
+                              <SelectItem value="em_manager">EM Manager</SelectItem>
+                              <SelectItem value="em_admin">EM Admin</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
