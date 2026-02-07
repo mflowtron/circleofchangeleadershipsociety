@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface OrderMessage {
@@ -15,34 +14,6 @@ export interface OrderMessage {
 }
 
 export function useOrderMessages(orderId: string | undefined) {
-  const queryClient = useQueryClient();
-
-  // Set up realtime subscription
-  useEffect(() => {
-    if (!orderId) return;
-
-    const channel = supabase
-      .channel(`order-messages-${orderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'order_messages',
-          filter: `order_id=eq.${orderId}`,
-        },
-        () => {
-          // Invalidate the query to refetch messages
-          queryClient.invalidateQueries({ queryKey: ['order-messages', orderId] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [orderId, queryClient]);
-
   return useQuery({
     queryKey: ['order-messages', orderId],
     queryFn: async () => {

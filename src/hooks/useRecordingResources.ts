@@ -25,27 +25,6 @@ export function useRecordingResources(recordingId: string | null) {
     }
 
     fetchResources();
-
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel(`recording-resources-${recordingId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'lms_recording_resources',
-          filter: `recording_id=eq.${recordingId}`,
-        },
-        () => {
-          fetchResources();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, [recordingId]);
 
   const fetchResources = async () => {
@@ -109,6 +88,8 @@ export function useRecordingResources(recordingId: string | null) {
       toast.success('Resource uploaded', {
         description: `${file.name} has been attached to this recording.`,
       });
+
+      fetchResources();
     } catch (error: any) {
       toast.error('Upload failed', {
         description: error.message,
@@ -140,6 +121,8 @@ export function useRecordingResources(recordingId: string | null) {
       toast.success('Resource deleted', {
         description: `${resource.name} has been removed.`,
       });
+
+      fetchResources();
     } catch (error: any) {
       toast.error('Delete failed', {
         description: error.message,

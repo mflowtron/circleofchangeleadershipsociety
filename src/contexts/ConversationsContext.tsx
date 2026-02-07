@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+
+const CONVERSATIONS_POLL_INTERVAL = 10000; // 10 seconds
 import { useAttendeeAuth } from './AttendeeAuthContext';
 import { useAttendeeEvent } from './AttendeeEventContext';
 import type { Message } from '@/hooks/useMessages';
@@ -59,7 +61,6 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
-  const conversationIdsRef = useRef<string[]>([]);
 
   // Message cache for stale-while-revalidate pattern
   const messagesCacheRef = useRef<Map<string, Message[]>>(new Map());
@@ -99,57 +100,17 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, selectedAttendee, selectedEvent]);
 
-  // Keep conversation IDs ref in sync (for stable realtime subscription)
+  // Fetch conversations when attendee changes, then poll for updates
   useEffect(() => {
-    conversationIdsRef.current = conversations.map(c => c.id);
-  }, [conversations]);
+    if (!selectedAttendee || !selectedEvent || !isAuthenticated) return;
 
-  // Realtime subscription for conversations (stable deps using ref)
-  useEffect(() => {
-    if (!selectedAttendee || !selectedEvent) return;
+    refreshConversations();
 
-    const channel = supabase
-      .channel(`conversations-${selectedAttendee.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'attendee_messages'
-        },
-        (payload) => {
-          // Only refresh if the message is in one of user's conversations
-          // Use silent refresh to avoid loading spinners
-          if (conversationIdsRef.current.includes(payload.new?.conversation_id)) {
-            refreshConversations({ silent: true });
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversation_participants',
-          filter: `attendee_id=eq.${selectedAttendee.id}`
-        },
-        () => {
-          // Refresh when participant status changes (silent to avoid loading)
-          refreshConversations({ silent: true });
-        }
-      )
-      .subscribe();
+    const interval = setInterval(() => {
+      refreshConversations({ silent: true });
+    }, CONVERSATIONS_POLL_INTERVAL);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedAttendee?.id, selectedEvent?.id, refreshConversations]);
-
-  // Fetch conversations when attendee changes
-  useEffect(() => {
-    if (selectedAttendee && selectedEvent && isAuthenticated) {
-      refreshConversations();
-    }
+    return () => clearInterval(interval);
   }, [selectedAttendee?.id, selectedEvent?.id, isAuthenticated]);
 
   // Calculate total unread

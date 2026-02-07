@@ -64,6 +64,8 @@ export default function Recordings() {
       if (selectedRecording?.id === recordingId) {
         setSelectedRecording(null);
       }
+
+      fetchRecordings();
     } catch (error: any) {
       toast.error('Error deleting recording', {
         description: error.message,
@@ -77,24 +79,8 @@ export default function Recordings() {
 
   useEffect(() => {
     fetchRecordings();
-    
-    const channel = supabase
-      .channel('recordings-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'lms_recordings',
-        },
-        () => {
-          fetchRecordings();
-        }
-      )
-      .subscribe();
-    
+
     return () => {
-      supabase.removeChannel(channel);
       if (statusCheckInterval.current) {
         clearInterval(statusCheckInterval.current);
       }

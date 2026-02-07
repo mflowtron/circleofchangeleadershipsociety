@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAttendee } from '@/contexts/AttendeeContext';
@@ -56,7 +56,6 @@ interface MessagesQueryData {
 export function useMessages(conversationId: string | null) {
   const { isAuthenticated, selectedAttendee, getCachedMessages, setCachedMessages } = useAttendee();
   const queryClient = useQueryClient();
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Main query for fetching messages
   const {
@@ -101,74 +100,12 @@ export function useMessages(conversationId: string | null) {
       }
       return undefined;
     },
-    staleTime: 0, // Always refetch since we have realtime
+    refetchInterval: 5000,
   });
 
   const messages = data?.messages || [];
   const hasMore = data?.hasMore || false;
   const error = queryError?.message || null;
-
-  // Set up realtime subscription
-  useEffect(() => {
-    if (!conversationId || !selectedAttendee) return;
-
-    // Clean up previous channel
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
-
-    const channel = supabase
-      .channel(`messages-${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'attendee_messages',
-          filter: `conversation_id=eq.${conversationId}`
-        },
-        async (payload) => {
-          // Don't add if it's from ourselves (already added optimistically)
-          const newMsg = payload.new as { sender_attendee_id?: string };
-          if (newMsg.sender_attendee_id === selectedAttendee.id) {
-            return;
-          }
-
-          // Fetch the enriched message
-          const { data } = await supabase.functions.invoke('get-conversation-messages', {
-            body: {
-              attendee_id: selectedAttendee.id,
-              conversation_id: conversationId,
-              limit: 1
-            }
-          });
-
-          if (data?.messages?.[0]) {
-            queryClient.setQueryData<MessagesQueryData>(
-              ['messages', conversationId],
-              (old) => {
-                if (!old) return { messages: [data.messages[0]], hasMore: false };
-                // Check if message already exists
-                if (old.messages.some(m => m.id === data.messages[0].id)) {
-                  return old;
-                }
-                return { ...old, messages: [...old.messages, data.messages[0]] };
-              }
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [conversationId, selectedAttendee?.id, queryClient]);
 
   // Send message mutation
   const sendMessageMutation = useMutation({
