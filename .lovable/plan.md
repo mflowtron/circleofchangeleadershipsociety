@@ -1,161 +1,73 @@
 
 
-# Standardize on Sonner Toast System
+# Complete Sonner Migration - Final Cleanup
 
 ## Summary
 
-Migrate the entire application from the dual Radix UI Toast + Sonner system to Sonner-only, creating a unified notification experience across all components.
+Delete the 4 obsolete Radix UI toast files, update one missed file (`CreateGroupDialog.tsx`), and remove the `@radix-ui/react-toast` dependency.
 
 ---
 
-## What Will Change
+## Files to Delete (4 files)
 
-### Files to Delete (4 files)
-- `src/components/ui/toast.tsx` - Radix UI toast primitives
-- `src/components/ui/toaster.tsx` - Radix UI toaster component
-- `src/components/ui/use-toast.ts` - Re-export wrapper
-- `src/hooks/use-toast.ts` - Custom toast hook implementation
-
-### Files to Update (24 files)
-
-**App Entry Point:**
-- `src/App.tsx` - Remove Radix `<Toaster />` import and component
-
-**Hooks (10 files):**
-- `src/hooks/useAnnouncements.ts`
-- `src/hooks/useComments.ts`
-- `src/hooks/useEvents.ts`
-- `src/hooks/useModerationPosts.ts`
-- `src/hooks/usePosts.ts`
-- `src/hooks/useRecordingResources.ts`
-- `src/hooks/useTicketTypes.ts`
-- `src/hooks/useUserPosts.ts`
-- `src/hooks/useBadgeTemplates.ts`
-- `src/hooks/useOrders.ts`
-
-**Pages (9 files):**
-- `src/pages/Auth.tsx`
-- `src/pages/Chapters.tsx`
-- `src/pages/MyChapter.tsx`
-- `src/pages/Profile.tsx`
-- `src/pages/Recordings.tsx`
-- `src/pages/Users.tsx`
-- `src/pages/attendee/AttendeeProfile.tsx`
-- `src/pages/attendee/Conversation.tsx`
-- `src/pages/attendee/Messages.tsx`
-- `src/pages/attendee/Networking.tsx`
-- `src/pages/events/Checkout.tsx`
-
-**Components (4 files):**
-- `src/components/attendee/QRCodeDisplay.tsx`
-- `src/components/attendee/ReactionPicker.tsx`
-- `src/components/feed/VideoUploadDialog.tsx`
-
-### Package.json Update
-- Remove `@radix-ui/react-toast` from dependencies
+| File | Purpose |
+|------|---------|
+| `src/components/ui/toast.tsx` | Radix UI toast primitives (111 lines) |
+| `src/components/ui/toaster.tsx` | Radix UI toaster component (24 lines) |
+| `src/components/ui/use-toast.ts` | Re-export wrapper (3 lines) |
+| `src/hooks/use-toast.ts` | Custom toast hook implementation (186 lines) |
 
 ---
 
-## Migration Pattern
+## File to Update (1 file missed in initial migration)
 
-### Before (Radix UI Toast)
+### `src/components/attendee/CreateGroupDialog.tsx`
+
+**Current code (lines 15, 26, 35-40, 44-49, 67-70, 80-84):**
 ```typescript
 import { useToast } from '@/hooks/use-toast';
-
-function MyComponent() {
-  const { toast } = useToast();
-  
-  // Success toast
-  toast({
-    title: 'Event created',
-    description: 'Your event has been created successfully.',
-  });
-  
-  // Error toast
-  toast({
-    title: 'Error creating event',
-    description: error.message,
-    variant: 'destructive',
-  });
-}
+// ...
+const { toast } = useToast();
+// ...
+toast({ title: 'Error', description: '...', variant: 'destructive' });
+toast({ title: 'Group created!', description: '...' });
 ```
 
-### After (Sonner)
+**Updated code:**
 ```typescript
 import { toast } from 'sonner';
-
-function MyComponent() {
-  // Success toast
-  toast.success('Event created', { 
-    description: 'Your event has been created successfully.' 
-  });
-  
-  // Error toast
-  toast.error('Error creating event', { 
-    description: error.message 
-  });
-  
-  // Neutral/info toast (no variant)
-  toast('Chapter updated');
-}
+// Remove: const { toast } = useToast();
+// ...
+toast.error('Error', { description: '...' });
+toast.success('Group created!', { description: '...' });
 ```
 
 ---
 
-## Technical Details
+## Package.json Update
 
-### Conversion Rules
-
-| Old Pattern | New Pattern |
-|-------------|-------------|
-| `toast({ title: "...", description: "..." })` | `toast.success("...", { description: "..." })` |
-| `toast({ title: "...", variant: "destructive" })` | `toast.error("...")` |
-| `toast({ title: "..." })` (short neutral) | `toast("...")` or `toast.success("...")` based on context |
-
-### App.tsx Changes
-```text
-// Before
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-...
-<Toaster />
-<Sonner />
-
-// After  
-import { Toaster } from "@/components/ui/sonner";
-...
-<Toaster />
+Remove from dependencies (line 45):
+```json
+"@radix-ui/react-toast": "^1.2.14",
 ```
 
 ---
 
 ## Implementation Order
 
-1. Update all 24 files to use Sonner syntax (imports and toast calls)
-2. Update `App.tsx` to remove Radix Toaster
-3. Delete the 4 obsolete toast files
-4. Remove `@radix-ui/react-toast` from `package.json`
+1. Update `CreateGroupDialog.tsx` to use Sonner
+2. Delete the 4 obsolete toast files
+3. Remove `@radix-ui/react-toast` from `package.json`
 
 ---
 
-## Files Already Using Sonner (No Changes Needed)
+## Summary
 
-These 18 files already use `import { toast } from 'sonner'`:
-- `src/components/admin/RecentUsers.tsx`
-- `src/components/attendee/AttachmentPicker.tsx`
-- `src/components/events/AttendeesTable.tsx`
-- `src/components/events/badges/BadgeDesigner.tsx`
-- `src/components/events/badges/BadgeGeneratorDialog.tsx`
-- `src/components/events/checkin/CheckInActivityFeed.tsx`
-- `src/components/events/checkin/ManualCheckIn.tsx`
-- `src/components/orders/MessageList.tsx`
-- `src/components/recordings/RecordingPlayerView.tsx`
-- `src/hooks/useAgendaItems.ts`
-- `src/hooks/useEventHotels.ts`
-- `src/hooks/useLMSEvents.ts`
-- `src/hooks/useSpeakers.ts`
-- `src/pages/events/manage/CheckIn.tsx`
-- `src/pages/events/manage/OrderDetail.tsx`
-- `src/pages/events/OrderAttendees.tsx`
-- `src/pages/Users.tsx` (already has sonner import, will verify)
+| Action | Count |
+|--------|-------|
+| Files to delete | 4 |
+| Files to update | 1 |
+| Dependencies to remove | 1 |
+
+This completes the Sonner toast standardization across the entire application.
 
