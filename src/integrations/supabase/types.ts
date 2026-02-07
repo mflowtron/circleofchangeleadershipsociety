@@ -14,44 +14,31 @@ export type Database = {
   }
   public: {
     Tables: {
-      agenda_item_speakers: {
+      advisor_chapters: {
         Row: {
-          agenda_item_id: string
+          chapter_id: string
           created_at: string
           id: string
-          role: string
-          sort_order: number
-          speaker_id: string
+          user_id: string
         }
         Insert: {
-          agenda_item_id: string
+          chapter_id: string
           created_at?: string
           id?: string
-          role?: string
-          sort_order?: number
-          speaker_id: string
+          user_id: string
         }
         Update: {
-          agenda_item_id?: string
+          chapter_id?: string
           created_at?: string
           id?: string
-          role?: string
-          sort_order?: number
-          speaker_id?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "agenda_item_speakers_agenda_item_id_fkey"
-            columns: ["agenda_item_id"]
+            foreignKeyName: "advisor_chapters_chapter_id_fkey"
+            columns: ["chapter_id"]
             isOneToOne: false
-            referencedRelation: "agenda_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agenda_item_speakers_speaker_id_fkey"
-            columns: ["speaker_id"]
-            isOneToOne: false
-            referencedRelation: "speakers"
+            referencedRelation: "chapters"
             referencedColumns: ["id"]
           },
         ]
@@ -67,6 +54,7 @@ export type Database = {
           item_type: string
           location: string | null
           sort_order: number
+          speaker_ids: string[] | null
           starts_at: string
           title: string
           track: string | null
@@ -82,6 +70,7 @@ export type Database = {
           item_type?: string
           location?: string | null
           sort_order?: number
+          speaker_ids?: string[] | null
           starts_at: string
           title: string
           track?: string | null
@@ -97,6 +86,7 @@ export type Database = {
           item_type?: string
           location?: string | null
           sort_order?: number
+          speaker_ids?: string[] | null
           starts_at?: string
           title?: string
           track?: string | null
@@ -111,6 +101,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      announcements: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       attendee_bookmarks: {
         Row: {
@@ -196,252 +219,44 @@ export type Database = {
           },
         ]
       }
-      attendee_conversations: {
-        Row: {
-          agenda_item_id: string | null
-          created_at: string | null
-          created_by_attendee_id: string | null
-          created_by_speaker_id: string | null
-          description: string | null
-          event_id: string
-          id: string
-          is_archived: boolean | null
-          name: string | null
-          type: string
-          updated_at: string | null
-        }
-        Insert: {
-          agenda_item_id?: string | null
-          created_at?: string | null
-          created_by_attendee_id?: string | null
-          created_by_speaker_id?: string | null
-          description?: string | null
-          event_id: string
-          id?: string
-          is_archived?: boolean | null
-          name?: string | null
-          type: string
-          updated_at?: string | null
-        }
-        Update: {
-          agenda_item_id?: string | null
-          created_at?: string | null
-          created_by_attendee_id?: string | null
-          created_by_speaker_id?: string | null
-          description?: string | null
-          event_id?: string
-          id?: string
-          is_archived?: boolean | null
-          name?: string | null
-          type?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attendee_conversations_agenda_item_id_fkey"
-            columns: ["agenda_item_id"]
-            isOneToOne: false
-            referencedRelation: "agenda_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendee_conversations_created_by_attendee_id_fkey"
-            columns: ["created_by_attendee_id"]
-            isOneToOne: false
-            referencedRelation: "attendees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendee_conversations_created_by_speaker_id_fkey"
-            columns: ["created_by_speaker_id"]
-            isOneToOne: false
-            referencedRelation: "speakers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendee_conversations_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      attendee_messages: {
-        Row: {
-          attachment_name: string | null
-          attachment_size: number | null
-          attachment_type: string | null
-          attachment_url: string | null
-          content: string
-          conversation_id: string
-          created_at: string | null
-          id: string
-          is_deleted: boolean | null
-          reply_to_id: string | null
-          sender_attendee_id: string | null
-          sender_speaker_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          attachment_name?: string | null
-          attachment_size?: number | null
-          attachment_type?: string | null
-          attachment_url?: string | null
-          content: string
-          conversation_id: string
-          created_at?: string | null
-          id?: string
-          is_deleted?: boolean | null
-          reply_to_id?: string | null
-          sender_attendee_id?: string | null
-          sender_speaker_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          attachment_name?: string | null
-          attachment_size?: number | null
-          attachment_type?: string | null
-          attachment_url?: string | null
-          content?: string
-          conversation_id?: string
-          created_at?: string | null
-          id?: string
-          is_deleted?: boolean | null
-          reply_to_id?: string | null
-          sender_attendee_id?: string | null
-          sender_speaker_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attendee_messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "attendee_conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendee_messages_reply_to_id_fkey"
-            columns: ["reply_to_id"]
-            isOneToOne: false
-            referencedRelation: "attendee_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendee_messages_sender_attendee_id_fkey"
-            columns: ["sender_attendee_id"]
-            isOneToOne: false
-            referencedRelation: "attendees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendee_messages_sender_speaker_id_fkey"
-            columns: ["sender_speaker_id"]
-            isOneToOne: false
-            referencedRelation: "speakers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      attendee_profiles: {
-        Row: {
-          attendee_id: string
-          avatar_url: string | null
-          bio: string | null
-          company: string | null
-          created_at: string | null
-          display_name: string | null
-          id: string
-          open_to_networking: boolean | null
-          title: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          attendee_id: string
-          avatar_url?: string | null
-          bio?: string | null
-          company?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          id?: string
-          open_to_networking?: boolean | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          attendee_id?: string
-          avatar_url?: string | null
-          bio?: string | null
-          company?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          id?: string
-          open_to_networking?: boolean | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attendee_profiles_attendee_id_fkey"
-            columns: ["attendee_id"]
-            isOneToOne: true
-            referencedRelation: "attendees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       attendees: {
         Row: {
           additional_info: Json | null
-          attendee_email: string | null
-          attendee_name: string | null
+          attendee_email: string
+          attendee_name: string
           created_at: string
           id: string
-          is_purchaser: boolean | null
-          order_id: string
-          order_item_id: string
-          ticket_type_id: string
+          is_speaker: boolean
+          order_item_id: string | null
           track_access: string[] | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
           additional_info?: Json | null
-          attendee_email?: string | null
-          attendee_name?: string | null
+          attendee_email?: string
+          attendee_name?: string
           created_at?: string
           id?: string
-          is_purchaser?: boolean | null
-          order_id: string
-          order_item_id: string
-          ticket_type_id: string
+          is_speaker?: boolean
+          order_item_id?: string | null
           track_access?: string[] | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           additional_info?: Json | null
-          attendee_email?: string | null
-          attendee_name?: string | null
+          attendee_email?: string
+          attendee_name?: string
           created_at?: string
           id?: string
-          is_purchaser?: boolean | null
-          order_id?: string
-          order_item_id?: string
-          ticket_type_id?: string
+          is_speaker?: boolean
+          order_item_id?: string | null
           track_access?: string[] | null
           updated_at?: string
           user_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "attendees_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "attendees_order_item_id_fkey"
             columns: ["order_item_id"]
@@ -449,86 +264,62 @@ export type Database = {
             referencedRelation: "order_items"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "attendees_ticket_type_id_fkey"
-            columns: ["ticket_type_id"]
-            isOneToOne: false
-            referencedRelation: "ticket_types"
-            referencedColumns: ["id"]
-          },
         ]
       }
-      badge_templates: {
+      chapters: {
         Row: {
-          background_image_url: string | null
           created_at: string
-          event_id: string
-          fields: Json
+          description: string | null
           id: string
-          orientation: string
+          name: string
           updated_at: string
         }
         Insert: {
-          background_image_url?: string | null
           created_at?: string
-          event_id: string
-          fields?: Json
+          description?: string | null
           id?: string
-          orientation?: string
+          name: string
           updated_at?: string
         }
         Update: {
-          background_image_url?: string | null
           created_at?: string
-          event_id?: string
-          fields?: Json
+          description?: string | null
           id?: string
-          orientation?: string
+          name?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "badge_templates_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: true
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       conversation_participants: {
         Row: {
-          attendee_id: string | null
+          attendee_id: string
           conversation_id: string
           id: string
-          joined_at: string | null
+          joined_at: string
           last_read_at: string | null
           left_at: string | null
           muted_until: string | null
-          role: string | null
-          speaker_id: string | null
+          role: string
         }
         Insert: {
-          attendee_id?: string | null
+          attendee_id: string
           conversation_id: string
           id?: string
-          joined_at?: string | null
+          joined_at?: string
           last_read_at?: string | null
           left_at?: string | null
           muted_until?: string | null
-          role?: string | null
-          speaker_id?: string | null
+          role?: string
         }
         Update: {
-          attendee_id?: string | null
+          attendee_id?: string
           conversation_id?: string
           id?: string
-          joined_at?: string | null
+          joined_at?: string
           last_read_at?: string | null
           left_at?: string | null
           muted_until?: string | null
-          role?: string | null
-          speaker_id?: string | null
+          role?: string
         }
         Relationships: [
           {
@@ -542,61 +333,65 @@ export type Database = {
             foreignKeyName: "conversation_participants_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "attendee_conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversation_participants_speaker_id_fkey"
-            columns: ["speaker_id"]
-            isOneToOne: false
-            referencedRelation: "speakers"
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]
       }
-      event_hotels: {
+      conversations: {
         Row: {
-          address: string
-          booking_url: string | null
-          created_at: string | null
+          agenda_item_id: string | null
+          created_at: string
+          created_by: string | null
           description: string | null
           event_id: string
           id: string
-          image_url: string | null
-          name: string
-          phone: string | null
-          rate_description: string | null
-          sort_order: number | null
+          is_archived: boolean
+          name: string | null
+          type: string
+          updated_at: string
         }
         Insert: {
-          address: string
-          booking_url?: string | null
-          created_at?: string | null
+          agenda_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
           description?: string | null
           event_id: string
           id?: string
-          image_url?: string | null
-          name: string
-          phone?: string | null
-          rate_description?: string | null
-          sort_order?: number | null
+          is_archived?: boolean
+          name?: string | null
+          type: string
+          updated_at?: string
         }
         Update: {
-          address?: string
-          booking_url?: string | null
-          created_at?: string | null
+          agenda_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
           description?: string | null
           event_id?: string
           id?: string
-          image_url?: string | null
-          name?: string
-          phone?: string | null
-          rate_description?: string | null
-          sort_order?: number | null
+          is_archived?: boolean
+          name?: string | null
+          type?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "event_hotels_event_id_fkey"
+            foreignKeyName: "conversations_agenda_item_id_fkey"
+            columns: ["agenda_item_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
@@ -606,11 +401,13 @@ export type Database = {
       }
       events: {
         Row: {
+          badge_template: Json | null
           cover_image_url: string | null
           created_at: string
           created_by: string
           description: string | null
           ends_at: string | null
+          hotels: Json | null
           id: string
           is_published: boolean
           short_description: string | null
@@ -625,11 +422,13 @@ export type Database = {
           venue_name: string | null
         }
         Insert: {
+          badge_template?: Json | null
           cover_image_url?: string | null
           created_at?: string
           created_by: string
           description?: string | null
           ends_at?: string | null
+          hotels?: Json | null
           id?: string
           is_published?: boolean
           short_description?: string | null
@@ -644,11 +443,13 @@ export type Database = {
           venue_name?: string | null
         }
         Update: {
+          badge_template?: Json | null
           cover_image_url?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
           ends_at?: string | null
+          hotels?: Json | null
           id?: string
           is_published?: boolean
           short_description?: string | null
@@ -664,124 +465,9 @@ export type Database = {
         }
         Relationships: []
       }
-      lms_advisor_chapters: {
-        Row: {
-          chapter_id: string
-          created_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          chapter_id: string
-          created_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          chapter_id?: string
-          created_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "advisor_chapters_chapter_id_fkey"
-            columns: ["chapter_id"]
-            isOneToOne: false
-            referencedRelation: "lms_chapters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      lms_announcements: {
-        Row: {
-          content: string
-          created_at: string
-          created_by: string
-          expires_at: string | null
-          id: string
-          is_active: boolean
-          title: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          created_by: string
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean
-          title: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          created_by?: string
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean
-          title?: string
-        }
-        Relationships: []
-      }
-      lms_chapters: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      lms_comments: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          post_id: string
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          post_id: string
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          post_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "comments_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "lms_posts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       lms_events: {
         Row: {
-          created_at: string | null
+          created_at: string
           created_by: string
           description: string | null
           ends_at: string | null
@@ -790,10 +476,10 @@ export type Database = {
           meeting_link: string | null
           starts_at: string
           title: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           created_by: string
           description?: string | null
           ends_at?: string | null
@@ -802,10 +488,10 @@ export type Database = {
           meeting_link?: string | null
           starts_at: string
           title: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           created_by?: string
           description?: string | null
           ends_at?: string | null
@@ -814,40 +500,253 @@ export type Database = {
           meeting_link?: string | null
           starts_at?: string
           title?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
-      lms_likes: {
+      messages: {
         Row: {
+          attachment_name: string | null
+          attachment_size: number | null
+          attachment_type: string | null
+          attachment_url: string | null
+          content: string
+          conversation_id: string
           created_at: string
           id: string
-          post_id: string
-          user_id: string
+          is_deleted: boolean
+          reactions: Json | null
+          reply_to_id: string | null
+          sender_id: string
+          updated_at: string
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_size?: number | null
+          attachment_type?: string | null
+          attachment_url?: string | null
+          content: string
+          conversation_id: string
           created_at?: string
           id?: string
-          post_id: string
-          user_id: string
+          is_deleted?: boolean
+          reactions?: Json | null
+          reply_to_id?: string | null
+          sender_id: string
+          updated_at?: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_size?: number | null
+          attachment_type?: string | null
+          attachment_url?: string | null
+          content?: string
+          conversation_id?: string
           created_at?: string
           id?: string
-          post_id?: string
-          user_id?: string
+          is_deleted?: boolean
+          reactions?: Json | null
+          reply_to_id?: string | null
+          sender_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "likes_post_id_fkey"
-            columns: ["post_id"]
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "lms_posts"
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
             referencedColumns: ["id"]
           },
         ]
       }
-      lms_posts: {
+      order_access_codes: {
+        Row: {
+          code: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          used_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          used_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          quantity: number
+          ticket_type_id: string
+          unit_price_cents: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          quantity?: number
+          ticket_type_id: string
+          unit_price_cents: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          quantity?: number
+          ticket_type_id?: string
+          unit_price_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          edit_token: string | null
+          email: string
+          event_id: string
+          fees_cents: number
+          full_name: string
+          id: string
+          order_number: string
+          phone: string | null
+          purchaser_is_attending: boolean | null
+          status: Database["public"]["Enums"]["order_status"]
+          stripe_payment_intent_id: string | null
+          subtotal_cents: number
+          total_cents: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          edit_token?: string | null
+          email: string
+          event_id: string
+          fees_cents?: number
+          full_name: string
+          id?: string
+          order_number: string
+          phone?: string | null
+          purchaser_is_attending?: boolean | null
+          status?: Database["public"]["Enums"]["order_status"]
+          stripe_payment_intent_id?: string | null
+          subtotal_cents?: number
+          total_cents?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          edit_token?: string | null
+          email?: string
+          event_id?: string
+          fees_cents?: number
+          full_name?: string
+          id?: string
+          order_number?: string
+          phone?: string | null
+          purchaser_is_attending?: boolean | null
+          status?: Database["public"]["Enums"]["order_status"]
+          stripe_payment_intent_id?: string | null
+          subtotal_cents?: number
+          total_cents?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_interactions: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          post_id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          post_id: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_interactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
         Row: {
           chapter_id: string | null
           content: string
@@ -913,332 +812,7 @@ export type Database = {
             foreignKeyName: "posts_chapter_id_fkey"
             columns: ["chapter_id"]
             isOneToOne: false
-            referencedRelation: "lms_chapters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      lms_recording_resources: {
-        Row: {
-          created_at: string
-          file_size: number
-          file_type: string
-          file_url: string
-          id: string
-          name: string
-          recording_id: string
-          uploaded_by: string
-        }
-        Insert: {
-          created_at?: string
-          file_size?: number
-          file_type: string
-          file_url: string
-          id?: string
-          name: string
-          recording_id: string
-          uploaded_by: string
-        }
-        Update: {
-          created_at?: string
-          file_size?: number
-          file_type?: string
-          file_url?: string
-          id?: string
-          name?: string
-          recording_id?: string
-          uploaded_by?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "recording_resources_recording_id_fkey"
-            columns: ["recording_id"]
-            isOneToOne: false
-            referencedRelation: "lms_recordings"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      lms_recordings: {
-        Row: {
-          captions_status: string | null
-          captions_track_id: string | null
-          created_at: string
-          description: string | null
-          id: string
-          mux_asset_id: string | null
-          mux_playback_id: string | null
-          mux_upload_id: string | null
-          sort_order: number | null
-          status: string | null
-          thumbnail_url: string | null
-          title: string
-          uploaded_by: string
-          video_url: string | null
-        }
-        Insert: {
-          captions_status?: string | null
-          captions_track_id?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          mux_asset_id?: string | null
-          mux_playback_id?: string | null
-          mux_upload_id?: string | null
-          sort_order?: number | null
-          status?: string | null
-          thumbnail_url?: string | null
-          title: string
-          uploaded_by: string
-          video_url?: string | null
-        }
-        Update: {
-          captions_status?: string | null
-          captions_track_id?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          mux_asset_id?: string | null
-          mux_playback_id?: string | null
-          mux_upload_id?: string | null
-          sort_order?: number | null
-          status?: string | null
-          thumbnail_url?: string | null
-          title?: string
-          uploaded_by?: string
-          video_url?: string | null
-        }
-        Relationships: []
-      }
-      message_reactions: {
-        Row: {
-          attendee_id: string | null
-          created_at: string | null
-          emoji: string
-          id: string
-          message_id: string
-          speaker_id: string | null
-        }
-        Insert: {
-          attendee_id?: string | null
-          created_at?: string | null
-          emoji: string
-          id?: string
-          message_id: string
-          speaker_id?: string | null
-        }
-        Update: {
-          attendee_id?: string | null
-          created_at?: string | null
-          emoji?: string
-          id?: string
-          message_id?: string
-          speaker_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "message_reactions_attendee_id_fkey"
-            columns: ["attendee_id"]
-            isOneToOne: false
-            referencedRelation: "attendees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "message_reactions_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "attendee_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "message_reactions_speaker_id_fkey"
-            columns: ["speaker_id"]
-            isOneToOne: false
-            referencedRelation: "speakers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      order_access_codes: {
-        Row: {
-          code: string
-          created_at: string
-          email: string
-          expires_at: string
-          id: string
-          used_at: string | null
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          email: string
-          expires_at: string
-          id?: string
-          used_at?: string | null
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          email?: string
-          expires_at?: string
-          id?: string
-          used_at?: string | null
-        }
-        Relationships: []
-      }
-      order_items: {
-        Row: {
-          attendee_email: string | null
-          attendee_name: string | null
-          created_at: string
-          id: string
-          order_id: string
-          quantity: number
-          ticket_type_id: string
-          unit_price_cents: number
-        }
-        Insert: {
-          attendee_email?: string | null
-          attendee_name?: string | null
-          created_at?: string
-          id?: string
-          order_id: string
-          quantity?: number
-          ticket_type_id: string
-          unit_price_cents: number
-        }
-        Update: {
-          attendee_email?: string | null
-          attendee_name?: string | null
-          created_at?: string
-          id?: string
-          order_id?: string
-          quantity?: number
-          ticket_type_id?: string
-          unit_price_cents?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_ticket_type_id_fkey"
-            columns: ["ticket_type_id"]
-            isOneToOne: false
-            referencedRelation: "ticket_types"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      order_messages: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          is_important: boolean
-          message: string
-          order_id: string
-          read_at: string | null
-          sender_email: string | null
-          sender_type: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_important?: boolean
-          message: string
-          order_id: string
-          read_at?: string | null
-          sender_email?: string | null
-          sender_type?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_important?: boolean
-          message?: string
-          order_id?: string
-          read_at?: string | null
-          sender_email?: string | null
-          sender_type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "order_messages_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      orders: {
-        Row: {
-          completed_at: string | null
-          created_at: string
-          edit_token: string | null
-          email: string
-          event_id: string
-          fees_cents: number
-          full_name: string
-          id: string
-          order_number: string
-          phone: string | null
-          purchaser_is_attending: boolean | null
-          status: Database["public"]["Enums"]["order_status"]
-          stripe_payment_intent_id: string | null
-          subtotal_cents: number
-          total_cents: number
-          user_id: string | null
-        }
-        Insert: {
-          completed_at?: string | null
-          created_at?: string
-          edit_token?: string | null
-          email: string
-          event_id: string
-          fees_cents?: number
-          full_name: string
-          id?: string
-          order_number: string
-          phone?: string | null
-          purchaser_is_attending?: boolean | null
-          status?: Database["public"]["Enums"]["order_status"]
-          stripe_payment_intent_id?: string | null
-          subtotal_cents?: number
-          total_cents?: number
-          user_id?: string | null
-        }
-        Update: {
-          completed_at?: string | null
-          created_at?: string
-          edit_token?: string | null
-          email?: string
-          event_id?: string
-          fees_cents?: number
-          full_name?: string
-          id?: string
-          order_number?: string
-          phone?: string | null
-          purchaser_is_attending?: boolean | null
-          status?: Database["public"]["Enums"]["order_status"]
-          stripe_payment_intent_id?: string | null
-          subtotal_cents?: number
-          total_cents?: number
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "orders_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
+            referencedRelation: "chapters"
             referencedColumns: ["id"]
           },
         ]
@@ -1246,7 +820,9 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           chapter_id: string | null
+          company: string | null
           created_at: string
           default_role: string | null
           full_name: string
@@ -1254,12 +830,18 @@ export type Database = {
           id: string
           is_approved: boolean
           linkedin_url: string | null
+          module_access: string[] | null
+          open_to_networking: boolean | null
+          role: Database["public"]["Enums"]["user_role"]
+          title: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           chapter_id?: string | null
+          company?: string | null
           created_at?: string
           default_role?: string | null
           full_name: string
@@ -1267,12 +849,18 @@ export type Database = {
           id?: string
           is_approved?: boolean
           linkedin_url?: string | null
+          module_access?: string[] | null
+          open_to_networking?: boolean | null
+          role?: Database["public"]["Enums"]["user_role"]
+          title?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           chapter_id?: string | null
+          company?: string | null
           created_at?: string
           default_role?: string | null
           full_name?: string
@@ -1280,6 +868,10 @@ export type Database = {
           id?: string
           is_approved?: boolean
           linkedin_url?: string | null
+          module_access?: string[] | null
+          open_to_networking?: boolean | null
+          role?: Database["public"]["Enums"]["user_role"]
+          title?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1288,7 +880,7 @@ export type Database = {
             foreignKeyName: "profiles_chapter_id_fkey"
             columns: ["chapter_id"]
             isOneToOne: false
-            referencedRelation: "lms_chapters"
+            referencedRelation: "chapters"
             referencedColumns: ["id"]
           },
         ]
@@ -1317,6 +909,63 @@ export type Database = {
           id?: string
           p256dh?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      recordings: {
+        Row: {
+          captions_status: string | null
+          captions_track_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          mux_asset_id: string | null
+          mux_playback_id: string | null
+          mux_upload_id: string | null
+          resources: Json | null
+          sort_order: number | null
+          status: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          uploaded_by: string
+          video_url: string | null
+        }
+        Insert: {
+          captions_status?: string | null
+          captions_track_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          mux_asset_id?: string | null
+          mux_playback_id?: string | null
+          mux_upload_id?: string | null
+          resources?: Json | null
+          sort_order?: number | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          uploaded_by: string
+          video_url?: string | null
+        }
+        Update: {
+          captions_status?: string | null
+          captions_track_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          mux_asset_id?: string | null
+          mux_playback_id?: string | null
+          mux_upload_id?: string | null
+          resources?: Json | null
+          sort_order?: number | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_by?: string
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -1432,90 +1081,40 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
-        Row: {
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      can_manage_events: { Args: { _user_id: string }; Returns: boolean }
+      can_manage_events: { Args: { p_user_id: string }; Returns: boolean }
+      check_access: {
+        Args: { p_module: string; p_user_id: string }
+        Returns: boolean
+      }
       generate_order_number: { Args: never; Returns: string }
-      get_post_like_count: { Args: { post_uuid: string }; Returns: number }
-      get_user_chapter: { Args: { _user_id: string }; Returns: string }
-      has_any_attendee_role: { Args: { _user_id: string }; Returns: boolean }
-      has_any_em_role: { Args: { _user_id: string }; Returns: boolean }
-      has_any_lms_role: { Args: { _user_id: string }; Returns: boolean }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      has_user_liked_post: { Args: { post_uuid: string }; Returns: boolean }
+      get_user_chapter: { Args: { p_user_id: string }; Returns: string }
+      is_admin: { Args: { p_user_id: string }; Returns: boolean }
       is_advisor_for_chapter: {
-        Args: { _chapter_id: string; _user_id: string }
+        Args: { p_chapter_id: string; p_user_id: string }
         Returns: boolean
       }
-      is_any_admin: { Args: { _user_id: string }; Returns: boolean }
       is_event_owner: {
-        Args: { _event_id: string; _user_id: string }
+        Args: { p_event_id: string; p_user_id: string }
         Returns: boolean
-      }
-      is_user_approved: { Args: { _user_id: string }; Returns: boolean }
-      log_activity: {
-        Args: {
-          _action: string
-          _entity_id: string
-          _entity_title: string
-          _entity_type: string
-          _metadata?: Json
-          _user_id: string
-        }
-        Returns: undefined
       }
       reserve_tickets: {
         Args: { _quantity: number; _ticket_type_id: string }
         Returns: boolean
       }
       verify_order_edit_token: {
-        Args: { _order_id: string; _token: string }
+        Args: { p_order_id: string; p_token: string }
         Returns: boolean
       }
     }
     Enums: {
-      app_role:
-        | "admin"
-        | "advisor"
-        | "student"
-        | "event_organizer"
-        | "lms_student"
-        | "lms_advisor"
-        | "lms_admin"
-        | "em_advisor"
-        | "em_manager"
-        | "em_admin"
-        | "attendee_student"
-        | "attendee_advisor"
-      moderation_status: "pending" | "approved" | "flagged" | "auto_flagged"
+      moderation_status: "pending" | "approved" | "flagged"
       order_status: "pending" | "completed" | "cancelled" | "refunded"
+      user_role: "admin" | "organizer" | "advisor" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1643,22 +1242,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: [
-        "admin",
-        "advisor",
-        "student",
-        "event_organizer",
-        "lms_student",
-        "lms_advisor",
-        "lms_admin",
-        "em_advisor",
-        "em_manager",
-        "em_admin",
-        "attendee_student",
-        "attendee_advisor",
-      ],
-      moderation_status: ["pending", "approved", "flagged", "auto_flagged"],
+      moderation_status: ["pending", "approved", "flagged"],
       order_status: ["pending", "completed", "cancelled", "refunded"],
+      user_role: ["admin", "organizer", "advisor", "member"],
     },
   },
 } as const
