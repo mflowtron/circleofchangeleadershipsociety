@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, User, Building2, Briefcase, FileText, Eye, EyeOff, Moon } from 'lucide-react';
+import { ArrowLeft, User, Building2, Briefcase, FileText, Eye, EyeOff, Moon, Sun, Monitor } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAttendeeProfile } from '@/hooks/useAttendeeProfile';
@@ -18,7 +19,7 @@ export default function AttendeeProfile() {
   const { toast } = useToast();
   const { selectedAttendee } = useAttendee();
   const { profile, loading, updating, updateProfile } = useAttendeeProfile();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   
   const [displayName, setDisplayName] = useState('');
   const [company, setCompany] = useState('');
@@ -84,9 +85,6 @@ export default function AttendeeProfile() {
     }
   };
 
-  const toggleTheme = (enabled: boolean) => {
-    setTheme(enabled ? 'dark' : 'light');
-  };
 
   if (loading) {
     return (
@@ -161,22 +159,42 @@ export default function AttendeeProfile() {
               Customize how the app looks on your device
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-sm font-medium">Dark Mode</span>
-                <p className="text-xs text-muted-foreground">
-                  {resolvedTheme === 'dark' 
-                    ? 'Using dark color scheme' 
-                    : 'Using light color scheme'
-                  }
-                </p>
-              </div>
-              <Switch
-                checked={resolvedTheme === 'dark'}
-                onCheckedChange={toggleTheme}
-              />
-            </div>
+          <CardContent className="space-y-3">
+            <ToggleGroup
+              type="single"
+              value={theme}
+              onValueChange={(value) => value && setTheme(value)}
+              className="w-full justify-between bg-muted rounded-lg p-1"
+            >
+              <ToggleGroupItem 
+                value="light" 
+                className="flex-1 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+              >
+                <Sun className="h-4 w-4" />
+                <span className="text-xs">Light</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="system" 
+                className="flex-1 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+              >
+                <Monitor className="h-4 w-4" />
+                <span className="text-xs">System</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="dark" 
+                className="flex-1 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+              >
+                <Moon className="h-4 w-4" />
+                <span className="text-xs">Dark</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+            
+            <p className="text-xs text-muted-foreground text-center">
+              {theme === 'system' 
+                ? `Following system preference (${resolvedTheme})`
+                : `Using ${resolvedTheme} color scheme`
+              }
+            </p>
           </CardContent>
         </Card>
 
