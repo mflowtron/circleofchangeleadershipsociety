@@ -1,65 +1,64 @@
 
 
-# Add Message Reactions
+# Add Photo and File Sharing to Chat Messages
 
 ## Overview
 
-Add emoji reactions (like, heart, thumbs up, etc.) to messages, allowing attendees to quickly respond to messages without typing a full reply. This is a common feature in modern messaging apps like Slack, iMessage, and WhatsApp.
+Extend the messaging system to support sharing photos and files in chat conversations. This will allow attendees to share images, PDFs, and other documents within their conversations.
 
 ---
 
 ## User Experience
 
-### Adding a Reaction
-- Long-press (mobile) or hover (desktop) on a message reveals a reaction picker
-- Quick-access emoji bar shows common reactions: 👍 ❤️ 😂 😮 😢 🎉
-- Tapping an emoji adds the reaction immediately (optimistic UI)
-- Tapping the same emoji again removes the reaction
+### Sending Attachments
+- Tap the attachment button (paperclip/plus icon) next to the message input
+- Choose from: "Photo" (camera/gallery) or "File" (document picker)
+- Selected file shows as a preview above the input
+- Send button uploads file then sends message with attachment URL
+- Optimistic preview shows immediately while uploading
 
-### Viewing Reactions
-- Reactions appear below the message bubble as small emoji chips
-- Each chip shows the emoji and count (e.g., "👍 3")
-- Tapping a reaction chip shows who reacted (optional enhancement)
+### Viewing Attachments
+- **Images**: Display inline with thumbnail, tap to open fullscreen lightbox (existing component)
+- **Files**: Show file card with icon, name, size - tap to download/open
+- Files appear alongside any text content in the same bubble
 
 ### Visual Design
 ```text
-┌─────────────────────────────────────┐
-│  Great presentation today!          │
-└─────────────────────────────────────┘
-  [👍 2] [❤️ 1]          3:42 PM
-
-     ↓ Long-press shows picker ↓
-
-┌─────────────────────────────────────┐
-│  Great presentation today!          │
-└─────────────────────────────────────┘
-    ┌────────────────────────┐
-    │ 👍  ❤️  😂  😮  😢  🎉 │
-    └────────────────────────┘
+SENDING IMAGE                        RECEIVED FILE
+┌───────────────────────┐           ┌───────────────────────┐
+│  ┌─────────────────┐  │           │  John Smith           │
+│  │                 │  │           │  ┌─────────────────┐  │
+│  │   [Photo]       │  │           │  │ 📄 document.pdf │  │
+│  │   Loading...    │  │           │  │    2.4 MB       │  │
+│  └─────────────────┘  │           │  └─────────────────┘  │
+│  Optional caption...  │           │  Here's the agenda    │
+└───────────────────────┘           └───────────────────────┘
 ```
 
 ---
 
-## Database Schema
+## Database Changes
 
-### New Table: `message_reactions`
+### Extend `attendee_messages` Table
+
+Add new columns for attachment data:
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `id` | uuid | Primary key |
-| `message_id` | uuid | FK to attendee_messages |
-| `attendee_id` | uuid | FK to attendees (who reacted) |
-| `speaker_id` | uuid | FK to speakers (if speaker reacted) |
-| `emoji` | text | The emoji character (e.g., "👍") |
-| `created_at` | timestamptz | When reaction was added |
+| `attachment_url` | text | Public URL to the uploaded file |
+| `attachment_type` | text | MIME type (e.g., 'image/jpeg', 'application/pdf') |
+| `attachment_name` | text | Original filename |
+| `attachment_size` | integer | File size in bytes |
 
-**Constraints:**
-- Unique constraint on (message_id, attendee_id, emoji) - one reaction type per person per message
-- Either attendee_id OR speaker_id must be set (not both)
+### Create Storage Bucket
 
-**Indexes:**
-- Index on `message_id` for fast reaction lookups
-- Composite index on `(message_id, emoji)` for aggregation
+Create a new `chat-attachments` bucket for storing shared files:
+- Public access for easy URL sharing
+- Organized by: `{conversation_id}/{message_id}/{filename}`
+
+### Storage RLS Policies
+
+Allow uploads for authenticated conversation participants and public read access.
 
 ---
 
@@ -68,211 +67,271 @@ Add emoji reactions (like, heart, thumbs up, etc.) to messages, allowing attende
 ### 1. Database Migration
 
 ```sql
--- Create message_reactions table
-CREATE TABLE public.message_reactions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  message_id uuid NOT NULL REFERENCES public.attendee_messages(id) ON DELETE CASCADE,
-  attendee_id uuid REFERENCES public.attendees(id) ON DELETE CASCADE,
-  speaker_id uuid REFERENCES public.speakers(id) ON DELETE CASCADE,
-  emoji text NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  
-  -- Only one reaction type per person per message
-  CONSTRAINT unique_attendee_reaction UNIQUE (message_id, attendee_id, emoji),
-  CONSTRAINT unique_speaker_reaction UNIQUE (message_id, speaker_id, emoji),
-  
-  -- Must have either attendee or speaker
-  CONSTRAINT sender_check CHECK (
-    (attendee_id IS NOT NULL AND speaker_id IS NULL) OR
-    (attendee_id IS NULL AND speaker_id IS NOT NULL)
-  )
-);
+-- Add attachment columns to attendee_messages
+ALTER TABLE public.attendee_messages
+ADD COLUMN attachment_url text,
+ADD COLUMN attachment_type text,
+ADD COLUMN attachment_name text,
+ADD COLUMN attachment_size integer;
 
--- Indexes for performance
-CREATE INDEX idx_message_reactions_message ON public.message_reactions(message_id);
-CREATE INDEX idx_message_reactions_message_emoji ON public.message_reactions(message_id, emoji);
+-- Create storage bucket for chat attachments
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('chat-attachments', 'chat-attachments', true);
 
--- Enable realtime for reactions
-ALTER PUBLICATION supabase_realtime ADD TABLE public.message_reactions;
+-- Allow service role full access (uploads happen via edge function)
+-- Public read access for viewing attachments
+CREATE POLICY "Public read access for chat attachments"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'chat-attachments');
 ```
 
-### 2. Edge Function: `toggle-message-reaction`
+### 2. Edge Function: Update `send-attendee-message`
 
-Creates or removes a reaction (toggle behavior):
+Modify to accept optional attachment data:
 
 ```typescript
-// Input: { email, session_token, attendee_id, message_id, emoji }
+// New input parameters:
+// attachment_url?: string
+// attachment_type?: string  
+// attachment_name?: string
+// attachment_size?: number
+
+// Insert with attachment fields
+const { data: message, error: messageError } = await supabase
+  .from('attendee_messages')
+  .insert({
+    conversation_id,
+    sender_attendee_id: attendee_id,
+    content: content?.trim() || '',  // Content now optional if attachment exists
+    reply_to_id: reply_to_id || null,
+    attachment_url,
+    attachment_type,
+    attachment_name,
+    attachment_size
+  })
+  .select()
+  .single();
+```
+
+### 3. Edge Function: Create `upload-chat-attachment`
+
+New function to handle file uploads securely:
+
+```typescript
+// Input: { email, session_token, attendee_id, conversation_id, file (base64), filename, content_type }
 // 1. Validate session
-// 2. Verify attendee is participant of the message's conversation
-// 3. Check if reaction exists
-//    - If exists: DELETE it
-//    - If not: INSERT it
-// 4. Return updated reaction counts for the message
-```
-
-### 3. Update `get-conversation-messages` Edge Function
-
-Include reaction counts in message response:
-
-```typescript
-// After fetching messages, batch fetch reactions
-const messageIds = messages.map(m => m.id);
-
-// Single query to get all reactions for all messages
-const { data: reactions } = await supabase
-  .from('message_reactions')
-  .select('message_id, emoji, attendee_id, speaker_id')
-  .in('message_id', messageIds);
-
-// Aggregate reactions by message and emoji
-// { "msg-id-1": { "👍": { count: 3, reacted: true }, "❤️": { count: 1, reacted: false } } }
-
-// Include in response:
-// message.reactions: Array<{ emoji: string, count: number, reacted: boolean }>
+// 2. Verify attendee is participant
+// 3. Validate file type/size (max 10MB, allowed types)
+// 4. Upload to storage bucket
+// 5. Return public URL
 ```
 
 ### 4. Frontend: Update Message Interface
 
 ```typescript
-export interface MessageReaction {
-  emoji: string;
-  count: number;
-  reacted: boolean; // Did current user react with this emoji?
+export interface MessageAttachment {
+  url: string;
+  type: string;        // MIME type
+  name: string;        // Original filename
+  size: number;        // Bytes
 }
 
 export interface Message {
   // ... existing fields
-  reactions?: MessageReaction[];
+  attachment?: MessageAttachment;
 }
 ```
 
-### 5. Frontend: `useMessageReactions` Hook
+### 5. Frontend: Create `AttachmentPicker` Component
 
-```typescript
-function useMessageReactions(conversationId: string) {
-  // Toggle reaction with optimistic update
-  const toggleReaction = async (messageId: string, emoji: string) => {
-    // 1. Optimistically update local state
-    // 2. Call toggle-message-reaction edge function
-    // 3. Revert on error
+Button/menu to select photos or files:
+
+```tsx
+function AttachmentPicker({ onSelect, disabled }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" disabled={disabled}>
+          <Paperclip className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={() => openPicker('image')}>
+          <ImageIcon className="h-4 w-4 mr-2" />
+          Photo
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => openPicker('file')}>
+          <FileIcon className="h-4 w-4 mr-2" />
+          File
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+```
+
+### 6. Frontend: Create `AttachmentPreview` Component
+
+Shows selected file before sending with remove button:
+
+```tsx
+function AttachmentPreview({ file, onRemove }) {
+  const isImage = file.type.startsWith('image/');
+  
+  return (
+    <div className="relative inline-block">
+      {isImage ? (
+        <img src={URL.createObjectURL(file)} className="h-24 rounded-lg" />
+      ) : (
+        <div className="flex items-center gap-2 bg-muted rounded-lg p-3">
+          <FileIcon className="h-8 w-8" />
+          <div>
+            <p className="text-sm font-medium truncate">{file.name}</p>
+            <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
+          </div>
+        </div>
+      )}
+      <Button size="icon" variant="destructive" className="absolute -top-2 -right-2" onClick={onRemove}>
+        <X className="h-3 w-3" />
+      </Button>
+    </div>
+  );
+}
+```
+
+### 7. Frontend: Create `MessageAttachment` Component
+
+Displays attachment within message bubble:
+
+```tsx
+function MessageAttachmentDisplay({ attachment, isOwn }) {
+  const isImage = attachment.type.startsWith('image/');
+  
+  if (isImage) {
+    return (
+      <ImageLightbox 
+        src={attachment.url}
+        alt={attachment.name}
+        className="max-w-full rounded-lg max-h-64 object-cover"
+      />
+    );
+  }
+  
+  // File preview
+  return (
+    <a 
+      href={attachment.url}
+      target="_blank"
+      className="flex items-center gap-2 bg-background/50 rounded-lg p-2"
+    >
+      <FileIcon type={attachment.type} />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{attachment.name}</p>
+        <p className="text-xs text-muted-foreground">{formatBytes(attachment.size)}</p>
+      </div>
+      <Download className="h-4 w-4" />
+    </a>
+  );
+}
+```
+
+### 8. Update `MessageInput` Component
+
+Add attachment button and preview:
+
+```tsx
+function MessageInput({ onSend, onSendWithAttachment, disabled }) {
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  
+  const handleSend = async () => {
+    if (attachment) {
+      setUploading(true);
+      await onSendWithAttachment(message, attachment);
+      setAttachment(null);
+      setUploading(false);
+    } else {
+      await onSend(message);
+    }
   };
   
-  return { toggleReaction };
-}
-```
-
-### 6. Frontend: `ReactionPicker` Component
-
-A small popup with emoji buttons:
-
-```tsx
-const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
-
-function ReactionPicker({ onSelect, onClose }) {
   return (
-    <div className="flex gap-1 bg-background border rounded-full px-2 py-1 shadow-lg">
-      {REACTIONS.map(emoji => (
-        <button 
-          key={emoji}
-          onClick={() => onSelect(emoji)}
-          className="p-1 hover:bg-muted rounded-full text-lg"
-        >
-          {emoji}
-        </button>
-      ))}
-    </div>
-  );
-}
-```
-
-### 7. Frontend: `ReactionBar` Component
-
-Shows existing reactions below a message:
-
-```tsx
-function ReactionBar({ reactions, onToggle }) {
-  return (
-    <div className="flex gap-1 mt-1 flex-wrap">
-      {reactions.map(r => (
-        <button
-          key={r.emoji}
-          onClick={() => onToggle(r.emoji)}
-          className={cn(
-            "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs",
-            r.reacted 
-              ? "bg-primary/20 text-primary border border-primary/30" 
-              : "bg-muted text-muted-foreground"
-          )}
-        >
-          <span>{r.emoji}</span>
-          <span>{r.count}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-```
-
-### 8. Update `MessageBubble` Component
-
-Add reaction picker trigger and display:
-
-```tsx
-function MessageBubble({ message, showSender, onReaction }) {
-  const [showPicker, setShowPicker] = useState(false);
-  
-  return (
-    <div 
-      onContextMenu={(e) => { e.preventDefault(); setShowPicker(true); }}
-      onTouchStart={/* long press handler */}
-    >
-      {/* Message content */}
-      <div className="bg-muted rounded-2xl px-4 py-2">
-        <p>{message.content}</p>
+    <div className="border-t p-4">
+      {/* Attachment preview */}
+      {attachment && (
+        <AttachmentPreview file={attachment} onRemove={() => setAttachment(null)} />
+      )}
+      
+      <div className="flex items-end gap-2">
+        <AttachmentPicker 
+          onSelect={setAttachment} 
+          disabled={disabled || uploading || !!attachment}
+        />
+        <Textarea ... />
+        <Button onClick={handleSend} disabled={uploading}>
+          {uploading ? <Loader2 className="animate-spin" /> : <Send />}
+        </Button>
       </div>
-      
-      {/* Reactions bar */}
-      {message.reactions?.length > 0 && (
-        <ReactionBar 
-          reactions={message.reactions} 
-          onToggle={(emoji) => onReaction(message.id, emoji)} 
-        />
-      )}
-      
-      {/* Reaction picker popup */}
-      {showPicker && (
-        <ReactionPicker 
-          onSelect={(emoji) => {
-            onReaction(message.id, emoji);
-            setShowPicker(false);
-          }}
-          onClose={() => setShowPicker(false)}
-        />
-      )}
     </div>
   );
 }
 ```
 
----
+### 9. Update `MessageBubble` Component
 
-## Realtime Updates
+Render attachment if present:
 
-Subscribe to reaction changes so all participants see reactions instantly:
+```tsx
+<div className="bg-muted rounded-2xl px-4 py-2">
+  {/* Attachment first */}
+  {message.attachment && (
+    <MessageAttachmentDisplay 
+      attachment={message.attachment} 
+      isOwn={message.is_own}
+    />
+  )}
+  
+  {/* Text content */}
+  {message.content && (
+    <p className="text-sm whitespace-pre-wrap break-words mt-2">
+      {message.content}
+    </p>
+  )}
+</div>
+```
+
+### 10. Update `useMessages` Hook
+
+Add attachment upload and send logic:
 
 ```typescript
-// In useMessages hook
-supabase
-  .channel(`reactions-${conversationId}`)
-  .on('postgres_changes', {
-    event: '*',
-    schema: 'public',
-    table: 'message_reactions',
-    // Filter to only reactions for messages in this conversation
-  }, () => {
-    // Refetch messages or update reaction counts locally
-  })
-  .subscribe();
+const sendMessageWithAttachment = useCallback(async (content: string, file: File) => {
+  // 1. Upload file to storage via edge function
+  const uploadResult = await supabase.functions.invoke('upload-chat-attachment', {
+    body: {
+      email, session_token, attendee_id, conversation_id,
+      file: await fileToBase64(file),
+      filename: file.name,
+      content_type: file.type
+    }
+  });
+  
+  if (uploadResult.error) throw uploadResult.error;
+  
+  // 2. Send message with attachment metadata
+  const { data } = await supabase.functions.invoke('send-attendee-message', {
+    body: {
+      email, session_token, attendee_id, conversation_id, content,
+      attachment_url: uploadResult.data.url,
+      attachment_type: file.type,
+      attachment_name: file.name,
+      attachment_size: file.size
+    }
+  });
+  
+  return { success: true };
+}, [...]);
 ```
 
 ---
@@ -281,35 +340,39 @@ supabase
 
 | File | Action | Description |
 |------|--------|-------------|
-| `supabase/migrations/xxx_add_message_reactions.sql` | Create | New table and indexes |
-| `supabase/functions/toggle-message-reaction/index.ts` | Create | Toggle reaction endpoint |
-| `supabase/functions/get-conversation-messages/index.ts` | Modify | Include reaction data |
-| `src/hooks/useMessages.ts` | Modify | Add reaction interfaces and toggle function |
-| `src/components/attendee/ReactionPicker.tsx` | Create | Emoji picker popup |
-| `src/components/attendee/ReactionBar.tsx` | Create | Display reactions below message |
-| `src/components/attendee/MessageBubble.tsx` | Modify | Integrate picker and bar |
-| `src/pages/attendee/Conversation.tsx` | Modify | Pass reaction handler to bubbles |
+| `supabase/migrations/xxx_add_message_attachments.sql` | Create | Add columns and storage bucket |
+| `supabase/functions/upload-chat-attachment/index.ts` | Create | Handle file upload to storage |
+| `supabase/functions/send-attendee-message/index.ts` | Modify | Accept attachment metadata |
+| `supabase/functions/get-conversation-messages/index.ts` | Modify | Include attachment fields in response |
+| `src/hooks/useMessages.ts` | Modify | Add attachment interface and upload logic |
+| `src/components/attendee/MessageInput.tsx` | Modify | Add attachment picker and preview |
+| `src/components/attendee/MessageBubble.tsx` | Modify | Display attachments in bubbles |
+| `src/components/attendee/AttachmentPicker.tsx` | Create | Dropdown menu for selecting files |
+| `src/components/attendee/AttachmentPreview.tsx` | Create | Preview before sending |
+| `src/components/attendee/MessageAttachmentDisplay.tsx` | Create | Display attachment in message |
+| `src/lib/fileUtils.ts` | Create | Helper functions (formatBytes, fileToBase64) |
 
 ---
 
 ## Technical Considerations
 
-### Performance
-- Reactions are fetched in batch with messages (no N+1)
-- Aggregation done in memory after single query
-- Realtime only triggers for relevant conversations
+### File Limits
+- Maximum file size: 10MB
+- Allowed image types: JPEG, PNG, GIF, WebP
+- Allowed file types: PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT
 
 ### Optimistic UI
-- Reaction appears/disappears immediately on tap
-- Reverts if API call fails with toast notification
+- Show blurred/placeholder while uploading
+- Progress indicator for large files
+- Retry option on upload failure
 
-### Mobile UX
-- Long-press to show picker (500ms delay)
-- Picker positioned above/below message based on screen space
-- Backdrop to dismiss picker
+### Security
+- Uploads validated via edge function (session check)
+- File type validation on both client and server
+- Storage bucket with proper RLS policies
 
-### Edge Cases
-- Own messages show reactions on the right side
-- Deleted messages: cascade delete removes reactions
-- Offline: queue reaction and sync when back online (future)
+### Performance
+- Images compressed before upload (max 2000px width)
+- Thumbnail generation for previews
+- Lazy loading for images in message list
 
