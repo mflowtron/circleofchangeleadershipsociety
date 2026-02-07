@@ -90,9 +90,8 @@ function PageLoader() {
 
 // Helper component that wraps Suspense with error boundary
 function SuspenseWithErrorBoundary({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
   return (
-    <RouteErrorBoundary key={location.pathname}>
+    <RouteErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         {children}
       </Suspense>
@@ -331,46 +330,14 @@ function AppRoutes() {
         </SuspenseWithErrorBoundary>
       }>
         <Route index element={<Navigate to="/attendee/app/home" replace />} />
-        <Route path="home" element={
-          <SuspenseWithErrorBoundary>
-            <AttendeeHome />
-          </SuspenseWithErrorBoundary>
-        } />
-        <Route path="agenda" element={
-          <SuspenseWithErrorBoundary>
-            <AttendeeAgenda />
-          </SuspenseWithErrorBoundary>
-        } />
-        <Route path="messages" element={
-          <SuspenseWithErrorBoundary>
-            <AttendeeMessages />
-          </SuspenseWithErrorBoundary>
-        } />
-        <Route path="messages/:conversationId" element={
-          <SuspenseWithErrorBoundary>
-            <AttendeeConversation />
-          </SuspenseWithErrorBoundary>
-        } />
-        <Route path="networking" element={
-          <SuspenseWithErrorBoundary>
-            <AttendeeNetworking />
-          </SuspenseWithErrorBoundary>
-        } />
-        <Route path="profile" element={
-          <SuspenseWithErrorBoundary>
-            <AttendeeProfilePage />
-          </SuspenseWithErrorBoundary>
-        } />
-        <Route path="bookmarks" element={
-          <SuspenseWithErrorBoundary>
-            <AttendeeBookmarks />
-          </SuspenseWithErrorBoundary>
-        } />
-        <Route path="qr" element={
-          <SuspenseWithErrorBoundary>
-            <AttendeeQRCode />
-          </SuspenseWithErrorBoundary>
-        } />
+        <Route path="home" element={<AttendeeHome />} />
+        <Route path="agenda" element={<AttendeeAgenda />} />
+        <Route path="messages" element={<AttendeeMessages />} />
+        <Route path="messages/:conversationId" element={<AttendeeConversation />} />
+        <Route path="networking" element={<AttendeeNetworking />} />
+        <Route path="profile" element={<AttendeeProfilePage />} />
+        <Route path="bookmarks" element={<AttendeeBookmarks />} />
+        <Route path="qr" element={<AttendeeQRCode />} />
       </Route>
       {/* Event Management Routes (Protected with Events Dashboard Layout) */}
       <Route element={<EventsManagementWrapper />}>
