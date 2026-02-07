@@ -97,9 +97,9 @@ export function RecordingResources({
           </p>
         ) : (
           <div className="space-y-2">
-            {resources.map((resource) => (
+            {resources.map((resource, index) => (
               <div
-                key={resource.id}
+                key={`${resource.file_url}-${index}`}
                 className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">

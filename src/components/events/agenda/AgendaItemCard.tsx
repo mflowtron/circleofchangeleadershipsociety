@@ -120,20 +120,13 @@ export function AgendaItemCard({
               </p>
             )}
 
-            {/* Speakers */}
+            {/* Speakers - now speakers are directly Speaker objects */}
             {isSession && hasSpeakers && !compact && (
               <div className="mt-3 flex flex-wrap gap-3">
-                {item.speakers?.map((itemSpeaker) => (
-                  itemSpeaker.speaker && (
-                    <div key={itemSpeaker.id} className="flex items-center gap-2">
-                      <SpeakerCard speaker={itemSpeaker.speaker} compact />
-                      {itemSpeaker.role !== 'speaker' && (
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {itemSpeaker.role}
-                        </Badge>
-                      )}
-                    </div>
-                  )
+                {item.speakers?.map((speaker) => (
+                  <div key={speaker.id} className="flex items-center gap-2">
+                    <SpeakerCard speaker={speaker} compact />
+                  </div>
                 ))}
               </div>
             )}
@@ -141,7 +134,7 @@ export function AgendaItemCard({
             {/* Compact speaker list */}
             {isSession && hasSpeakers && compact && (
               <p className="text-xs text-muted-foreground mt-1">
-                {item.speakers?.map(s => s.speaker?.name).filter(Boolean).join(', ')}
+                {item.speakers?.map(s => s.name).filter(Boolean).join(', ')}
               </p>
             )}
           </div>

@@ -228,13 +228,10 @@ function AgendaItemPublic({ item }: { item: AgendaItem }) {
             </p>
           )}
 
-          {/* Speakers */}
+          {/* Speakers - now speakers are directly Speaker objects */}
           {isSession && hasSpeakers && (
             <div className="mt-3 flex flex-wrap gap-3">
-              {item.speakers?.map((itemSpeaker) => {
-                const speaker = itemSpeaker.speaker;
-                if (!speaker) return null;
-
+              {item.speakers?.map((speaker) => {
                 const initials = speaker.name
                   .split(' ')
                   .map((n) => n[0])
@@ -244,7 +241,7 @@ function AgendaItemPublic({ item }: { item: AgendaItem }) {
 
                 return (
                   <div
-                    key={itemSpeaker.id}
+                    key={speaker.id}
                     className="flex items-center gap-2 text-sm"
                   >
                     <Avatar className="h-8 w-8">
@@ -264,11 +261,6 @@ function AgendaItemPublic({ item }: { item: AgendaItem }) {
                         </p>
                       )}
                     </div>
-                    {itemSpeaker.role !== 'speaker' && (
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {itemSpeaker.role}
-                      </Badge>
-                    )}
                   </div>
                 );
               })}

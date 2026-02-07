@@ -126,7 +126,7 @@ export function AgendaCalendarItem({ item, startHour, endHour, onClick, displayT
           )}
           {item.speakers && item.speakers.length > 0 && (
             <p className="text-sm">
-              🎤 {item.speakers.map(s => s.speaker?.name).filter(Boolean).join(', ')}
+              🎤 {item.speakers.map(s => s.name).filter(Boolean).join(', ')}
             </p>
           )}
         </div>

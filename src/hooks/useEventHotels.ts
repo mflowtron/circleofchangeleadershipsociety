@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface EventHotel {
   id: string;
@@ -63,7 +64,7 @@ export function useEventHotels(eventId: string | undefined) {
       // Update with new hotel added
       const { error: updateError } = await supabase
         .from('events')
-        .update({ hotels: [...currentHotels, newHotel] as unknown as Record<string, unknown>[] })
+        .update({ hotels: [...currentHotels, newHotel] as unknown as Json })
         .eq('id', eventId);
 
       if (updateError) throw updateError;
@@ -99,7 +100,7 @@ export function useEventHotels(eventId: string | undefined) {
       // Update with modified hotels array
       const { error: updateError } = await supabase
         .from('events')
-        .update({ hotels: updatedHotels as unknown as Record<string, unknown>[] })
+        .update({ hotels: updatedHotels as unknown as Json })
         .eq('id', eventId);
 
       if (updateError) throw updateError;
@@ -133,7 +134,7 @@ export function useEventHotels(eventId: string | undefined) {
       // Update with hotel removed
       const { error: updateError } = await supabase
         .from('events')
-        .update({ hotels: filteredHotels as unknown as Record<string, unknown>[] })
+        .update({ hotels: filteredHotels as unknown as Json })
         .eq('id', eventId);
 
       if (updateError) throw updateError;

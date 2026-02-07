@@ -59,9 +59,9 @@ export function AttendeesTable({
       attendee.order?.order_number.toLowerCase().includes(searchLower) ||
       attendee.order?.full_name.toLowerCase().includes(searchLower);
 
-    // Ticket type filter
-    const matchesTicket =
-      ticketFilter === 'all' || attendee.ticket_type_id === ticketFilter;
+    // Ticket type filter - get ticket_type_id through order_item
+    const ticketTypeId = attendee.order_item_id;
+    const matchesTicket = ticketFilter === 'all' || attendee.ticket_type?.name === ticketTypes.find(t => t.id === ticketFilter)?.name;
 
     // Status filter
     const isComplete = attendee.attendee_name && attendee.attendee_email;
@@ -189,7 +189,7 @@ export function AttendeesTable({
               <TableHead className="hidden sm:table-cell">Ticket</TableHead>
               <TableHead className="hidden lg:table-cell">Order #</TableHead>
               <TableHead className="hidden xl:table-cell">Purchaser</TableHead>
-              <TableHead className="hidden 2xl:table-cell">Role</TableHead>
+              <TableHead className="hidden 2xl:table-cell">Type</TableHead>
               <TableHead className="w-[80px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -204,6 +204,8 @@ export function AttendeesTable({
               filteredAttendees.map((attendee) => {
                 const isComplete = attendee.attendee_name && attendee.attendee_email;
                 const isEditing = editingId === attendee.id;
+                // Get order_id through order_item if available
+                const orderId = attendee.order_item_id;
 
                 return (
                   <TableRow key={attendee.id}>
@@ -268,13 +270,10 @@ export function AttendeesTable({
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{attendee.ticket_type?.name || '-'}</TableCell>
                     <TableCell className="hidden lg:table-cell font-mono text-sm">
-                      {attendee.order_id ? (
-                        <Link
-                          to={`/events/manage/orders/${attendee.order_id}`}
-                          className="text-primary hover:underline truncate block max-w-[100px]"
-                        >
-                          {attendee.order?.order_number || '-'}
-                        </Link>
+                      {attendee.order?.order_number ? (
+                        <span className="truncate block max-w-[100px]">
+                          {attendee.order.order_number}
+                        </span>
                       ) : (
                         '-'
                       )}
@@ -283,10 +282,10 @@ export function AttendeesTable({
                       <span className="truncate block max-w-[120px]">{attendee.order?.full_name || '-'}</span>
                     </TableCell>
                     <TableCell className="hidden 2xl:table-cell">
-                      {attendee.is_purchaser ? (
-                        <Badge variant="secondary" className="text-xs">Purchaser</Badge>
+                      {attendee.is_speaker ? (
+                        <Badge variant="secondary" className="text-xs">Speaker</Badge>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">Attendee</span>
                       )}
                     </TableCell>
                     <TableCell>

@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ClickableUserAvatar } from '@/components/ui/clickable-user-avatar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Trash2, Globe, Users, CheckCircle, RefreshCw, Image as ImageIcon, Video, AlertTriangle, Flag, Clock } from 'lucide-react';
+import { Trash2, Globe, Users, CheckCircle, RefreshCw, Image as ImageIcon, Video, Flag, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { ModerationPost, ModerationStatus } from '@/hooks/useModerationPosts';
+
 interface ModerationPostCardProps {
   post: ModerationPost;
   scanning: boolean;
@@ -14,17 +15,13 @@ interface ModerationPostCardProps {
   onApprove: () => void;
   onDelete: () => void;
 }
+
 function getStatusBadge(status: ModerationStatus | null) {
   switch (status) {
-    case 'auto_flagged':
-      return <Badge variant="destructive" className="flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" />
-          Auto-Flagged
-        </Badge>;
     case 'flagged':
-      return <Badge variant="outline" className="flex items-center gap-1 border-amber-500 text-amber-500">
+      return <Badge variant="destructive" className="flex items-center gap-1">
           <Flag className="h-3 w-3" />
-          Needs Review
+          Flagged
         </Badge>;
     case 'approved':
       return <Badge variant="outline" className="flex items-center gap-1 border-emerald-500 text-emerald-500">
@@ -39,6 +36,7 @@ function getStatusBadge(status: ModerationStatus | null) {
         </Badge>;
   }
 }
+
 export function ModerationPostCard({
   post,
   scanning,
@@ -49,7 +47,8 @@ export function ModerationPostCard({
   const [showFullContent, setShowFullContent] = useState(false);
   const isLongContent = post.content.length > 300;
   const displayContent = showFullContent || !isLongContent ? post.content : post.content.slice(0, 300) + '...';
-  return <Card className={post.moderation_status === 'auto_flagged' ? 'border-destructive/50 bg-destructive/5' : post.moderation_status === 'flagged' ? 'border-amber-500/50 bg-amber-500/5' : ''}>
+  
+  return <Card className={post.moderation_status === 'flagged' ? 'border-destructive/50 bg-destructive/5' : ''}>
       <CardContent className="pt-6">
         <div className="flex flex-col gap-4">
           {/* Header: Author, timestamp, status */}

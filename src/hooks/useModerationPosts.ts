@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export type ModerationStatus = 'pending' | 'approved' | 'flagged' | 'auto_flagged';
+export type ModerationStatus = 'pending' | 'approved' | 'flagged';
 
 export interface ModerationPost {
   id: string;
@@ -23,7 +23,7 @@ export interface ModerationPost {
   chapter_name: string | null;
 }
 
-export type FilterTab = 'all' | 'flagged' | 'auto_flagged';
+export type FilterTab = 'all' | 'flagged' | 'pending';
 
 export function useModerationPosts(filter: FilterTab = 'all') {
   const [posts, setPosts] = useState<ModerationPost[]>([]);
@@ -34,7 +34,7 @@ export function useModerationPosts(filter: FilterTab = 'all') {
     setLoading(true);
     try {
       let query = supabase
-        .from('lms_posts')
+        .from('posts')
         .select(`
           id,
           content,
@@ -54,8 +54,8 @@ export function useModerationPosts(filter: FilterTab = 'all') {
       // Apply filter
       if (filter === 'flagged') {
         query = query.eq('moderation_status', 'flagged');
-      } else if (filter === 'auto_flagged') {
-        query = query.eq('moderation_status', 'auto_flagged');
+      } else if (filter === 'pending') {
+        query = query.eq('moderation_status', 'pending');
       }
       // 'all' shows everything - no filter
 
@@ -79,7 +79,7 @@ export function useModerationPosts(filter: FilterTab = 'all') {
           .select('user_id, full_name, avatar_url')
           .in('user_id', userIds),
         chapterIds.length > 0
-          ? supabase.from('lms_chapters').select('id, name').in('id', chapterIds)
+          ? supabase.from('chapters').select('id, name').in('id', chapterIds)
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -154,7 +154,7 @@ export function useModerationPosts(filter: FilterTab = 'all') {
   const approvePost = useCallback(async (postId: string) => {
     try {
       const { error } = await supabase
-        .from('lms_posts')
+        .from('posts')
         .update({
           moderation_status: 'approved',
           moderated_at: new Date().toISOString(),
@@ -174,7 +174,7 @@ export function useModerationPosts(filter: FilterTab = 'all') {
 
   const deletePost = useCallback(async (postId: string) => {
     try {
-      const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
       if (error) throw error;
 
       toast.success('Post deleted');
@@ -189,8 +189,8 @@ export function useModerationPosts(filter: FilterTab = 'all') {
   const stats = {
     total: posts.length,
     flagged: posts.filter(p => p.moderation_status === 'flagged').length,
-    autoFlagged: posts.filter(p => p.moderation_status === 'auto_flagged').length,
     pending: posts.filter(p => p.moderation_status === 'pending').length,
+    approved: posts.filter(p => p.moderation_status === 'approved').length,
   };
 
   return {
