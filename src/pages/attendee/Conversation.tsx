@@ -23,7 +23,7 @@ export default function ConversationPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   const { conversations, loading: convsLoading } = useConversations();
-  const { messages, loading, sending, hasMore, sendMessage, loadMore } = useMessages(conversationId || null);
+  const { messages, loading, sending, hasMore, sendMessage, loadMore, toggleReaction } = useMessages(conversationId || null);
   
   const [conversation, setConversation] = useState<Conversation | null>(null);
 
@@ -47,6 +47,17 @@ export default function ConversationPage() {
     if (!result.success) {
       toast({
         title: 'Failed to send',
+        description: result.error || 'Please try again',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleReaction = async (messageId: string, emoji: string) => {
+    const result = await toggleReaction(messageId, emoji);
+    if (!result.success) {
+      toast({
+        title: 'Failed to react',
         description: result.error || 'Please try again',
         variant: 'destructive'
       });
@@ -195,6 +206,7 @@ export default function ConversationPage() {
                 key={msg.id}
                 message={msg}
                 showSender={shouldShowSender(index)}
+                onReaction={handleReaction}
               />
             ))
           )}

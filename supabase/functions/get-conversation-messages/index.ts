@@ -107,6 +107,7 @@ serve(async (req) => {
 
     // 3. Batch fetch all related data in parallel (3-5 queries instead of 100-300)
     const batchQueries: Promise<any>[] = [];
+    const messageIds = messages.map(m => m.id);
 
     // Attendees batch
     if (attendeeIds.length > 0) {
@@ -139,7 +140,29 @@ serve(async (req) => {
       batchQueries.push(Promise.resolve({ data: [] }));
     }
 
-    const [attendeesRes, profilesRes, speakersRes, replyMessagesRes] = await Promise.all(batchQueries);
+    // Reactions batch - fetch all reactions for all messages in one query
+    batchQueries.push(
+      supabase.from('message_reactions').select('message_id, emoji, attendee_id, speaker_id').in('message_id', messageIds)
+    );
+
+    const [attendeesRes, profilesRes, speakersRes, replyMessagesRes, reactionsRes] = await Promise.all(batchQueries);
+
+    // Build reaction aggregation map
+    const reactionMap = new Map<string, Map<string, { count: number; reacted: boolean }>>();
+    (reactionsRes.data || []).forEach((r: any) => {
+      if (!reactionMap.has(r.message_id)) {
+        reactionMap.set(r.message_id, new Map());
+      }
+      const emojiMap = reactionMap.get(r.message_id)!;
+      if (!emojiMap.has(r.emoji)) {
+        emojiMap.set(r.emoji, { count: 0, reacted: false });
+      }
+      const emojiData = emojiMap.get(r.emoji)!;
+      emojiData.count++;
+      if (r.attendee_id === attendee_id) {
+        emojiData.reacted = true;
+      }
+    });
 
     // 4. Build lookup maps for O(1) access
     const attendeeMap = new Map((attendeesRes.data || []).map((a: any) => [a.id, a]));
@@ -239,11 +262,22 @@ serve(async (req) => {
         }
       }
 
+      // Build reactions array for this message
+      const msgReactions = reactionMap.get(msg.id);
+      const reactions = msgReactions 
+        ? Array.from(msgReactions.entries()).map(([emoji, data]) => ({
+            emoji,
+            count: data.count,
+            reacted: data.reacted
+          }))
+        : [];
+
       return {
         ...msg,
         sender,
         reply_to: replyTo,
-        is_own: msg.sender_attendee_id === attendee_id
+        is_own: msg.sender_attendee_id === attendee_id,
+        reactions
       };
     });
 

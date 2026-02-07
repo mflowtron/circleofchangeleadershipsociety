@@ -859,6 +859,55 @@ export type Database = {
         }
         Relationships: []
       }
+      message_reactions: {
+        Row: {
+          attendee_id: string | null
+          created_at: string | null
+          emoji: string
+          id: string
+          message_id: string
+          speaker_id: string | null
+        }
+        Insert: {
+          attendee_id?: string | null
+          created_at?: string | null
+          emoji: string
+          id?: string
+          message_id: string
+          speaker_id?: string | null
+        }
+        Update: {
+          attendee_id?: string | null
+          created_at?: string | null
+          emoji?: string
+          id?: string
+          message_id?: string
+          speaker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "attendee_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reactions_speaker_id_fkey"
+            columns: ["speaker_id"]
+            isOneToOne: false
+            referencedRelation: "speakers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_access_codes: {
         Row: {
           code: string
