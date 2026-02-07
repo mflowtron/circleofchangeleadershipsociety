@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Message } from '@/hooks/useMessages';
@@ -17,10 +18,15 @@ export function MessageBubble({ message, showSender = true }: MessageBubbleProps
     .slice(0, 2);
 
   const time = format(new Date(message.created_at), 'h:mm a');
+  const isSending = message.status === 'sending';
+  const isFailed = message.status === 'failed';
 
   if (message.is_own) {
     return (
-      <div className="flex justify-end mb-3">
+      <div className={cn(
+        "flex justify-end mb-3 transition-opacity duration-200",
+        isSending && "opacity-70"
+      )}>
         <div className="max-w-[80%]">
           {message.reply_to && (
             <div className="bg-muted/50 rounded-t-lg px-3 py-2 text-xs border-l-2 border-primary mb-1">
@@ -28,10 +34,24 @@ export function MessageBubble({ message, showSender = true }: MessageBubbleProps
               <p className="text-muted-foreground truncate">{message.reply_to.content}</p>
             </div>
           )}
-          <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-md px-4 py-2">
+          <div className={cn(
+            "bg-primary text-primary-foreground rounded-2xl rounded-tr-md px-4 py-2",
+            isFailed && "bg-destructive"
+          )}>
             <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
           </div>
-          <p className="text-xs text-muted-foreground text-right mt-1">{time}</p>
+          <div className="flex items-center justify-end gap-1 mt-1">
+            {isSending ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Sending...</span>
+              </>
+            ) : isFailed ? (
+              <span className="text-xs text-destructive">Failed to send</span>
+            ) : (
+              <p className="text-xs text-muted-foreground">{time}</p>
+            )}
+          </div>
         </div>
       </div>
     );
