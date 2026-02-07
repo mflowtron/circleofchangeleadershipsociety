@@ -157,6 +157,7 @@ export const MessageBubble = memo(function MessageBubble({
               onSelect={handleReactionSelect}
               onClose={() => setShowPicker(false)}
               isOwn={true}
+              messageContent={message.content}
             />
           )}
         </div>
@@ -233,6 +234,7 @@ export const MessageBubble = memo(function MessageBubble({
             onSelect={handleReactionSelect}
             onClose={() => setShowPicker(false)}
             isOwn={false}
+            messageContent={message.content}
           />
         )}
       </div>
