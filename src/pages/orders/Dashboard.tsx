@@ -1,18 +1,15 @@
 import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useOrderPortal, PortalOrder } from '@/hooks/useOrderPortal';
+import { useOrderPortal } from '@/hooks/useOrderPortal';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
+import { Card, CardContent } from '@/components/ui/card';
 import { CircleLoader } from '@/components/ui/circle-loader';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { LogOut, RefreshCw, Package, Smartphone } from 'lucide-react';
 
 export default function OrderPortalDashboard() {
   const navigate = useNavigate();
-  const { isAuthenticated, email, orders, loading, error, fetchOrders, sendMessage, logout } = useOrderPortal();
+  const { isAuthenticated, email, orders, loading, error, fetchOrders, logout } = useOrderPortal();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -28,8 +25,6 @@ export default function OrderPortalDashboard() {
   if (!isAuthenticated) {
     return null;
   }
-
-  const totalUnreadMessages = orders.reduce((sum, order) => sum + order.unread_messages, 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,21 +84,10 @@ export default function OrderPortalDashboard() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {/* Summary */}
-            {totalUnreadMessages > 0 && (
-              <Card className="border-primary">
-                <CardContent className="py-3">
-                  <p className="text-sm">
-                    You have <Badge variant="default">{totalUnreadMessages}</Badge> unread message{totalUnreadMessages !== 1 ? 's' : ''} from event organizers
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Orders List */}
             <div className="space-y-4">
               {orders.map((order) => (
-                <OrderCard key={order.id} order={order} onSendMessage={sendMessage} />
+                <OrderCard key={order.id} order={order} />
               ))}
             </div>
           </div>

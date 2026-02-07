@@ -18,7 +18,7 @@ export interface AttendeeInfo {
   id: string;
   attendee_name: string | null;
   attendee_email: string | null;
-  ticket_type_id: string;
+  order_item_id: string;
   ticket_type_name?: string;
 }
 

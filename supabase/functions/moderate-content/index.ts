@@ -305,9 +305,9 @@ serve(async (req) => {
       status = "approved";
     }
 
-    // Update post with moderation results
+    // Update post with moderation results - using the new 'posts' table
     const { error: updateError } = await supabase
-      .from("lms_posts")
+      .from("posts")
       .update({
         moderation_status: status,
         moderation_score: overallScore,

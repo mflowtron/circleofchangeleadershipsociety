@@ -28,19 +28,7 @@ interface Attendee {
   id: string;
   attendee_name: string | null;
   attendee_email: string | null;
-  ticket_type_id: string;
   order_item_id: string;
-  is_purchaser: boolean;
-}
-
-interface OrderMessage {
-  id: string;
-  message: string;
-  is_important: boolean;
-  read_at: string | null;
-  created_at: string;
-  sender_type: string;
-  sender_email: string | null;
 }
 
 export interface PortalOrder {
@@ -55,13 +43,11 @@ export interface PortalOrder {
   event: OrderEvent | null;
   order_items: OrderItem[];
   attendees: Attendee[];
-  order_messages: OrderMessage[];
   attendee_stats: {
     total: number;
     registered: number;
     remaining: number;
   };
-  unread_messages: number;
 }
 
 export function useOrderPortal() {
@@ -176,64 +162,6 @@ export function useOrderPortal() {
     }
   }, [user, fetchOrders]);
 
-  const markMessageRead = useCallback(async (messageId: string) => {
-    if (!user) return;
-
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('mark-message-read', {
-        body: {
-          message_id: messageId,
-        },
-      });
-
-      if (!fnError && !data.error) {
-        // Update local state
-        setOrders(prev => prev.map(order => ({
-          ...order,
-          order_messages: order.order_messages.map(msg =>
-            msg.id === messageId ? { ...msg, read_at: new Date().toISOString() } : msg
-          ),
-          unread_messages: order.order_messages.filter(m => m.id !== messageId && !m.read_at).length,
-        })));
-      }
-    } catch (err) {
-      console.error('Failed to mark message as read:', err);
-    }
-  }, [user]);
-
-  const sendMessage = useCallback(async (orderId: string, message: string) => {
-    if (!user) return { success: false, message: 'Not authenticated' };
-
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('send-customer-message', {
-        body: {
-          order_id: orderId,
-          message,
-        },
-      });
-
-      if (fnError) throw fnError;
-      if (data.error) throw new Error(data.error);
-
-      // Add the new message to local state
-      if (data.message) {
-        setOrders(prev => prev.map(order => 
-          order.id === orderId
-            ? {
-                ...order,
-                order_messages: [data.message, ...order.order_messages],
-              }
-            : order
-        ));
-      }
-
-      return { success: true };
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to send message';
-      return { success: false, message: errorMessage };
-    }
-  }, [user]);
-
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -249,8 +177,6 @@ export function useOrderPortal() {
     sendMagicLink,
     fetchOrders,
     updateAttendee,
-    markMessageRead,
-    sendMessage,
     logout,
   };
 }

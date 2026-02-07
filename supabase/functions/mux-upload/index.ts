@@ -51,15 +51,15 @@ serve(async (req) => {
 
     const { action, ...body } = await req.json();
 
-    // Check if user is admin or advisor (required for recording upload/delete actions)
-    const { data: roleData } = await supabase
-      .from("user_roles")
+    // Check if user is admin or advisor using profiles table
+    const { data: profileData } = await supabase
+      .from("profiles")
       .select("role")
       .eq("user_id", userId)
       .single();
 
-    const isAdmin = roleData?.role === "admin";
-    const isAdvisor = roleData?.role === "advisor";
+    const isAdmin = profileData?.role === "admin";
+    const isAdvisor = profileData?.role === "advisor";
 
     // Delete action requires admin only
     if (action === "delete-asset") {
@@ -194,9 +194,9 @@ serve(async (req) => {
       const data = await response.json();
       const upload = data.data;
 
-      // Create a pending recording entry
+      // Create a pending recording entry in the recordings table
       const { data: recording, error: insertError } = await supabase
-        .from("lms_recordings")
+        .from("recordings")
         .insert({
           title: body.title || "Untitled Recording",
           description: body.description || null,
@@ -267,7 +267,7 @@ serve(async (req) => {
         const recordingStatus = playbackId ? "ready" : asset.status;
         
         await supabase
-          .from("lms_recordings")
+          .from("recordings")
           .update({
             mux_asset_id: asset.id,
             mux_playback_id: playbackId,
@@ -289,7 +289,7 @@ serve(async (req) => {
       // Update status to preparing if upload is in progress
       if (upload.status === "waiting" || upload.status === "uploading") {
         await supabase
-          .from("lms_recordings")
+          .from("recordings")
           .update({ status: "preparing" })
           .eq("id", recording_id);
       }
@@ -314,7 +314,7 @@ serve(async (req) => {
       // If no asset_id provided, look it up from the recording
       if (!muxAssetId && recording_id) {
         const { data: recording } = await supabase
-          .from("lms_recordings")
+          .from("recordings")
           .select("mux_asset_id")
           .eq("id", recording_id)
           .single();
@@ -346,7 +346,7 @@ serve(async (req) => {
       // Delete the recording from database
       if (recording_id) {
         const { error: deleteError } = await supabase
-          .from("lms_recordings")
+          .from("recordings")
           .delete()
           .eq("id", recording_id);
 
@@ -431,7 +431,7 @@ serve(async (req) => {
       // Update recording status to generating
       if (recording_id) {
         await supabase
-          .from("lms_recordings")
+          .from("recordings")
           .update({ captions_status: "generating" })
           .eq("id", recording_id);
       }
