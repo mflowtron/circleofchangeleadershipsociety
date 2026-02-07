@@ -1,10 +1,10 @@
-import { useAttendee, Conversation, ConversationParticipant, LastMessage } from '@/contexts/AttendeeContext';
+import { useConversationsContext, Conversation, ConversationParticipant, LastMessage } from '@/contexts/ConversationsContext';
 
 // Re-export types for consumers
 export type { Conversation, ConversationParticipant, LastMessage };
 
 /**
- * Hook to access conversations from AttendeeContext.
+ * Hook to access conversations from ConversationsContext.
  * This ensures all components share the same conversation state,
  * preventing race conditions from multiple independent hook instances.
  */
@@ -15,7 +15,7 @@ export function useConversations() {
     conversationsError,
     refreshConversations,
     totalUnread 
-  } = useAttendee();
+  } = useConversationsContext();
 
   return {
     conversations,
