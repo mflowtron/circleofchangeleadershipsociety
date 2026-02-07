@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface BadgeField {
   id: string;
@@ -77,7 +78,7 @@ export function useCreateBadgeTemplate() {
       
       const { data, error } = await supabase
         .from('events')
-        .update({ badge_template: badgeTemplate as unknown as Record<string, unknown> })
+        .update({ badge_template: badgeTemplate as unknown as Json })
         .eq('id', eventId)
         .select()
         .single();
@@ -126,7 +127,7 @@ export function useUpdateBadgeTemplate() {
       
       const { data, error } = await supabase
         .from('events')
-        .update({ badge_template: updatedTemplate as unknown as Record<string, unknown> })
+        .update({ badge_template: updatedTemplate as unknown as Json })
         .eq('id', eventId)
         .select()
         .single();

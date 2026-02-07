@@ -46,7 +46,7 @@ export default function Chapters() {
   const fetchChapters = async () => {
     try {
       const { data, error } = await supabase
-        .from('lms_chapters')
+        .from('chapters')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -80,7 +80,7 @@ export default function Chapters() {
     try {
       if (editingChapter) {
         const { error } = await supabase
-          .from('lms_chapters')
+          .from('chapters')
           .update({ name, description: description || null })
           .eq('id', editingChapter.id);
 
@@ -88,7 +88,7 @@ export default function Chapters() {
         toast.success('Chapter updated');
       } else {
         const { error } = await supabase
-          .from('lms_chapters')
+          .from('chapters')
           .insert({ name, description: description || null });
 
         if (error) throw error;
@@ -106,7 +106,7 @@ export default function Chapters() {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase.from('lms_chapters').delete().eq('id', id);
+      const { error } = await supabase.from('chapters').delete().eq('id', id);
       if (error) throw error;
       toast.success('Chapter deleted');
       fetchChapters();

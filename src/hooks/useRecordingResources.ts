@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface RecordingResource {
   name: string;
@@ -22,7 +23,6 @@ export function useRecordingResources(recordingId: string | null) {
 
     setLoading(true);
     try {
-      // Resources are now stored in the recordings.resources JSONB column
       const { data, error } = await supabase
         .from('recordings')
         .select('resources')
@@ -31,8 +31,11 @@ export function useRecordingResources(recordingId: string | null) {
 
       if (error) throw error;
       
-      // Parse the JSONB resources array
-      const resourcesArray = (data?.resources as RecordingResource[]) || [];
+      // Parse the JSONB resources array with proper type handling
+      const resourcesData = data?.resources;
+      const resourcesArray = Array.isArray(resourcesData) 
+        ? (resourcesData as unknown as RecordingResource[])
+        : [];
       setResources(resourcesArray);
     } catch (error: any) {
       console.error('Error fetching resources:', error);
@@ -78,7 +81,11 @@ export function useRecordingResources(recordingId: string | null) {
 
       if (fetchError) throw fetchError;
 
-      const currentResources = (currentData?.resources as RecordingResource[]) || [];
+      const resourcesData = currentData?.resources;
+      const currentResources = Array.isArray(resourcesData) 
+        ? (resourcesData as unknown as RecordingResource[])
+        : [];
+      
       const newResource: RecordingResource = {
         name: file.name,
         file_url: publicUrl,
@@ -87,9 +94,10 @@ export function useRecordingResources(recordingId: string | null) {
       };
 
       // Update recording with new resources array
+      const updatedResources = [...currentResources, newResource];
       const { error: updateError } = await supabase
         .from('recordings')
-        .update({ resources: [...currentResources, newResource] })
+        .update({ resources: updatedResources as unknown as Json })
         .eq('id', recordingId);
 
       if (updateError) throw updateError;
@@ -130,13 +138,16 @@ export function useRecordingResources(recordingId: string | null) {
 
       if (fetchError) throw fetchError;
 
-      const currentResources = (currentData?.resources as RecordingResource[]) || [];
+      const resourcesData = currentData?.resources;
+      const currentResources = Array.isArray(resourcesData) 
+        ? (resourcesData as unknown as RecordingResource[])
+        : [];
       const updatedResources = currentResources.filter(r => r.file_url !== resource.file_url);
 
       // Update recording with filtered resources array
       const { error: updateError } = await supabase
         .from('recordings')
-        .update({ resources: updatedResources })
+        .update({ resources: updatedResources as unknown as Json })
         .eq('id', recordingId);
 
       if (updateError) throw updateError;
