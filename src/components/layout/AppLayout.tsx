@@ -37,7 +37,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <Sidebar />
       <div className="flex-1 flex flex-col md:ml-72">
         <Header />
-        <main className="flex-1 p-4 md:p-8 overflow-x-hidden overflow-y-auto">
+        <main className="flex-1 p-4 md:p-8 overflow-x-hidden overflow-y-scroll">
           <div className="animate-fade-up">
             {children}
           </div>
