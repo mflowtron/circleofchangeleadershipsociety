@@ -1,54 +1,83 @@
 
-# Fix Event Selector Persistence
+
+# Add Test User to First Gen 2026 Event
 
 ## Problem
 
-When you select an event from the EventSelector dropdown and then navigate to a sidebar item like Agenda or Speakers, the selection resets to "Select an event...". This happens because:
-
-1. Each protected route creates a new instance of `EventsDashboardLayout`
-2. The `EventSelectionProvider` lives inside `EventsDashboardLayout`
-3. When navigating, the layout remounts, resetting the context state
+The user `mflotron91@gmail.com` cannot access the attendee app at `/attendee/app/home` because:
+1. They have no orders associated with their email address
+2. They are not listed as an attendee on any existing order
+3. The `get-orders-by-email` edge function only matches on the **order purchaser email**, not attendee emails
 
 ## Solution
 
-Move the `EventSelectionProvider` to a higher level in the component tree so it persists across route changes. The provider should wrap all Events Dashboard routes rather than being inside the layout.
+Two changes are needed:
+
+### 1. Create Test Order for User
+
+Insert a complete test order with:
+- Order for `mflotron91@gmail.com` with status `completed`
+- Order item with 1 "In-Person - Early Bird" ticket
+- Attendee record linking to the order item
+
+### 2. Update Edge Function (Enhancement)
+
+Modify `get-orders-by-email` to also find orders where the user is listed as an attendee (not just as the purchaser). This ensures:
+- Purchasers can see their orders (current behavior)
+- Named attendees can also access the app for events they're registered for
 
 ---
 
-## Implementation
+## Database Changes
 
-### Step 1: Remove Provider from EventsDashboardLayout
+### Insert Test Order
 
-Update `src/layouts/EventsDashboardLayout.tsx` to remove the `EventSelectionProvider` wrapper from the return statement. The layout will now just render the sidebar, header, and children directly.
+| Table | Data |
+|-------|------|
+| `orders` | Order for mflotron91@gmail.com, status=completed, event=First Gen 2026 |
+| `order_items` | 1x In-Person Early Bird ticket ($325) |
+| `attendees` | Matt Flotron as attendee with email mflotron91@gmail.com |
 
-### Step 2: Create Events Route Wrapper in App.tsx
+SQL will use CTEs to:
+1. Insert the order and capture its ID
+2. Insert the order item referencing the order
+3. Insert the attendee referencing both order and order item
 
-Create a wrapper component that provides the `EventSelectionProvider` context for all `/events/manage/*` routes:
+---
+
+## Edge Function Changes
+
+### File: `supabase/functions/get-orders-by-email/index.ts`
+
+Update the query to find orders where:
+- The order email matches the user (current), OR
+- The user's email appears in the attendees list for that order (new)
+
+This change uses a subquery to find order IDs where the user appears as an attendee, then combines results with the purchaser query.
+
+---
+
+## Technical Details
+
+### Order Data
+
+| Field | Value |
+|-------|-------|
+| order_number | ORD-20260208-TEST1 |
+| email | mflotron91@gmail.com |
+| full_name | Matt Flotron |
+| status | completed |
+| event_id | 2e062f79-1693-4883-a3c5-623121810c57 |
+| ticket_type | In-Person - Early Bird (c51357f9-a41a-4e9b-8d77-031f4f65d724) |
+| price | $325.00 |
+
+### Updated Query Logic
 
 ```text
-function EventsManagementWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <EventSelectionProvider>
-      {children}
-    </EventSelectionProvider>
-  );
-}
+Current:  WHERE orders.email = user_email
+New:      WHERE orders.email = user_email 
+             OR orders.id IN (SELECT order_id FROM attendees WHERE attendee_email = user_email)
 ```
-
-### Step 3: Wrap Events Routes with Provider
-
-In `App.tsx`, wrap the events management routes section with `EventsManagementWrapper` so the context persists across all child routes:
-
-```text
-<Route element={<EventsManagementWrapper />}>
-  <Route path="/events/manage" ... />
-  <Route path="/events/manage/orders" ... />
-  <Route path="/events/manage/agenda" ... />
-  ...
-</Route>
-```
-
-Using React Router's nested routes with an `element` that renders an `<Outlet />` will preserve the provider across all child routes.
 
 ---
 
@@ -56,14 +85,16 @@ Using React Router's nested routes with an `element` that renders an `<Outlet />
 
 | File | Change |
 |------|--------|
-| `src/layouts/EventsDashboardLayout.tsx` | Remove `EventSelectionProvider` wrapper |
-| `src/App.tsx` | Add `EventsManagementWrapper` and restructure routes |
+| Database migration | Insert order, order_item, attendee records |
+| `supabase/functions/get-orders-by-email/index.ts` | Add attendee email matching |
 
 ---
 
-## Result
+## Expected Result
 
-After this change:
-- Selecting an event will persist when navigating between Agenda, Speakers, Orders, etc.
-- The provider only mounts once when entering the events management area
-- Selection will reset when leaving `/events/manage/*` routes (expected behavior)
+After these changes:
+1. `mflotron91@gmail.com` can log in via magic link at `/attendee`
+2. The First Gen 2026 event appears in their event list
+3. They can access all attendee app features (agenda, networking, messages, etc.)
+4. Other registered attendees (not just purchasers) can also access their events
+
