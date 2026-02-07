@@ -25,6 +25,8 @@ const Moderation = lazy(() => import("@/pages/Moderation"));
 const MyChapter = lazy(() => import("@/pages/MyChapter"));
 const Announcements = lazy(() => import("@/pages/Announcements"));
 const DashboardSelector = lazy(() => import("@/pages/DashboardSelector"));
+const AreaSelector = lazy(() => import("@/pages/AreaSelector"));
+const RootRouter = lazy(() => import("@/pages/RootRouter"));
 const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
 const LMSEvents = lazy(() => import("@/pages/LMSEvents"));
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
@@ -92,7 +94,7 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
   useEventsLayout?: boolean;
   requireApproval?: boolean;
 }) {
-  const { role, loading, isApproved } = useAuth();
+  const { roles, loading, isApproved, isLMSAdmin, isLMSAdvisor, isEMAdmin, isEMManager } = useAuth();
   
   if (loading) return null;
   
@@ -101,8 +103,20 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
     return <Navigate to="/pending-approval" replace />;
   }
   
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
-    return <Navigate to="/" replace />;
+  // Check role access - convert new role checks if legacy roles are specified
+  if (allowedRoles && allowedRoles.length > 0) {
+    const hasAccess = allowedRoles.some(allowedRole => {
+      // Handle legacy role names
+      if (allowedRole === 'admin') return isLMSAdmin;
+      if (allowedRole === 'advisor') return isLMSAdvisor;
+      if (allowedRole === 'event_organizer') return isEMManager;
+      // Check if user has the exact role
+      return roles.includes(allowedRole as any);
+    });
+    
+    if (!hasAccess) {
+      return <Navigate to="/" replace />;
+    }
   }
   
   if (useEventsLayout) {
@@ -148,7 +162,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/auth" element={user ? <Navigate to={getDefaultRoute()} replace /> : <Auth />} />
+      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/pending-approval" element={
         !user ? (
@@ -161,36 +175,44 @@ function AppRoutes() {
           </Suspense>
         )
       } />
-      <Route path="/select-dashboard" element={
-        <ProtectedRoute requireApproval={false}>
-          <Suspense fallback={<PageLoader />}>
-            <DashboardSelector />
-          </Suspense>
-        </ProtectedRoute>
+      
+      {/* Smart Root Router - redirects based on roles */}
+      <Route path="/" element={
+        <Suspense fallback={<PageLoader />}>
+          <RootRouter />
+        </Suspense>
       } />
       
-      <Route path="/" element={
+      {/* Area/Dashboard Selector for multi-role users */}
+      <Route path="/select-dashboard" element={
+        <Suspense fallback={<PageLoader />}>
+          <AreaSelector />
+        </Suspense>
+      } />
+      
+      {/* LMS Routes - now under /lms prefix */}
+      <Route path="/lms" element={
         <ProtectedRoute>
           <Suspense fallback={<PageLoader />}>
             <Feed />
           </Suspense>
         </ProtectedRoute>
       } />
-      <Route path="/recordings" element={
+      <Route path="/lms/recordings" element={
         <ProtectedRoute>
           <Suspense fallback={<PageLoader />}>
             <Recordings />
           </Suspense>
         </ProtectedRoute>
       } />
-      <Route path="/profile/:userId" element={
+      <Route path="/lms/profile/:userId" element={
         <ProtectedRoute>
           <Suspense fallback={<PageLoader />}>
             <UserProfile />
           </Suspense>
         </ProtectedRoute>
       } />
-      <Route path="/profile" element={
+      <Route path="/lms/profile" element={
         <ProtectedRoute>
           <Suspense fallback={<PageLoader />}>
             <Profile />
@@ -198,9 +220,9 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       
-      {/* Advisor routes */}
+      {/* LMS Advisor routes */}
       <Route 
-        path="/my-chapter" 
+        path="/lms/my-chapter" 
         element={
           <ProtectedRoute allowedRoles={['advisor', 'admin']}>
             <Suspense fallback={<PageLoader />}>
@@ -210,9 +232,9 @@ function AppRoutes() {
         } 
       />
       
-      {/* Admin routes */}
+      {/* LMS Admin routes */}
       <Route 
-        path="/users" 
+        path="/lms/admin/users" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <Suspense fallback={<PageLoader />}>
@@ -222,7 +244,7 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/chapters" 
+        path="/lms/admin/chapters" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <Suspense fallback={<PageLoader />}>
@@ -232,7 +254,7 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/moderation" 
+        path="/lms/admin/moderation" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <Suspense fallback={<PageLoader />}>
@@ -242,7 +264,7 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/announcements" 
+        path="/lms/admin/announcements" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <Suspense fallback={<PageLoader />}>
@@ -252,7 +274,7 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/lms-events" 
+        path="/lms/events" 
         element={
           <ProtectedRoute>
             <Suspense fallback={<PageLoader />}>
@@ -262,7 +284,7 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/admin" 
+        path="/lms/admin" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <Suspense fallback={<PageLoader />}>
@@ -271,6 +293,18 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      
+      {/* Legacy routes - redirect to new LMS paths for backwards compatibility */}
+      <Route path="/recordings" element={<Navigate to="/lms/recordings" replace />} />
+      <Route path="/profile/:userId" element={<Navigate to="/lms/profile/:userId" replace />} />
+      <Route path="/profile" element={<Navigate to="/lms/profile" replace />} />
+      <Route path="/my-chapter" element={<Navigate to="/lms/my-chapter" replace />} />
+      <Route path="/users" element={<Navigate to="/lms/admin/users" replace />} />
+      <Route path="/chapters" element={<Navigate to="/lms/admin/chapters" replace />} />
+      <Route path="/moderation" element={<Navigate to="/lms/admin/moderation" replace />} />
+      <Route path="/announcements" element={<Navigate to="/lms/admin/announcements" replace />} />
+      <Route path="/lms-events" element={<Navigate to="/lms/events" replace />} />
+      <Route path="/admin" element={<Navigate to="/lms/admin" replace />} />
       
       <Route path="/events" element={
         <Suspense fallback={<PageLoader />}>

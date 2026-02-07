@@ -227,8 +227,8 @@ function EventFormDialog({
 }
 
 export default function LMSEvents() {
-  const { role } = useAuth();
-  const isAdmin = role === 'admin';
+  const { isLMSAdmin } = useAuth();
+  const isAdmin = isLMSAdmin;
   const { events, upcomingEvents, isLoading, createEvent, updateEvent, deleteEvent } = useLMSEvents();
 
   const [isFormOpen, setIsFormOpen] = useState(false);

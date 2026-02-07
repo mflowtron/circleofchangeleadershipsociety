@@ -9,15 +9,10 @@ import logoDark from '@/assets/coclc-logo-dark.png';
 import { useTheme } from 'next-themes';
 
 export default function DashboardSelector() {
-  const { user, loading, role, signOut } = useAuth();
+  const { user, loading, hasLMSAccess, hasEventsAccess, hasDualAccess, signOut } = useAuth();
   const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
   const logo = resolvedTheme === 'dark' ? logoDark : logoLight;
-
-  // Determine access levels
-  const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
-  const hasEventsAccess = role === 'admin' || role === 'event_organizer';
-  const hasDualAccess = hasLMSAccess && hasEventsAccess;
 
   // Redirect users without dual access
   useEffect(() => {

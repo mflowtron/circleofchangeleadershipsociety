@@ -16,7 +16,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import logoEmblem from '@/assets/coclc-logo-emblem.png';
 
 export default function Header() {
-  const { profile, role, signOut } = useAuth();
+  const { profile, roles, isLMSAdmin, isLMSAdvisor, signOut } = useAuth();
   const { setIsOpen } = useSidebar();
 
   const initials = profile?.full_name
@@ -25,7 +25,13 @@ export default function Header() {
     .join('')
     .toUpperCase() || '?';
 
-  const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Member';
+  // Get display label for role
+  const getRoleLabel = () => {
+    if (isLMSAdmin) return 'Admin';
+    if (isLMSAdvisor) return 'Advisor';
+    return 'Student';
+  };
+  const roleLabel = getRoleLabel();
 
   return (
     <header className="sticky top-0 z-30 floating-header px-4 md:px-6 py-3 flex items-center justify-between">

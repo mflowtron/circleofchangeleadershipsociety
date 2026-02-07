@@ -11,12 +11,9 @@ interface EventsDashboardLayoutProps {
 }
 
 export default function EventsDashboardLayout({ children }: EventsDashboardLayoutProps) {
-  const { user, loading, role } = useAuth();
+  const { user, loading, hasLMSAccess } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Check if user has LMS access (for showing switch option)
-  const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
 
   const handleSwitchDashboard = () => {
     navigate('/');

@@ -16,7 +16,7 @@ interface CommentsSectionProps {
 const CommentsSection = memo(function CommentsSection({ postId }: CommentsSectionProps) {
   const [newComment, setNewComment] = useState('');
   const { comments, loading, addComment, deleteComment } = useComments(postId);
-  const { user, role, profile } = useAuth();
+  const { user, isLMSAdmin, profile } = useAuth();
 
   const userInitials = useMemo(() => 
     profile?.full_name
@@ -83,7 +83,7 @@ const CommentsSection = memo(function CommentsSection({ postId }: CommentsSectio
       ) : (
         <div className="space-y-3">
           {comments.map((comment) => {
-            const canDelete = user?.id === comment.user_id || role === 'admin';
+            const canDelete = user?.id === comment.user_id || isLMSAdmin;
             const initials = comment.author.full_name
               .split(' ')
               .map((n) => n[0])
