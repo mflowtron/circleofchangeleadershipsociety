@@ -44,7 +44,10 @@ export function MessageInput({ onSend, disabled, placeholder = 'Type a message..
   };
 
   return (
-    <div className="flex items-end gap-2 p-4 border-t border-border bg-background">
+    <div 
+      className="flex items-end gap-2 p-4 border-t border-border bg-background"
+      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+    >
       <Textarea
         ref={textareaRef}
         value={message}
