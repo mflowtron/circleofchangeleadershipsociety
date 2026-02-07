@@ -13,7 +13,6 @@ import {
   Megaphone,
   Ticket,
   CalendarDays,
-  Activity
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import logoDark from '@/assets/coclc-logo-dark.png';
@@ -37,7 +36,6 @@ const navItems = {
   ],
   admin: [
     { path: '/lms', label: 'Feed', icon: Home },
-    { path: '/lms/admin', label: 'Activity', icon: Activity },
     { path: '/lms/recordings', label: 'Recordings', icon: Video },
     { path: '/lms/events', label: 'Events', icon: CalendarDays },
     { path: '/lms/admin/announcements', label: 'Announcements', icon: Megaphone },
