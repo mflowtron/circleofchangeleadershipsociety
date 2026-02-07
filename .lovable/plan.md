@@ -1,139 +1,78 @@
 
+# Fix Bottom Navigation Safe Area Padding
 
-# Add Copy Message Text Option
+## Problem
 
-## Overview
-
-Since text selection is now disabled on message bubbles to enable the long-press reaction gesture, we need to provide an alternative way for users to copy message text. This will add a "Copy" button to the reaction picker that appears on long-press.
-
----
+The bottom navigation bar in the attendee app is positioned too close to the screen edge, conflicting with the iOS home indicator and Android gesture navigation areas. This makes the bottom icons harder to tap and looks cramped.
 
 ## Solution
 
-Extend the `ReactionPicker` component to include a "Copy" action button alongside the emoji reactions. When tapped, it copies the message text to the clipboard and shows a toast confirmation.
+Add CSS safe area inset padding to the bottom navigation component. This uses the native `env(safe-area-inset-bottom)` CSS function which automatically provides the correct padding on devices with home indicators, notches, or gesture navigation bars.
 
-### Visual Design
+---
+
+## Visual Before/After
+
 ```text
-Long-press on message:
-        ↓
-┌─────────────────────────────────────────┐
-│  👍  ❤️  😂  😮  😢  🎉  │  📋 Copy  │
-└─────────────────────────────────────────┘
+BEFORE:                           AFTER:
+┌─────────────────────┐           ┌─────────────────────┐
+│  Home  Agenda  ...  │           │  Home  Agenda  ...  │
+├─────────────────────┤           ├─────────────────────┤
+│   (home indicator)  │           │     (padding)       │
+│▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄│           │   (home indicator)  │
+└─────────────────────┘           │▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄│
+                                  └─────────────────────┘
 ```
 
 ---
 
-## Technical Changes
+## Implementation
 
-### 1. Update `ReactionPicker` Component
+### File: `src/components/attendee/BottomNavigation.tsx`
 
-Add a new `messageContent` prop and a "Copy" button:
-
-```tsx
-// src/components/attendee/ReactionPicker.tsx
-import { Copy } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-
-interface ReactionPickerProps {
-  onSelect: (emoji: string) => void;
-  onClose: () => void;
-  isOwn?: boolean;
-  messageContent?: string;  // NEW: The text to copy
-}
-
-export const ReactionPicker = memo(function ReactionPicker({ 
-  onSelect, 
-  onClose,
-  isOwn = false,
-  messageContent
-}: ReactionPickerProps) {
-  const { toast } = useToast();
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!messageContent) {
-      onClose();
-      return;
-    }
-    
-    try {
-      await navigator.clipboard.writeText(messageContent);
-      toast({
-        title: "Copied!",
-        description: "Message copied to clipboard",
-      });
-    } catch (err) {
-      toast({
-        title: "Failed to copy",
-        variant: "destructive",
-      });
-    }
-    onClose();
-  };
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 z-40" 
-        onClick={onClose}
-        onTouchEnd={onClose}
-      />
-      
-      {/* Picker */}
-      <div 
-        className={cn(
-          "absolute z-50 flex items-center gap-1 bg-background border border-border rounded-full px-2 py-1.5 shadow-lg",
-          isOwn ? "right-0" : "left-0",
-          "-top-10"
-        )}
-      >
-        {REACTIONS.map(emoji => (
-          <button 
-            key={emoji}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect(emoji);
-            }}
-            className="p-1.5 hover:bg-muted rounded-full text-lg transition-colors active:scale-110"
-          >
-            {emoji}
-          </button>
-        ))}
-        
-        {/* Divider and Copy button - only show if there's content */}
-        {messageContent && (
-          <>
-            <div className="w-px h-6 bg-border mx-1" />
-            <button
-              onClick={handleCopy}
-              className="p-1.5 hover:bg-muted rounded-full transition-colors active:scale-110 flex items-center gap-1"
-            >
-              <Copy className="h-4 w-4" />
-            </button>
-          </>
-        )}
-      </div>
-    </>
-  );
-});
-```
-
-### 2. Update `MessageBubble` Component
-
-Pass the message content to the `ReactionPicker`:
+Add safe area padding to the navigation container:
 
 ```tsx
-// In both own and received message sections:
-{showPicker && (
-  <ReactionPicker 
-    onSelect={handleReactionSelect}
-    onClose={() => setShowPicker(false)}
-    isOwn={true/false}
-    messageContent={message.content}  // NEW
-  />
-)}
+// Before (line 20)
+<nav className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border">
+  <div className="flex items-center justify-around h-16">
+
+// After
+<nav 
+  className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border"
+  style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+>
+  <div className="flex items-center justify-around h-16">
 ```
+
+### File: `src/components/attendee/AttendeeLayout.tsx`
+
+Update main content padding to account for the larger bottom nav:
+
+```tsx
+// Before (line 51)
+<main className="flex-1 pb-20 overflow-y-auto">
+
+// After - Use calc() to add 64px (h-16) + safe area inset
+<main 
+  className="flex-1 overflow-y-auto"
+  style={{ paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' }}
+>
+```
+
+---
+
+## Technical Details
+
+| CSS Function | Purpose |
+|--------------|---------|
+| `env(safe-area-inset-bottom)` | Returns the device's safe area inset for the bottom edge (home indicator, gesture bar) |
+| `calc(64px + env(...))` | Combines the nav height (h-16 = 64px) with the safe area for proper content spacing |
+
+### Browser Support
+- `env()` is supported in iOS Safari 11.2+, Chrome 69+, all modern browsers
+- Falls back to 0 on devices without safe areas (works correctly)
+- Already enabled via `viewport-fit=cover` in `index.html` (line 5)
 
 ---
 
@@ -141,15 +80,7 @@ Pass the message content to the `ReactionPicker`:
 
 | File | Changes |
 |------|---------|
-| `src/components/attendee/ReactionPicker.tsx` | Add `messageContent` prop, Copy button with clipboard API, toast feedback |
-| `src/components/attendee/MessageBubble.tsx` | Pass `message.content` to ReactionPicker in both places |
+| `src/components/attendee/BottomNavigation.tsx` | Add `paddingBottom: env(safe-area-inset-bottom)` to nav |
+| `src/components/attendee/AttendeeLayout.tsx` | Update main content padding with calc() |
 
----
-
-## Implementation Details
-
-- **Clipboard API**: Uses `navigator.clipboard.writeText()` (same pattern as QRCodeDisplay)
-- **Toast Feedback**: Shows "Copied!" on success, "Failed to copy" on error
-- **Only for text**: Copy button only appears if `messageContent` exists (not for attachment-only messages)
-- **Visual separator**: A subtle divider line separates emoji reactions from the copy action
-
+This is a minimal 2-file change that follows the same pattern already used in `MessageInput.tsx` and `Conversation.tsx` for their safe area handling.
