@@ -203,6 +203,9 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       
+      {/* Redirect /profile to /lms/profile */}
+      <Route path="/profile" element={<Navigate to="/lms/profile" replace />} />
+      
       {/* LMS Advisor routes */}
       <Route 
         path="/lms/my-chapter" 
