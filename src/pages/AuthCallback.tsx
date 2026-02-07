@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { storePWAAuthSession } from '@/hooks/usePWAAuth';
 import { FullPageLoader } from '@/components/ui/circle-loader';
 
 /**
- * Handles OAuth callback and redirects appropriately
- * Also stores session for PWA to pick up if opened in external browser
+ * Handles auth callback for email verification and password reset flows
  */
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -26,23 +24,6 @@ export default function AuthCallback() {
         }
 
         if (session) {
-          // Store session for PWA to pick up (in case this was opened from PWA)
-          storePWAAuthSession(session.access_token, session.refresh_token);
-
-          // Check if this window was opened from a PWA
-          // If so, we can try to close it and let the PWA handle the session
-          const isPopup = window.opener !== null;
-          
-          if (isPopup) {
-            setMessage('Sign in successful! You can close this window.');
-            // Try to close the popup after a short delay
-            setTimeout(() => {
-              window.close();
-            }, 1500);
-            return;
-          }
-
-          // Normal browser flow - redirect based on user role
           // Add a small delay to ensure trigger has completed for new users
           await new Promise(resolve => setTimeout(resolve, 500));
           
