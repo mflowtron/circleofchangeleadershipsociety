@@ -8,7 +8,7 @@ const navItems = [
   { path: '/attendee/app/home', label: 'Home', icon: Home },
   { path: '/attendee/app/agenda', label: 'Agenda', icon: Calendar },
   { path: '/attendee/app/messages', label: 'Messages', icon: MessageCircle },
-  { path: '/attendee/app/schedule', label: 'Schedule', icon: Bookmark },
+  { path: '/attendee/app/bookmarks', label: 'Bookmarks', icon: Bookmark },
   { path: '/attendee/app/qr', label: 'QR Code', icon: QrCode },
 ];
 

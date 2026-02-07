@@ -10,7 +10,7 @@ import { PullToRefreshIndicator } from '@/components/ui/pull-to-refresh';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { Calendar } from 'lucide-react';
 
-export default function MySchedule() {
+export default function MyBookmarks() {
   const { selectedEvent, bookmarks, bookmarkedItemIds, toggleBookmark, refreshBookmarks } = useAttendee();
   const { agendaItems, isLoading } = useAgendaItems(selectedEvent?.id);
   
@@ -79,7 +79,7 @@ export default function MySchedule() {
         <div className="text-6xl mb-4">📌</div>
         <h2 className="text-xl font-semibold mb-2">No Sessions Saved</h2>
         <p className="text-muted-foreground max-w-xs mb-6">
-          Bookmark sessions from the agenda to build your personal schedule.
+          Bookmark sessions from the agenda to view them here.
         </p>
         <Link to="/attendee/app/agenda">
           <Button className="gap-2">

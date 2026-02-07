@@ -60,7 +60,7 @@ const AttendeeLogin = lazy(() => import("@/pages/attendee/Index"));
 const AttendeeDashboard = lazy(() => import("@/pages/attendee/Dashboard"));
 const AttendeeHome = lazy(() => import("@/pages/attendee/EventHome"));
 const AttendeeAgenda = lazy(() => import("@/pages/attendee/Agenda"));
-const AttendeeSchedule = lazy(() => import("@/pages/attendee/MySchedule"));
+const AttendeeBookmarks = lazy(() => import("@/pages/attendee/MyBookmarks"));
 const AttendeeQRCode = lazy(() => import("@/pages/attendee/QRCode"));
 const AttendeeMessages = lazy(() => import("@/pages/attendee/Messages"));
 const AttendeeConversation = lazy(() => import("@/pages/attendee/Conversation"));
@@ -352,9 +352,9 @@ function AppRoutes() {
             <AttendeeProfilePage />
           </Suspense>
         } />
-        <Route path="schedule" element={
+        <Route path="bookmarks" element={
           <Suspense fallback={<PageLoader />}>
-            <AttendeeSchedule />
+            <AttendeeBookmarks />
           </Suspense>
         } />
         <Route path="qr" element={

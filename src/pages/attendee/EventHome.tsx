@@ -102,7 +102,7 @@ export default function EventHome() {
             </Card>
           </Link>
           
-          <Link to="/attendee/app/schedule">
+          <Link to="/attendee/app/bookmarks">
             <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
                 <div className="relative">
@@ -113,7 +113,7 @@ export default function EventHome() {
                     </span>
                   )}
                 </div>
-                <span className="text-sm font-medium">My Schedule</span>
+                <span className="text-sm font-medium">My Bookmarks</span>
               </CardContent>
             </Card>
           </Link>
