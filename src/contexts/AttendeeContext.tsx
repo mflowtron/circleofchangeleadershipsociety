@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { useOrderPortal, PortalOrder } from '@/hooks/useOrderPortal';
 import { supabase } from '@/integrations/supabase/client';
+import type { Message } from '@/hooks/useMessages';
 
 const SELECTED_EVENT_KEY = 'attendee_selected_event';
 
@@ -99,6 +100,12 @@ interface AttendeeContextType {
   refreshConversations: () => Promise<void>;
   totalUnread: number;
   
+  // Message cache (for stale-while-revalidate)
+  messagesCache: Map<string, Message[]>;
+  getCachedMessages: (conversationId: string) => Message[] | undefined;
+  setCachedMessages: (conversationId: string, messages: Message[]) => void;
+  prefetchMessages: (conversationId: string) => void;
+  
   // Session info
   sessionToken: string | null;
 }
@@ -120,6 +127,10 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
   const [conversationsLoading, setConversationsLoading] = useState(true);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const conversationIdsRef = useRef<string[]>([]);
+  
+  // Message cache for stale-while-revalidate pattern
+  const messagesCacheRef = useRef<Map<string, Message[]>>(new Map());
+  const prefetchingRef = useRef<Set<string>>(new Set());
 
   // Get session token from localStorage
   const getSessionToken = useCallback(() => {
@@ -375,6 +386,49 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     return conversations.reduce((sum, c) => sum + c.unread_count, 0);
   }, [conversations]);
 
+  // Message cache methods
+  const getCachedMessages = useCallback((conversationId: string) => {
+    return messagesCacheRef.current.get(conversationId);
+  }, []);
+
+  const setCachedMessages = useCallback((conversationId: string, messages: Message[]) => {
+    messagesCacheRef.current.set(conversationId, messages);
+  }, []);
+
+  // Prefetch messages for a conversation (on hover/focus)
+  const prefetchMessages = useCallback(async (conversationId: string) => {
+    // Skip if already cached or prefetching
+    if (messagesCacheRef.current.has(conversationId) || prefetchingRef.current.has(conversationId)) {
+      return;
+    }
+    if (!orderPortal.email || !selectedAttendee) return;
+    
+    const sessionToken = getSessionToken();
+    if (!sessionToken) return;
+
+    prefetchingRef.current.add(conversationId);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('get-conversation-messages', {
+        body: {
+          email: orderPortal.email,
+          session_token: sessionToken,
+          attendee_id: selectedAttendee.id,
+          conversation_id: conversationId,
+          limit: 50
+        }
+      });
+
+      if (!error && data?.messages) {
+        messagesCacheRef.current.set(conversationId, data.messages);
+      }
+    } catch (err) {
+      console.error('Failed to prefetch messages:', err);
+    } finally {
+      prefetchingRef.current.delete(conversationId);
+    }
+  }, [orderPortal.email, selectedAttendee, getSessionToken]);
+
   const value: AttendeeContextType = {
     isAuthenticated: orderPortal.isAuthenticated,
     email: orderPortal.email,
@@ -397,6 +451,10 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     conversationsError,
     refreshConversations,
     totalUnread,
+    messagesCache: messagesCacheRef.current,
+    getCachedMessages,
+    setCachedMessages,
+    prefetchMessages,
     sessionToken: getSessionToken(),
   };
 

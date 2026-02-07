@@ -138,7 +138,7 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-background">
+    <div className="flex flex-col h-[100dvh] bg-background motion-safe:animate-slide-in-from-right">
       {/* Header with safe area */}
       <div 
         className="flex items-center gap-3 px-4 pb-3 border-b border-border bg-background shrink-0"

@@ -48,22 +48,37 @@ export interface Message {
 }
 
 export function useMessages(conversationId: string | null) {
-  const { email, sessionToken, selectedAttendee } = useAttendee();
+  const { email, sessionToken, selectedAttendee, getCachedMessages, setCachedMessages } = useAttendee();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [sending, setSending] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const hasFetchedRef = useRef(false);
+
+  // Initialize from cache immediately (stale-while-revalidate)
+  useEffect(() => {
+    if (conversationId) {
+      const cached = getCachedMessages(conversationId);
+      if (cached && cached.length > 0) {
+        setMessages(cached);
+        setLoading(false); // Show cached data immediately
+      }
+    }
+  }, [conversationId, getCachedMessages]);
 
   const fetchMessages = useCallback(async (before?: string) => {
     if (!email || !sessionToken || !selectedAttendee || !conversationId) {
-      setMessages([]);
       setLoading(false);
       return;
     }
 
-    if (!before) setLoading(true);
+    // Only show loading spinner if we have no cached data
+    const cached = getCachedMessages(conversationId);
+    if (!before && (!cached || cached.length === 0)) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -81,10 +96,14 @@ export function useMessages(conversationId: string | null) {
       if (fetchError) throw fetchError;
       if (data?.error) throw new Error(data.error);
 
+      const newMessages = data?.messages || [];
+      
       if (before) {
-        setMessages(prev => [...(data?.messages || []), ...prev]);
+        setMessages(prev => [...newMessages, ...prev]);
       } else {
-        setMessages(data?.messages || []);
+        setMessages(newMessages);
+        // Update cache with fresh data
+        setCachedMessages(conversationId, newMessages);
       }
       setHasMore(data?.has_more || false);
     } catch (err: any) {
@@ -93,7 +112,7 @@ export function useMessages(conversationId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [email, sessionToken, selectedAttendee, conversationId]);
+  }, [email, sessionToken, selectedAttendee, conversationId, getCachedMessages, setCachedMessages]);
 
   // Set up realtime subscription
   useEffect(() => {
@@ -155,9 +174,16 @@ export function useMessages(conversationId: string | null) {
     };
   }, [conversationId, selectedAttendee?.id, email, sessionToken]);
 
+  // Fetch fresh messages on mount (after showing cached)
   useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
+    if (conversationId && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchMessages();
+    }
+    return () => {
+      hasFetchedRef.current = false;
+    };
+  }, [conversationId, fetchMessages]);
 
   const sendMessage = useCallback(async (content: string, replyToId?: string) => {
     if (!email || !sessionToken || !selectedAttendee || !conversationId) {

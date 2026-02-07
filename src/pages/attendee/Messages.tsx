@@ -94,7 +94,7 @@ export default function Messages() {
   }
 
   return (
-    <div className="pb-20">
+    <div className="pb-20 motion-safe:animate-fade-in">
       {/* Header Actions */}
       <div className="sticky top-0 z-10 bg-background border-b border-border">
         <div className="flex items-center gap-2 p-4">
