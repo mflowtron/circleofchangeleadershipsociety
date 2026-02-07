@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowLeft, User, Building2, Briefcase, FileText, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, User, Building2, Briefcase, FileText, Eye, EyeOff, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +18,7 @@ export default function AttendeeProfile() {
   const { toast } = useToast();
   const { selectedAttendee } = useAttendee();
   const { profile, loading, updating, updateProfile } = useAttendeeProfile();
+  const { resolvedTheme, setTheme } = useTheme();
   
   const [displayName, setDisplayName] = useState('');
   const [company, setCompany] = useState('');
@@ -82,6 +84,10 @@ export default function AttendeeProfile() {
     }
   };
 
+  const toggleTheme = (enabled: boolean) => {
+    setTheme(enabled ? 'dark' : 'light');
+  };
+
   if (loading) {
     return (
       <div className="pb-20 p-4 space-y-4">
@@ -139,6 +145,36 @@ export default function AttendeeProfile() {
                 checked={openToNetworking}
                 onCheckedChange={toggleNetworking}
                 disabled={updating}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Appearance Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Moon className="h-5 w-5 text-muted-foreground" />
+              Appearance
+            </CardTitle>
+            <CardDescription>
+              Customize how the app looks on your device
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-medium">Dark Mode</span>
+                <p className="text-xs text-muted-foreground">
+                  {resolvedTheme === 'dark' 
+                    ? 'Using dark color scheme' 
+                    : 'Using light color scheme'
+                  }
+                </p>
+              </div>
+              <Switch
+                checked={resolvedTheme === 'dark'}
+                onCheckedChange={toggleTheme}
               />
             </div>
           </CardContent>
