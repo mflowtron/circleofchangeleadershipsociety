@@ -6,7 +6,40 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-serve(async (req) => {
+interface Attendee {
+  id: string;
+  attendee_name: string;
+}
+
+interface AttendeeProfile {
+  attendee_id: string;
+  display_name: string;
+  avatar_url?: string;
+}
+
+interface Speaker {
+  id: string;
+  name: string;
+  photo_url?: string;
+  title?: string;
+  company?: string;
+}
+
+interface ReplyMessage {
+  id: string;
+  content: string;
+  sender_attendee_id?: string;
+  sender_speaker_id?: string;
+}
+
+interface Reaction {
+  message_id: string;
+  emoji: string;
+  attendee_id?: string;
+  speaker_id?: string;
+}
+
+serve(async (req): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -113,51 +146,31 @@ serve(async (req) => {
     }
 
     // 2. Collect unique IDs for batch queries
-    const attendeeIds = [...new Set(messages.filter(m => m.sender_attendee_id).map(m => m.sender_attendee_id))];
-    const speakerIds = [...new Set(messages.filter(m => m.sender_speaker_id).map(m => m.sender_speaker_id))];
-    const replyIds = [...new Set(messages.filter(m => m.reply_to_id).map(m => m.reply_to_id))];
-
-    // 3. Batch fetch all related data in parallel
-    const batchQueries: Promise<any>[] = [];
+    const attendeeIds = [...new Set(messages.filter(m => m.sender_attendee_id).map(m => m.sender_attendee_id))] as string[];
+    const speakerIds = [...new Set(messages.filter(m => m.sender_speaker_id).map(m => m.sender_speaker_id))] as string[];
+    const replyIds = [...new Set(messages.filter(m => m.reply_to_id).map(m => m.reply_to_id))] as string[];
     const messageIds = messages.map(m => m.id);
 
-    if (attendeeIds.length > 0) {
-      batchQueries.push(
-        supabase.from('attendees').select('id, attendee_name').in('id', attendeeIds)
-      );
-      batchQueries.push(
-        supabase.from('attendee_profiles').select('attendee_id, display_name, avatar_url').in('attendee_id', attendeeIds)
-      );
-    } else {
-      batchQueries.push(Promise.resolve({ data: [] }));
-      batchQueries.push(Promise.resolve({ data: [] }));
-    }
-
-    if (speakerIds.length > 0) {
-      batchQueries.push(
-        supabase.from('speakers').select('id, name, photo_url, title, company').in('id', speakerIds)
-      );
-    } else {
-      batchQueries.push(Promise.resolve({ data: [] }));
-    }
-
-    if (replyIds.length > 0) {
-      batchQueries.push(
-        supabase.from('attendee_messages').select('id, content, sender_attendee_id, sender_speaker_id').in('id', replyIds)
-      );
-    } else {
-      batchQueries.push(Promise.resolve({ data: [] }));
-    }
-
-    batchQueries.push(
+    // 3. Batch fetch all related data in parallel
+    const [attendeesRes, profilesRes, speakersRes, replyMessagesRes, reactionsRes] = await Promise.all([
+      attendeeIds.length > 0 
+        ? supabase.from('attendees').select('id, attendee_name').in('id', attendeeIds)
+        : Promise.resolve({ data: [] as Attendee[] }),
+      attendeeIds.length > 0 
+        ? supabase.from('attendee_profiles').select('attendee_id, display_name, avatar_url').in('attendee_id', attendeeIds)
+        : Promise.resolve({ data: [] as AttendeeProfile[] }),
+      speakerIds.length > 0 
+        ? supabase.from('speakers').select('id, name, photo_url, title, company').in('id', speakerIds)
+        : Promise.resolve({ data: [] as Speaker[] }),
+      replyIds.length > 0 
+        ? supabase.from('attendee_messages').select('id, content, sender_attendee_id, sender_speaker_id').in('id', replyIds)
+        : Promise.resolve({ data: [] as ReplyMessage[] }),
       supabase.from('message_reactions').select('message_id, emoji, attendee_id, speaker_id').in('message_id', messageIds)
-    );
-
-    const [attendeesRes, profilesRes, speakersRes, replyMessagesRes, reactionsRes] = await Promise.all(batchQueries);
+    ]);
 
     // Build reaction aggregation map
     const reactionMap = new Map<string, Map<string, { count: number; reacted: boolean }>>();
-    (reactionsRes.data || []).forEach((r: any) => {
+    ((reactionsRes.data || []) as Reaction[]).forEach((r) => {
       if (!reactionMap.has(r.message_id)) {
         reactionMap.set(r.message_id, new Map());
       }
@@ -173,51 +186,39 @@ serve(async (req) => {
     });
 
     // 4. Build lookup maps
-    const attendeeMap = new Map((attendeesRes.data || []).map((a: any) => [a.id, a]));
-    const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.attendee_id, p]));
-    const speakerMap = new Map((speakersRes.data || []).map((s: any) => [s.id, s]));
-    const replyMap = new Map((replyMessagesRes.data || []).map((m: any) => [m.id, m]));
+    const attendeeMap = new Map(((attendeesRes.data || []) as Attendee[]).map((a) => [a.id, a]));
+    const profileMap = new Map(((profilesRes.data || []) as AttendeeProfile[]).map((p) => [p.attendee_id, p]));
+    const speakerMap = new Map(((speakersRes.data || []) as Speaker[]).map((s) => [s.id, s]));
+    const replyMap = new Map(((replyMessagesRes.data || []) as ReplyMessage[]).map((m) => [m.id, m]));
 
     // Get reply sender info
     const replyAttendeeIds = [...new Set(
-      (replyMessagesRes.data || [])
-        .filter((m: any) => m.sender_attendee_id && !attendeeMap.has(m.sender_attendee_id))
-        .map((m: any) => m.sender_attendee_id)
-    )];
+      ((replyMessagesRes.data || []) as ReplyMessage[])
+        .filter((m) => m.sender_attendee_id && !attendeeMap.has(m.sender_attendee_id))
+        .map((m) => m.sender_attendee_id)
+    )] as string[];
     const replySpeakerIds = [...new Set(
-      (replyMessagesRes.data || [])
-        .filter((m: any) => m.sender_speaker_id && !speakerMap.has(m.sender_speaker_id))
-        .map((m: any) => m.sender_speaker_id)
-    )];
+      ((replyMessagesRes.data || []) as ReplyMessage[])
+        .filter((m) => m.sender_speaker_id && !speakerMap.has(m.sender_speaker_id))
+        .map((m) => m.sender_speaker_id)
+    )] as string[];
 
     if (replyAttendeeIds.length > 0 || replySpeakerIds.length > 0) {
-      const additionalQueries: Promise<any>[] = [];
+      const [replyProfilesRes, replyAttendeesRes, replySpeakersRes] = await Promise.all([
+        replyAttendeeIds.length > 0 
+          ? supabase.from('attendee_profiles').select('attendee_id, display_name').in('attendee_id', replyAttendeeIds)
+          : Promise.resolve({ data: [] as AttendeeProfile[] }),
+        replyAttendeeIds.length > 0 
+          ? supabase.from('attendees').select('id, attendee_name').in('id', replyAttendeeIds)
+          : Promise.resolve({ data: [] as Attendee[] }),
+        replySpeakerIds.length > 0 
+          ? supabase.from('speakers').select('id, name').in('id', replySpeakerIds)
+          : Promise.resolve({ data: [] as Speaker[] })
+      ]);
       
-      if (replyAttendeeIds.length > 0) {
-        additionalQueries.push(
-          supabase.from('attendee_profiles').select('attendee_id, display_name').in('attendee_id', replyAttendeeIds)
-        );
-        additionalQueries.push(
-          supabase.from('attendees').select('id, attendee_name').in('id', replyAttendeeIds)
-        );
-      } else {
-        additionalQueries.push(Promise.resolve({ data: [] }));
-        additionalQueries.push(Promise.resolve({ data: [] }));
-      }
-      
-      if (replySpeakerIds.length > 0) {
-        additionalQueries.push(
-          supabase.from('speakers').select('id, name').in('id', replySpeakerIds)
-        );
-      } else {
-        additionalQueries.push(Promise.resolve({ data: [] }));
-      }
-
-      const [replyProfilesRes, replyAttendeesRes, replySpeakersRes] = await Promise.all(additionalQueries);
-      
-      (replyProfilesRes.data || []).forEach((p: any) => profileMap.set(p.attendee_id, p));
-      (replyAttendeesRes.data || []).forEach((a: any) => attendeeMap.set(a.id, a));
-      (replySpeakersRes.data || []).forEach((s: any) => speakerMap.set(s.id, s));
+      ((replyProfilesRes.data || []) as AttendeeProfile[]).forEach((p) => profileMap.set(p.attendee_id, p));
+      ((replyAttendeesRes.data || []) as Attendee[]).forEach((a) => attendeeMap.set(a.id, a));
+      ((replySpeakersRes.data || []) as Speaker[]).forEach((s) => speakerMap.set(s.id, s));
     }
 
     // 5. Enrich messages
@@ -310,8 +311,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
