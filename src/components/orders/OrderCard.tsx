@@ -3,27 +3,23 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { PortalOrder } from '@/hooks/useOrderPortal';
 import { AttendeeList } from './AttendeeList';
-import { MessageList } from './MessageList';
 import { 
   ChevronDown, 
   ChevronUp, 
   Calendar, 
   MapPin, 
   Ticket, 
-  MessageSquare,
   Users,
   Smartphone
 } from 'lucide-react';
 
 interface OrderCardProps {
   order: PortalOrder;
-  onSendMessage: (orderId: string, message: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const statusColors: Record<string, string> = {
@@ -40,7 +36,7 @@ const statusLabels: Record<string, string> = {
   refunded: 'Refunded',
 };
 
-export function OrderCard({ order, onSendMessage }: OrderCardProps) {
+export function OrderCard({ order }: OrderCardProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const progressPercent = order.attendee_stats.total > 0 
@@ -53,7 +49,7 @@ export function OrderCard({ order, onSendMessage }: OrderCardProps) {
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card className={order.unread_messages > 0 ? 'border-primary' : ''}>
+      <Card>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-start justify-between">
@@ -72,12 +68,6 @@ export function OrderCard({ order, onSendMessage }: OrderCardProps) {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {order.unread_messages > 0 && (
-                  <Badge variant="destructive" className="flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
-                    {order.unread_messages}
-                  </Badge>
-                )}
                 {isOpen ? (
                   <ChevronUp className="h-5 w-5 text-muted-foreground" />
                 ) : (
@@ -106,7 +96,6 @@ export function OrderCard({ order, onSendMessage }: OrderCardProps) {
               </div>
             </div>
 
-            {/* Attendee Progress */}
             {/* Event App Link */}
             {order.status === 'completed' && (
               <Link 
@@ -119,6 +108,7 @@ export function OrderCard({ order, onSendMessage }: OrderCardProps) {
               </Link>
             )}
 
+            {/* Attendee Progress */}
             {order.status === 'completed' && order.attendee_stats.total > 0 && (
               <div className="mt-3 space-y-1">
                 <div className="flex items-center justify-between text-sm">
@@ -140,20 +130,6 @@ export function OrderCard({ order, onSendMessage }: OrderCardProps) {
           <CardContent className="pt-0 space-y-6">
             <Separator />
 
-            {/* Messages Section */}
-            <div>
-              <h3 className="font-medium mb-3 flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Messages
-                {order.unread_messages > 0 && (
-                  <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
-                    {order.unread_messages} new
-                  </span>
-                )}
-              </h3>
-              <MessageList messages={order.order_messages} orderId={order.id} onSendMessage={onSendMessage} />
-            </div>
-
             {/* Attendees Section */}
             {order.status === 'completed' && (
               <div>
@@ -164,6 +140,7 @@ export function OrderCard({ order, onSendMessage }: OrderCardProps) {
                 <AttendeeList 
                   attendees={order.attendees} 
                   orderItems={order.order_items}
+                  purchaserEmail={order.email}
                 />
               </div>
             )}
