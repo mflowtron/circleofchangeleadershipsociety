@@ -16,10 +16,10 @@ export interface CheckIn {
     id: string;
     attendee_name: string | null;
     attendee_email: string | null;
-    ticket_type: {
+    ticket_type?: {
       name: string;
     } | null;
-    order: {
+    order?: {
       order_number: string;
       full_name: string;
       email: string;
@@ -41,6 +41,7 @@ export function useEventCheckins(eventId: string | undefined, date: string = for
     queryFn: async () => {
       if (!eventId) return [];
 
+      // Get checkins and join attendee info through order_items
       const { data, error } = await supabase
         .from('attendee_checkins')
         .select(`
@@ -49,8 +50,10 @@ export function useEventCheckins(eventId: string | undefined, date: string = for
             id,
             attendee_name,
             attendee_email,
-            ticket_type:ticket_types(name),
-            order:orders(order_number, full_name, email)
+            order_item:order_items(
+              ticket_type:ticket_types(name),
+              order:orders(order_number, full_name, email)
+            )
           )
         `)
         .eq('event_id', eventId)
@@ -58,7 +61,20 @@ export function useEventCheckins(eventId: string | undefined, date: string = for
         .order('checked_in_at', { ascending: false });
 
       if (error) throw error;
-      return data as CheckIn[];
+
+      // Transform to flatten the nested structure
+      const checkins = (data || []).map(c => ({
+        ...c,
+        attendee: c.attendee ? {
+          id: c.attendee.id,
+          attendee_name: c.attendee.attendee_name,
+          attendee_email: c.attendee.attendee_email,
+          ticket_type: c.attendee.order_item?.ticket_type,
+          order: c.attendee.order_item?.order,
+        } : undefined,
+      }));
+
+      return checkins as CheckIn[];
     },
     enabled: !!eventId,
   });
@@ -91,15 +107,17 @@ export function useCheckInStats(eventId: string | undefined, date: string = form
     queryFn: async (): Promise<CheckInStats> => {
       if (!eventId) return { total: 0, checkedIn: 0, percentage: 0, byTicketType: {} };
 
-      // Get all attendees for the event
+      // Get all attendees for the event through order_items
       const { data: attendees, error: attendeesError } = await supabase
         .from('attendees')
         .select(`
           id,
-          ticket_type:ticket_types(name),
-          order:orders!inner(event_id)
+          order_item:order_items!inner(
+            ticket_type:ticket_types(name),
+            order:orders!inner(event_id)
+          )
         `)
-        .eq('order.event_id', eventId);
+        .eq('order_item.order.event_id', eventId);
 
       if (attendeesError) throw attendeesError;
 
@@ -119,7 +137,7 @@ export function useCheckInStats(eventId: string | undefined, date: string = form
       // Group by ticket type
       const byTicketType: Record<string, { total: number; checkedIn: number }> = {};
       attendees?.forEach(attendee => {
-        const typeName = (attendee.ticket_type as { name: string } | null)?.name || 'Unknown';
+        const typeName = attendee.order_item?.ticket_type?.name || 'Unknown';
         if (!byTicketType[typeName]) {
           byTicketType[typeName] = { total: 0, checkedIn: 0 };
         }
@@ -198,8 +216,10 @@ export function useCheckIn() {
             id,
             attendee_name,
             attendee_email,
-            ticket_type:ticket_types(name),
-            order:orders(order_number, full_name, email)
+            order_item:order_items(
+              ticket_type:ticket_types(name),
+              order:orders(order_number, full_name, email)
+            )
           )
         `)
         .single();
@@ -210,7 +230,20 @@ export function useCheckIn() {
         }
         throw error;
       }
-      return data as CheckIn;
+
+      // Transform to flatten structure
+      const checkin = {
+        ...data,
+        attendee: data.attendee ? {
+          id: data.attendee.id,
+          attendee_name: data.attendee.attendee_name,
+          attendee_email: data.attendee.attendee_email,
+          ticket_type: data.attendee.order_item?.ticket_type,
+          order: data.attendee.order_item?.order,
+        } : undefined,
+      };
+
+      return checkin as CheckIn;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['event-checkins', data.event_id] });
@@ -255,13 +288,24 @@ export function useAttendeeById(attendeeId: string | undefined) {
         .from('attendees')
         .select(`
           *,
-          ticket_type:ticket_types(name),
-          order:orders(order_number, full_name, email, event_id)
+          order_item:order_items(
+            ticket_type:ticket_types(name),
+            order:orders(order_number, full_name, email, event_id)
+          )
         `)
         .eq('id', attendeeId)
         .maybeSingle();
 
       if (error) throw error;
+
+      if (data) {
+        return {
+          ...data,
+          ticket_type: data.order_item?.ticket_type,
+          order: data.order_item?.order,
+        };
+      }
+
       return data;
     },
     enabled: !!attendeeId,

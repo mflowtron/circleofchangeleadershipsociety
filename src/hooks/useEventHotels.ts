@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 
 export interface EventHotel {
   id: string;
-  event_id: string;
   name: string;
   address: string;
   phone: string | null;
@@ -13,12 +12,12 @@ export interface EventHotel {
   rate_description: string | null;
   booking_url: string | null;
   sort_order: number;
-  created_at: string;
 }
 
-export type HotelInsert = Omit<EventHotel, 'id' | 'created_at'>;
-export type HotelUpdate = Partial<Omit<EventHotel, 'id' | 'event_id' | 'created_at'>>;
+export type HotelInsert = Omit<EventHotel, 'id'>;
+export type HotelUpdate = Partial<Omit<EventHotel, 'id'>>;
 
+// Hotels are now stored in the events.hotels JSONB column
 export function useEventHotels(eventId: string | undefined) {
   const queryClient = useQueryClient();
 
@@ -28,27 +27,47 @@ export function useEventHotels(eventId: string | undefined) {
       if (!eventId) return [];
       
       const { data, error } = await supabase
-        .from('event_hotels')
-        .select('*')
-        .eq('event_id', eventId)
-        .order('sort_order', { ascending: true });
+        .from('events')
+        .select('hotels')
+        .eq('id', eventId)
+        .single();
 
       if (error) throw error;
-      return data as EventHotel[];
+      
+      // Parse the JSONB hotels array with type cast
+      const hotelsArray = (data?.hotels as unknown as EventHotel[]) || [];
+      return hotelsArray;
     },
     enabled: !!eventId,
   });
 
   const createHotel = useMutation({
     mutationFn: async (hotel: HotelInsert) => {
-      const { data, error } = await supabase
-        .from('event_hotels')
-        .insert(hotel)
-        .select()
+      if (!eventId) throw new Error('Event ID required');
+      
+      // Get current hotels
+      const { data: currentEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('hotels')
+        .eq('id', eventId)
         .single();
 
-      if (error) throw error;
-      return data;
+      if (fetchError) throw fetchError;
+
+      const currentHotels = (currentEvent?.hotels as unknown as EventHotel[]) || [];
+      const newHotel: EventHotel = {
+        ...hotel,
+        id: crypto.randomUUID(),
+      };
+
+      // Update with new hotel added
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ hotels: [...currentHotels, newHotel] as unknown as Record<string, unknown>[] })
+        .eq('id', eventId);
+
+      if (updateError) throw updateError;
+      return newHotel;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-hotels', eventId] });
@@ -61,15 +80,30 @@ export function useEventHotels(eventId: string | undefined) {
 
   const updateHotel = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & HotelUpdate) => {
-      const { data, error } = await supabase
-        .from('event_hotels')
-        .update(updates)
-        .eq('id', id)
-        .select()
+      if (!eventId) throw new Error('Event ID required');
+      
+      // Get current hotels
+      const { data: currentEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('hotels')
+        .eq('id', eventId)
         .single();
 
-      if (error) throw error;
-      return data;
+      if (fetchError) throw fetchError;
+
+      const currentHotels = (currentEvent?.hotels as unknown as EventHotel[]) || [];
+      const updatedHotels = currentHotels.map(hotel => 
+        hotel.id === id ? { ...hotel, ...updates } : hotel
+      );
+
+      // Update with modified hotels array
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ hotels: updatedHotels as unknown as Record<string, unknown>[] })
+        .eq('id', eventId);
+
+      if (updateError) throw updateError;
+      return updatedHotels.find(h => h.id === id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-hotels', eventId] });
@@ -82,12 +116,27 @@ export function useEventHotels(eventId: string | undefined) {
 
   const deleteHotel = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('event_hotels')
-        .delete()
-        .eq('id', id);
+      if (!eventId) throw new Error('Event ID required');
+      
+      // Get current hotels
+      const { data: currentEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('hotels')
+        .eq('id', eventId)
+        .single();
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
+
+      const currentHotels = (currentEvent?.hotels as unknown as EventHotel[]) || [];
+      const filteredHotels = currentHotels.filter(hotel => hotel.id !== id);
+
+      // Update with hotel removed
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ hotels: filteredHotels as unknown as Record<string, unknown>[] })
+        .eq('id', eventId);
+
+      if (updateError) throw updateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-hotels', eventId] });

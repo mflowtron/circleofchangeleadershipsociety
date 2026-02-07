@@ -16,7 +16,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import logoEmblem from '@/assets/coclc-logo-emblem.png';
 
 export default function Header() {
-  const { profile, roles, isLMSAdmin, isLMSAdvisor, signOut } = useAuth();
+  const { profile, isLMSAdmin, isLMSAdvisor, signOut } = useAuth();
   const { setIsOpen } = useSidebar();
 
   const initials = profile?.full_name
