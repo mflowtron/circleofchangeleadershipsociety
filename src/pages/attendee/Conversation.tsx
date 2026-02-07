@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MoreVertical, Users, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,8 +96,11 @@ export default function ConversationPage() {
 
   if (convsLoading && !conversation) {
     return (
-      <div className="flex flex-col h-[calc(100vh-8rem)]">
-        <div className="flex items-center gap-3 p-4 border-b border-border">
+      <div className="flex flex-col h-[100dvh] bg-background">
+        <div 
+          className="flex items-center gap-3 p-4 border-b border-border shrink-0"
+          style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+        >
           <Skeleton className="h-8 w-8" />
           <Skeleton className="h-5 w-32" />
         </div>
@@ -114,9 +116,12 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-border bg-background shrink-0">
+    <div className="flex flex-col h-[100dvh] bg-background">
+      {/* Header with safe area */}
+      <div 
+        className="flex items-center gap-3 px-4 pb-3 border-b border-border bg-background shrink-0"
+        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+      >
         <Button
           size="icon"
           variant="ghost"
@@ -153,54 +158,58 @@ export default function ConversationPage() {
         </DropdownMenu>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full" ref={scrollAreaRef}>
-          <div className="p-4">
-            {/* Load more button */}
-            {hasMore && (
-              <div className="flex justify-center mb-4">
-                <Button variant="ghost" size="sm" onClick={loadMore}>
-                  Load earlier messages
-                </Button>
-              </div>
-            )}
+      {/* Messages - flex-col-reverse for bottom anchoring */}
+      <div 
+        className="flex-1 overflow-y-auto flex flex-col-reverse"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+        ref={scrollAreaRef}
+      >
+        <div className="flex flex-col p-4">
+          {/* Load more button */}
+          {hasMore && (
+            <div className="flex justify-center mb-4">
+              <Button variant="ghost" size="sm" onClick={loadMore}>
+                Load earlier messages
+              </Button>
+            </div>
+          )}
 
-            {loading && messages.length === 0 ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
-                    <Skeleton className="h-12 w-48 rounded-2xl" />
-                  </div>
-                ))}
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <p className="text-muted-foreground">No messages yet</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Send a message to start the conversation
-                </p>
-              </div>
-            ) : (
-              messages.map((msg, index) => (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  showSender={shouldShowSender(index)}
-                />
-              ))
-            )}
+          {loading && messages.length === 0 ? (
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                  <Skeleton className="h-12 w-48 rounded-2xl" />
+                </div>
+              ))}
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center flex-1">
+              <p className="text-muted-foreground">No messages yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Send a message to start the conversation
+              </p>
+            </div>
+          ) : (
+            messages.map((msg, index) => (
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                showSender={shouldShowSender(index)}
+              />
+            ))
+          )}
 
-            <div ref={messagesEndRef} />
-          </div>
-        </ScrollArea>
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      {/* Message Input */}
-      <MessageInput
-        onSend={handleSend}
-        disabled={sending}
-      />
+      {/* Message Input with safe area */}
+      <div className="shrink-0">
+        <MessageInput
+          onSend={handleSend}
+          disabled={sending}
+        />
+      </div>
     </div>
   );
 }

@@ -54,6 +54,14 @@ function DashboardContent() {
     );
   }
 
+  // Detect if we're in a conversation view (full-screen, no layout wrapper)
+  const isConversationView = location.pathname.match(/\/messages\/[^/]+$/);
+
+  if (isConversationView) {
+    // Render conversation full-screen without layout wrapper
+    return <Outlet />;
+  }
+
   // Determine title based on current route
   const getTitle = () => {
     if (location.pathname.includes('/messages')) return 'Messages';
@@ -66,7 +74,7 @@ function DashboardContent() {
   };
 
   return (
-    <AttendeeLayout 
+    <AttendeeLayout
       title={getTitle()} 
       showEventSelector={events.length > 1}
     >
