@@ -1,11 +1,26 @@
+import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAttendee, AttendeeProvider } from '@/contexts/AttendeeContext';
 import { AttendeeLayout } from '@/components/attendee/AttendeeLayout';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Preload all attendee tab components for instant navigation
+const preloadAttendeePages = () => {
+  import('@/pages/attendee/EventHome');
+  import('@/pages/attendee/Agenda');
+  import('@/pages/attendee/Messages');
+  import('@/pages/attendee/MyBookmarks');
+  import('@/pages/attendee/QRCode');
+};
+
 function DashboardContent() {
   const { isAuthenticated, loading, selectedEvent, events, orders } = useAttendee();
   const location = useLocation();
+
+  // Preload sibling tabs after initial render
+  useEffect(() => {
+    preloadAttendeePages();
+  }, []);
 
   // Show loading state while checking authentication
   if (loading && !isAuthenticated) {
