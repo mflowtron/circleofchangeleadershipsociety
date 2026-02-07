@@ -201,13 +201,12 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
       });
       
       if (error || !data?.success) {
-        // Revert optimistic update
+        // Revert optimistic update on error
         await refreshBookmarks();
         return { success: false };
       }
       
-      // Refresh to get accurate data
-      await refreshBookmarks();
+      // Success - trust the optimistic update, no refresh needed
       return { success: true };
     } catch (err) {
       console.error('Failed to toggle bookmark:', err);
