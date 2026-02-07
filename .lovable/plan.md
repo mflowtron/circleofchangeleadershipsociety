@@ -1,134 +1,129 @@
 
 
-# Add System Option to Theme Toggle
+# Rename "Schedule" to "Bookmarks" in Attendee App
 
 ## Overview
 
-Replace the current binary Switch toggle with a three-option segmented control that allows users to choose between Light, System (auto), or Dark themes. The "System" option follows the device's automatic light/dark preference.
+Rename all user-facing instances of "Schedule" to "Bookmarks" in the attendee app, including the navigation, page title, file names, and related text. This change affects the attendee-specific bookmarked sessions feature only - it does not affect the public-facing event "Schedule" sections which should remain as-is.
 
 ---
 
-## Visual Design
+## Files to Change
 
-```text
-Current (Switch):
-┌────────────────────────────────────────┐
-│  Dark Mode                      [OFF]  │
-│  Using light color scheme              │
-└────────────────────────────────────────┘
-
-New (Segmented Control):
-┌────────────────────────────────────────┐
-│  Theme                                 │
-│  Customize how the app looks           │
-│                                        │
-│  ┌─────────┬──────────┬─────────┐     │
-│  │   ☀️    │    💻    │   🌙   │      │
-│  │  Light  │  System  │  Dark   │      │
-│  └─────────┴──────────┴─────────┘     │
-│                                        │
-│  Currently using: Dark (from system)   │
-└────────────────────────────────────────┘
-```
+| File | Type of Change |
+|------|----------------|
+| `src/components/attendee/BottomNavigation.tsx` | Update nav label and route path |
+| `src/pages/attendee/Dashboard.tsx` | Update route title mapping |
+| `src/pages/attendee/EventHome.tsx` | Update link and card label |
+| `src/pages/attendee/MySchedule.tsx` | Rename file to `MyBookmarks.tsx`, update component name and text |
+| `src/components/attendee/BookmarkButton.tsx` | Update aria-label text |
+| `src/App.tsx` | Update import, variable name, and route path |
 
 ---
 
-## Implementation
+## Detailed Changes
 
-### File: `src/pages/attendee/AttendeeProfile.tsx`
+### 1. `src/components/attendee/BottomNavigation.tsx`
 
-**1. Update imports:**
-- Add `Sun, Monitor` icons from lucide-react
-- Add `ToggleGroup, ToggleGroupItem` from `@/components/ui/toggle-group`
-
-**2. Update useTheme hook:**
-Change from `resolvedTheme` only to include `theme` as well:
+Update the navigation item:
 ```tsx
-const { theme, resolvedTheme, setTheme } = useTheme();
+// Before
+{ path: '/attendee/app/schedule', label: 'Schedule', icon: Bookmark },
+
+// After
+{ path: '/attendee/app/bookmarks', label: 'Bookmarks', icon: Bookmark },
 ```
-- `theme` = the user's selection ('light', 'dark', or 'system')
-- `resolvedTheme` = the actual applied theme ('light' or 'dark')
 
-**3. Remove the `toggleTheme` function** (no longer needed)
+### 2. `src/pages/attendee/Dashboard.tsx`
 
-**4. Replace the Appearance Card content:**
-
+Update the title mapping:
 ```tsx
-{/* Appearance Card */}
-<Card>
-  <CardHeader className="pb-3">
-    <CardTitle className="flex items-center gap-2 text-base">
-      <Moon className="h-5 w-5 text-muted-foreground" />
-      Appearance
-    </CardTitle>
-    <CardDescription>
-      Customize how the app looks on your device
-    </CardDescription>
-  </CardHeader>
-  <CardContent className="space-y-3">
-    <ToggleGroup
-      type="single"
-      value={theme}
-      onValueChange={(value) => value && setTheme(value)}
-      className="w-full justify-between bg-muted rounded-lg p-1"
-    >
-      <ToggleGroupItem 
-        value="light" 
-        className="flex-1 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
-      >
-        <Sun className="h-4 w-4" />
-        <span className="text-xs">Light</span>
-      </ToggleGroupItem>
-      <ToggleGroupItem 
-        value="system" 
-        className="flex-1 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
-      >
-        <Monitor className="h-4 w-4" />
-        <span className="text-xs">System</span>
-      </ToggleGroupItem>
-      <ToggleGroupItem 
-        value="dark" 
-        className="flex-1 gap-1.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
-      >
-        <Moon className="h-4 w-4" />
-        <span className="text-xs">Dark</span>
-      </ToggleGroupItem>
-    </ToggleGroup>
-    
-    <p className="text-xs text-muted-foreground text-center">
-      {theme === 'system' 
-        ? `Following system preference (${resolvedTheme})`
-        : `Using ${resolvedTheme} color scheme`
-      }
-    </p>
-  </CardContent>
-</Card>
+// Before
+if (location.pathname.includes('/schedule')) return 'My Schedule';
+
+// After
+if (location.pathname.includes('/bookmarks')) return 'Bookmarks';
+```
+
+### 3. `src/pages/attendee/EventHome.tsx`
+
+Update the quick action card:
+```tsx
+// Before
+<Link to="/attendee/app/schedule">
+  ...
+  <span className="text-sm font-medium">My Schedule</span>
+
+// After
+<Link to="/attendee/app/bookmarks">
+  ...
+  <span className="text-sm font-medium">My Bookmarks</span>
+```
+
+### 4. Rename `src/pages/attendee/MySchedule.tsx` to `src/pages/attendee/MyBookmarks.tsx`
+
+Update content within the file:
+```tsx
+// Component name
+export default function MyBookmarks() { ... }
+
+// Empty state text
+<p className="text-muted-foreground max-w-xs mb-6">
+  Bookmark sessions from the agenda to view them here.
+</p>
+```
+
+### 5. `src/components/attendee/BookmarkButton.tsx`
+
+Update the aria-label for better accessibility:
+```tsx
+// Before
+aria-label={isBookmarked ? 'Remove from schedule' : 'Add to schedule'}
+
+// After
+aria-label={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+```
+
+### 6. `src/App.tsx`
+
+Update imports and route:
+```tsx
+// Before
+const AttendeeSchedule = lazy(() => import("@/pages/attendee/MySchedule"));
+...
+<Route path="schedule" element={
+  <Suspense fallback={<PageLoader />}>
+    <AttendeeSchedule />
+  </Suspense>
+} />
+
+// After
+const AttendeeBookmarks = lazy(() => import("@/pages/attendee/MyBookmarks"));
+...
+<Route path="bookmarks" element={
+  <Suspense fallback={<PageLoader />}>
+    <AttendeeBookmarks />
+  </Suspense>
+} />
 ```
 
 ---
 
-## Technical Notes
+## Unchanged Files
 
-| Value | Description |
-|-------|-------------|
-| `theme` | User's explicit choice: 'light', 'dark', or 'system' |
-| `resolvedTheme` | Actual applied theme after resolving system preference: 'light' or 'dark' |
-| `setTheme('system')` | Tells next-themes to follow the OS preference |
+The following files contain "schedule" references that should **NOT** be changed because they refer to the public-facing event schedule (not the attendee's personal bookmarks):
 
-### Why ToggleGroup?
-- Already available in the project (`@radix-ui/react-toggle-group`)
-- Single-select behavior built in
-- Accessible keyboard navigation
-- Clean visual for 3 mutually exclusive options
-
-### Native Sync
-The existing `useNativelyThemeSync` hook uses `resolvedTheme`, so it will continue to work correctly - it syncs the actual applied theme regardless of whether it came from an explicit choice or system preference.
+| File | Reason to Keep |
+|------|----------------|
+| `src/components/events/agenda/AgendaPublicView.tsx` | "Schedule" header for public event page |
+| `src/pages/events/EventDetail.tsx` | "Schedule" section for public event detail |
+| `src/pages/events/manage/Agenda.tsx` | Admin copy about building "event schedule" |
+| `src/pages/LMSEvents.tsx` | "scheduled meetings" refers to event timing |
+| `src/components/events/agenda/AgendaBuilder.tsx` | Admin copy about "event schedule" |
 
 ---
 
-## Files to Modify
+## Summary
 
-| File | Changes |
-|------|---------|
-| `src/pages/attendee/AttendeeProfile.tsx` | Replace Switch with ToggleGroup, add Sun/Monitor icons, update theme logic |
+This change updates 6 files to rename the attendee "Schedule" feature to "Bookmarks", including renaming the page file itself. The route will change from `/attendee/app/schedule` to `/attendee/app/bookmarks`.
 
