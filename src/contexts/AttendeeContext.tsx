@@ -97,7 +97,7 @@ interface AttendeeContextType {
   conversations: Conversation[];
   conversationsLoading: boolean;
   conversationsError: string | null;
-  refreshConversations: () => Promise<void>;
+  refreshConversations: (options?: { silent?: boolean }) => Promise<void>;
   totalUnread: number;
   
   // Message cache (for stale-while-revalidate)
@@ -295,7 +295,8 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
   // === CONVERSATIONS ===
   
   // Fetch conversations (doesn't clear on transient null deps)
-  const refreshConversations = useCallback(async () => {
+  // options.silent = true means background refresh (no loading indicator)
+  const refreshConversations = useCallback(async (options?: { silent?: boolean }) => {
     // Don't clear existing data - just skip fetch if not ready
     if (!orderPortal.email || !selectedAttendee || !selectedEvent) {
       return;
@@ -304,7 +305,10 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
     const sessionToken = getSessionToken();
     if (!sessionToken) return;
 
-    setConversationsLoading(true);
+    // Only show loading indicator if NOT a silent background refresh
+    if (!options?.silent) {
+      setConversationsLoading(true);
+    }
     setConversationsError(null);
 
     try {
@@ -349,8 +353,9 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
         },
         (payload) => {
           // Only refresh if the message is in one of user's conversations
+          // Use silent refresh to avoid loading spinners
           if (conversationIdsRef.current.includes(payload.new?.conversation_id)) {
-            refreshConversations();
+            refreshConversations({ silent: true });
           }
         }
       )
@@ -363,8 +368,8 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
           filter: `attendee_id=eq.${selectedAttendee.id}`
         },
         () => {
-          // Refresh when participant status changes
-          refreshConversations();
+          // Refresh when participant status changes (silent to avoid loading)
+          refreshConversations({ silent: true });
         }
       )
       .subscribe();
@@ -432,7 +437,7 @@ export function AttendeeProvider({ children }: { children: ReactNode }) {
   const value: AttendeeContextType = {
     isAuthenticated: orderPortal.isAuthenticated,
     email: orderPortal.email,
-    loading: orderPortal.loading || bookmarksLoading || conversationsLoading,
+    loading: orderPortal.loading || bookmarksLoading,
     error: orderPortal.error,
     sendCode: orderPortal.sendCode,
     verifyCode: orderPortal.verifyCode,

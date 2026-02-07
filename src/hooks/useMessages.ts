@@ -74,9 +74,8 @@ export function useMessages(conversationId: string | null) {
       return;
     }
 
-    // Only show loading spinner if we have no cached data
-    const cached = getCachedMessages(conversationId);
-    if (!before && (!cached || cached.length === 0)) {
+    // Only show loading spinner if we have no messages currently displayed
+    if (!before && messages.length === 0) {
       setLoading(true);
     }
     setError(null);
@@ -112,7 +111,10 @@ export function useMessages(conversationId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [email, sessionToken, selectedAttendee, conversationId, getCachedMessages, setCachedMessages]);
+  // Note: getCachedMessages removed from deps - it's a stable ref callback
+  // messages.length used for loading check but not as dependency to avoid loops
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email, sessionToken, selectedAttendee, conversationId, setCachedMessages]);
 
   // Set up realtime subscription
   useEffect(() => {
@@ -175,14 +177,20 @@ export function useMessages(conversationId: string | null) {
   }, [conversationId, selectedAttendee?.id, email, sessionToken]);
 
   // Fetch fresh messages on mount (after showing cached)
+  // Only reset hasFetchedRef when conversationId actually changes
+  const prevConversationIdRef = useRef<string | null>(null);
+  
   useEffect(() => {
+    // Reset fetch flag only when conversation changes
+    if (conversationId !== prevConversationIdRef.current) {
+      hasFetchedRef.current = false;
+      prevConversationIdRef.current = conversationId;
+    }
+    
     if (conversationId && !hasFetchedRef.current) {
       hasFetchedRef.current = true;
       fetchMessages();
     }
-    return () => {
-      hasFetchedRef.current = false;
-    };
   }, [conversationId, fetchMessages]);
 
   const sendMessage = useCallback(async (content: string, replyToId?: string) => {

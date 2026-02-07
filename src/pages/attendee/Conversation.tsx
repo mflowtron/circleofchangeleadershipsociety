@@ -25,15 +25,10 @@ export default function ConversationPage() {
   const { conversations, loading: convsLoading } = useConversations();
   const { messages, loading, sending, hasMore, sendMessage, sendMessageWithAttachment, loadMore, toggleReaction, getReactors } = useMessages(conversationId || null);
   
-  const [conversation, setConversation] = useState<Conversation | null>(null);
-
-  // Find current conversation
-  useEffect(() => {
-    if (conversationId && conversations.length > 0) {
-      const conv = conversations.find(c => c.id === conversationId);
-      setConversation(conv || null);
-    }
-  }, [conversationId, conversations]);
+  // Get conversation directly from context (no useState/useEffect to avoid delays)
+  const conversation = conversationId 
+    ? conversations.find(c => c.id === conversationId) || null 
+    : null;
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -116,7 +111,10 @@ export default function ConversationPage() {
     return false;
   };
 
-  if (convsLoading && !conversation) {
+  // Only show full-page skeleton on true initial load (no conversation AND no messages)
+  const hasAnyData = conversation || messages.length > 0;
+  
+  if (!hasAnyData && convsLoading) {
     return (
       <div className="flex flex-col h-[100dvh] bg-background">
         <div 
@@ -153,7 +151,7 @@ export default function ConversationPage() {
         </Button>
         
         <div className="flex-1 min-w-0">
-          <h1 className="font-semibold truncate">{getTitle()}</h1>
+          <h1 className="font-semibold truncate">{conversation ? getTitle() : 'Conversation'}</h1>
           {getSubtitle() && (
             <p className="text-xs text-muted-foreground">{getSubtitle()}</p>
           )}
