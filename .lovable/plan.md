@@ -1,129 +1,139 @@
 
+# Fix Messages Tab Intermittent Empty State
 
-# Rename "Schedule" to "Bookmarks" in Attendee App
+## Problem
 
-## Overview
+The Messages tab sometimes shows "Start connecting!" (empty state) even when conversations exist. This is a race condition caused by multiple independent hook instances and transient null context values.
 
-Rename all user-facing instances of "Schedule" to "Bookmarks" in the attendee app, including the navigation, page title, file names, and related text. This change affects the attendee-specific bookmarked sessions feature only - it does not affect the public-facing event "Schedule" sections which should remain as-is.
+## Root Cause
 
----
+Three issues work together to cause this bug:
 
-## Files to Change
+1. **Multiple Hook Instances**: `useConversations` is called independently in 3 places (Messages page, Conversation page, BottomNavigation), each with its own state that starts empty
 
-| File | Type of Change |
-|------|----------------|
-| `src/components/attendee/BottomNavigation.tsx` | Update nav label and route path |
-| `src/pages/attendee/Dashboard.tsx` | Update route title mapping |
-| `src/pages/attendee/EventHome.tsx` | Update link and card label |
-| `src/pages/attendee/MySchedule.tsx` | Rename file to `MyBookmarks.tsx`, update component name and text |
-| `src/components/attendee/BookmarkButton.tsx` | Update aria-label text |
-| `src/App.tsx` | Update import, variable name, and route path |
+2. **Data Clearing on Null Dependencies**: When any context value (`email`, `sessionToken`, `selectedAttendee`, `selectedEvent`) is momentarily null during re-renders, the hook clears conversations to an empty array
 
----
+3. **Realtime Subscription Churn**: The subscription effect depends on the full `conversations` array, causing re-subscriptions on every fetch
 
-## Detailed Changes
+## Solution
 
-### 1. `src/components/attendee/BottomNavigation.tsx`
-
-Update the navigation item:
-```tsx
-// Before
-{ path: '/attendee/app/schedule', label: 'Schedule', icon: Bookmark },
-
-// After
-{ path: '/attendee/app/bookmarks', label: 'Bookmarks', icon: Bookmark },
-```
-
-### 2. `src/pages/attendee/Dashboard.tsx`
-
-Update the title mapping:
-```tsx
-// Before
-if (location.pathname.includes('/schedule')) return 'My Schedule';
-
-// After
-if (location.pathname.includes('/bookmarks')) return 'Bookmarks';
-```
-
-### 3. `src/pages/attendee/EventHome.tsx`
-
-Update the quick action card:
-```tsx
-// Before
-<Link to="/attendee/app/schedule">
-  ...
-  <span className="text-sm font-medium">My Schedule</span>
-
-// After
-<Link to="/attendee/app/bookmarks">
-  ...
-  <span className="text-sm font-medium">My Bookmarks</span>
-```
-
-### 4. Rename `src/pages/attendee/MySchedule.tsx` to `src/pages/attendee/MyBookmarks.tsx`
-
-Update content within the file:
-```tsx
-// Component name
-export default function MyBookmarks() { ... }
-
-// Empty state text
-<p className="text-muted-foreground max-w-xs mb-6">
-  Bookmark sessions from the agenda to view them here.
-</p>
-```
-
-### 5. `src/components/attendee/BookmarkButton.tsx`
-
-Update the aria-label for better accessibility:
-```tsx
-// Before
-aria-label={isBookmarked ? 'Remove from schedule' : 'Add to schedule'}
-
-// After
-aria-label={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
-```
-
-### 6. `src/App.tsx`
-
-Update imports and route:
-```tsx
-// Before
-const AttendeeSchedule = lazy(() => import("@/pages/attendee/MySchedule"));
-...
-<Route path="schedule" element={
-  <Suspense fallback={<PageLoader />}>
-    <AttendeeSchedule />
-  </Suspense>
-} />
-
-// After
-const AttendeeBookmarks = lazy(() => import("@/pages/attendee/MyBookmarks"));
-...
-<Route path="bookmarks" element={
-  <Suspense fallback={<PageLoader />}>
-    <AttendeeBookmarks />
-  </Suspense>
-} />
-```
+Lift conversation state into `AttendeeContext` so all components share a single source of truth, and fix the data-clearing behavior.
 
 ---
 
-## Unchanged Files
+## Implementation
 
-The following files contain "schedule" references that should **NOT** be changed because they refer to the public-facing event schedule (not the attendee's personal bookmarks):
+### 1. Move Conversations to AttendeeContext
 
-| File | Reason to Keep |
-|------|----------------|
-| `src/components/events/agenda/AgendaPublicView.tsx` | "Schedule" header for public event page |
-| `src/pages/events/EventDetail.tsx` | "Schedule" section for public event detail |
-| `src/pages/events/manage/Agenda.tsx` | Admin copy about building "event schedule" |
-| `src/pages/LMSEvents.tsx` | "scheduled meetings" refers to event timing |
-| `src/components/events/agenda/AgendaBuilder.tsx` | Admin copy about "event schedule" |
+**File: `src/contexts/AttendeeContext.tsx`**
+
+Add conversation state and fetch logic to the context:
+
+- Add state: `conversations`, `conversationsLoading`, `conversationsError`
+- Add `fetchConversations` callback that uses the already-available `email`, session token, `selectedAttendee`, and `selectedEvent`
+- Add realtime subscription for new messages within the context
+- Export `conversations`, `totalUnread`, `refreshConversations`, and `conversationsLoading`
+
+Key change - prevent clearing on transient nulls:
+```tsx
+const fetchConversations = useCallback(async () => {
+  // Don't clear existing data - just skip fetch if not ready
+  if (!orderPortal.email || !selectedAttendee || !selectedEvent) {
+    return; // Keep existing conversations instead of clearing
+  }
+  
+  const sessionToken = getSessionToken();
+  if (!sessionToken) return;
+
+  setConversationsLoading(true);
+  // ... fetch logic
+}, [orderPortal.email, selectedAttendee, selectedEvent, getSessionToken]);
+```
+
+### 2. Update useConversations Hook
+
+**File: `src/hooks/useConversations.ts`**
+
+Convert to a thin wrapper that reads from context:
+
+```tsx
+export function useConversations() {
+  const { 
+    conversations, 
+    conversationsLoading, 
+    conversationsError,
+    refreshConversations,
+    totalUnread 
+  } = useAttendee();
+
+  return {
+    conversations,
+    loading: conversationsLoading,
+    error: conversationsError,
+    refetch: refreshConversations,
+    totalUnread
+  };
+}
+```
+
+This ensures all callers (Messages, Conversation, BottomNavigation) share the same data.
+
+### 3. Fix Realtime Subscription
+
+In the context, use stable dependencies for the subscription:
+
+```tsx
+// Store conversation IDs in a ref to avoid re-subscription on every fetch
+const conversationIdsRef = useRef<string[]>([]);
+
+useEffect(() => {
+  conversationIdsRef.current = conversations.map(c => c.id);
+}, [conversations]);
+
+useEffect(() => {
+  if (!selectedAttendee || !selectedEvent) return;
+
+  const channel = supabase
+    .channel(`conversations-${selectedAttendee.id}`)
+    .on('postgres_changes', { ... }, (payload) => {
+      if (conversationIdsRef.current.includes(payload.new?.conversation_id)) {
+        fetchConversations();
+      }
+    })
+    .subscribe();
+
+  return () => supabase.removeChannel(channel);
+}, [selectedAttendee?.id, selectedEvent?.id, fetchConversations]);
+// Note: conversations removed from deps - uses ref instead
+```
 
 ---
 
-## Summary
+## Files to Modify
 
-This change updates 6 files to rename the attendee "Schedule" feature to "Bookmarks", including renaming the page file itself. The route will change from `/attendee/app/schedule` to `/attendee/app/bookmarks`.
+| File | Changes |
+|------|---------|
+| `src/contexts/AttendeeContext.tsx` | Add conversations state, fetch logic, and realtime subscription |
+| `src/hooks/useConversations.ts` | Convert to thin context wrapper |
 
+---
+
+## Technical Notes
+
+### Why This Fixes the Issue
+
+| Current Problem | Solution |
+|-----------------|----------|
+| 3 hook instances with independent state | Single state in context, shared by all |
+| `setConversations([])` on null deps | Skip fetch instead of clearing data |
+| Subscription depends on conversations array | Use ref for stable dependency |
+
+### Behavioral Change
+
+- Conversations are fetched once when `selectedAttendee` changes, then shared
+- Navigating between tabs doesn't trigger new fetches or show loading states
+- Realtime updates still work but don't cause subscription churn
+
+### Migration Safety
+
+The `useConversations` hook keeps its existing API, so `Messages.tsx`, `Conversation.tsx`, and `BottomNavigation.tsx` don't need changes.
