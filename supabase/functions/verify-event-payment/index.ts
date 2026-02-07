@@ -94,9 +94,10 @@ serve(async (req) => {
         logStep("Ticket quantities updated");
 
         // Create attendee records for each ticket purchased
+        // Schema: attendees only has order_item_id (no order_id or ticket_type_id)
         const { data: orderItems } = await supabaseAdmin
           .from('order_items')
-          .select('id, ticket_type_id, quantity')
+          .select('id, quantity')
           .eq('order_id', order_id);
 
         if (orderItems) {
@@ -109,12 +110,9 @@ serve(async (req) => {
               const isPurchaserAttendee = order.purchaser_is_attending === true && !purchaserAttendeeCreated;
               
               attendeeRecords.push({
-                order_id: order_id,
                 order_item_id: item.id,
-                ticket_type_id: item.ticket_type_id,
-                is_purchaser: isPurchaserAttendee,
-                attendee_name: isPurchaserAttendee ? order.full_name : null,
-                attendee_email: isPurchaserAttendee ? order.email : null,
+                attendee_name: isPurchaserAttendee ? order.full_name : '',
+                attendee_email: isPurchaserAttendee ? order.email : '',
               });
               
               if (isPurchaserAttendee) {

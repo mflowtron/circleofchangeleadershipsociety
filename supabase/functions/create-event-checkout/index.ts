@@ -194,9 +194,10 @@ serve(async (req) => {
       unit_price_cents: item.unit_price_cents,
     }));
 
-    const { error: itemsError } = await supabaseAdmin
+    const { data: insertedOrderItems, error: itemsError } = await supabaseAdmin
       .from('order_items')
-      .insert(orderItemsToInsert);
+      .insert(orderItemsToInsert)
+      .select('id, ticket_type_id, quantity');
 
     if (itemsError) {
       logStep("Order items creation failed", { error: itemsError });
@@ -238,27 +239,20 @@ serve(async (req) => {
         .eq('id', order.id);
 
       // Create attendee records for free orders
-      const { data: orderItemsData } = await supabaseAdmin
-        .from('order_items')
-        .select('id, ticket_type_id, quantity')
-        .eq('order_id', order.id);
-
-      if (orderItemsData) {
+      // Schema: attendees only has order_item_id (no order_id or ticket_type_id)
+      if (insertedOrderItems) {
         const attendeeRecords = [];
         let purchaserAttendeeCreated = false;
         
-        for (const item of orderItemsData) {
+        for (const item of insertedOrderItems) {
           for (let i = 0; i < item.quantity; i++) {
             // Mark first attendee as purchaser if they're attending
             const isPurchaserAttendee = purchaser_is_attending === true && !purchaserAttendeeCreated;
             
             attendeeRecords.push({
-              order_id: order.id,
               order_item_id: item.id,
-              ticket_type_id: item.ticket_type_id,
-              is_purchaser: isPurchaserAttendee,
-              attendee_name: isPurchaserAttendee ? buyer_name : null,
-              attendee_email: isPurchaserAttendee ? buyer_email : null,
+              attendee_name: isPurchaserAttendee ? buyer_name : '',
+              attendee_email: isPurchaserAttendee ? buyer_email : '',
             });
             
             if (isPurchaserAttendee) {

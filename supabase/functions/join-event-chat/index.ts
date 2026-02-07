@@ -51,9 +51,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Check if event-wide chat exists
+    // Check if event-wide chat exists (using renamed table: conversations)
     let { data: eventChat } = await supabase
-      .from('attendee_conversations')
+      .from('conversations')
       .select('id')
       .eq('event_id', event_id)
       .eq('type', 'event')
@@ -68,7 +68,7 @@ serve(async (req) => {
         .single();
 
       const { data: newChat, error: createError } = await supabase
-        .from('attendee_conversations')
+        .from('conversations')
         .insert({
           event_id,
           type: 'event',

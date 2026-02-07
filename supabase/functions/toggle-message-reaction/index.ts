@@ -51,10 +51,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get the message to find its conversation
+    // Get the message to find its conversation and current reactions (using renamed table: messages)
     const { data: message, error: messageError } = await supabase
-      .from('attendee_messages')
-      .select('id, conversation_id')
+      .from('messages')
+      .select('id, conversation_id, reactions')
       .eq('id', message_id)
       .maybeSingle();
 
@@ -81,66 +81,45 @@ serve(async (req) => {
       );
     }
 
-    // Check if reaction already exists
-    const { data: existingReaction } = await supabase
-      .from('message_reactions')
-      .select('id')
-      .eq('message_id', message_id)
-      .eq('attendee_id', attendee_id)
-      .eq('emoji', emoji)
-      .maybeSingle();
-
+    // Parse current reactions from JSONB
+    // Format: { "👍": ["attendee-uuid-1", "attendee-uuid-2"], "❤️": [...] }
+    const currentReactions: Record<string, string[]> = message.reactions || {};
+    
     let action: 'added' | 'removed';
+    
+    // Check if user already reacted with this emoji
+    const emojiReactors = currentReactions[emoji] || [];
+    const hasReacted = emojiReactors.includes(attendee_id);
 
-    if (existingReaction) {
+    if (hasReacted) {
       // Remove the reaction
-      const { error: deleteError } = await supabase
-        .from('message_reactions')
-        .delete()
-        .eq('id', existingReaction.id);
-
-      if (deleteError) {
-        throw deleteError;
+      currentReactions[emoji] = emojiReactors.filter(id => id !== attendee_id);
+      // Clean up empty emoji arrays
+      if (currentReactions[emoji].length === 0) {
+        delete currentReactions[emoji];
       }
       action = 'removed';
     } else {
       // Add the reaction
-      const { error: insertError } = await supabase
-        .from('message_reactions')
-        .insert({
-          message_id,
-          attendee_id,
-          emoji
-        });
-
-      if (insertError) {
-        throw insertError;
-      }
+      currentReactions[emoji] = [...emojiReactors, attendee_id];
       action = 'added';
     }
 
-    // Get updated reaction counts for the message
-    const { data: allReactions } = await supabase
-      .from('message_reactions')
-      .select('emoji, attendee_id, speaker_id')
-      .eq('message_id', message_id);
+    // Update the message with new reactions
+    const { error: updateError } = await supabase
+      .from('messages')
+      .update({ reactions: currentReactions })
+      .eq('id', message_id);
 
-    // Aggregate reactions
-    const reactionCounts: Record<string, { count: number; reacted: boolean }> = {};
-    (allReactions || []).forEach((r: any) => {
-      if (!reactionCounts[r.emoji]) {
-        reactionCounts[r.emoji] = { count: 0, reacted: false };
-      }
-      reactionCounts[r.emoji].count++;
-      if (r.attendee_id === attendee_id) {
-        reactionCounts[r.emoji].reacted = true;
-      }
-    });
+    if (updateError) {
+      throw updateError;
+    }
 
-    const reactions = Object.entries(reactionCounts).map(([emoji, data]) => ({
-      emoji,
-      count: data.count,
-      reacted: data.reacted
+    // Build response reactions array
+    const reactions = Object.entries(currentReactions).map(([emojiKey, attendeeIds]) => ({
+      emoji: emojiKey,
+      count: attendeeIds.length,
+      reacted: attendeeIds.includes(attendee_id)
     }));
 
     return new Response(

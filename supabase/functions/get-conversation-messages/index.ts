@@ -9,34 +9,19 @@ const corsHeaders = {
 interface Attendee {
   id: string;
   attendee_name: string;
+  user_id?: string;
 }
 
-interface AttendeeProfile {
-  attendee_id: string;
-  display_name: string;
+interface Profile {
+  user_id: string;
+  full_name: string;
   avatar_url?: string;
-}
-
-interface Speaker {
-  id: string;
-  name: string;
-  photo_url?: string;
-  title?: string;
-  company?: string;
 }
 
 interface ReplyMessage {
   id: string;
   content: string;
-  sender_attendee_id?: string;
-  sender_speaker_id?: string;
-}
-
-interface Reaction {
-  message_id: string;
-  emoji: string;
-  attendee_id?: string;
-  speaker_id?: string;
+  sender_id?: string;
 }
 
 serve(async (req): Promise<Response> => {
@@ -100,9 +85,9 @@ serve(async (req): Promise<Response> => {
       );
     }
 
-    // 1. Fetch all messages in one query
+    // 1. Fetch all messages in one query (using renamed table: messages, column: sender_id)
     let query = supabase
-      .from('attendee_messages')
+      .from('messages')
       .select(`
         id,
         conversation_id,
@@ -111,8 +96,8 @@ serve(async (req): Promise<Response> => {
         is_deleted,
         created_at,
         updated_at,
-        sender_attendee_id,
-        sender_speaker_id,
+        sender_id,
+        reactions,
         attachment_url,
         attachment_type,
         attachment_name,
@@ -146,103 +131,61 @@ serve(async (req): Promise<Response> => {
     }
 
     // 2. Collect unique IDs for batch queries
-    const attendeeIds = [...new Set(messages.filter(m => m.sender_attendee_id).map(m => m.sender_attendee_id))] as string[];
-    const speakerIds = [...new Set(messages.filter(m => m.sender_speaker_id).map(m => m.sender_speaker_id))] as string[];
+    const senderIds = [...new Set(messages.filter(m => m.sender_id).map(m => m.sender_id))] as string[];
     const replyIds = [...new Set(messages.filter(m => m.reply_to_id).map(m => m.reply_to_id))] as string[];
-    const messageIds = messages.map(m => m.id);
 
     // 3. Batch fetch all related data in parallel
-    const [attendeesRes, profilesRes, speakersRes, replyMessagesRes, reactionsRes] = await Promise.all([
-      attendeeIds.length > 0 
-        ? supabase.from('attendees').select('id, attendee_name').in('id', attendeeIds)
+    const [attendeesRes, replyMessagesRes] = await Promise.all([
+      senderIds.length > 0 
+        ? supabase.from('attendees').select('id, attendee_name, user_id').in('id', senderIds)
         : Promise.resolve({ data: [] as Attendee[] }),
-      attendeeIds.length > 0 
-        ? supabase.from('attendee_profiles').select('attendee_id, display_name, avatar_url').in('attendee_id', attendeeIds)
-        : Promise.resolve({ data: [] as AttendeeProfile[] }),
-      speakerIds.length > 0 
-        ? supabase.from('speakers').select('id, name, photo_url, title, company').in('id', speakerIds)
-        : Promise.resolve({ data: [] as Speaker[] }),
       replyIds.length > 0 
-        ? supabase.from('attendee_messages').select('id, content, sender_attendee_id, sender_speaker_id').in('id', replyIds)
-        : Promise.resolve({ data: [] as ReplyMessage[] }),
-      supabase.from('message_reactions').select('message_id, emoji, attendee_id, speaker_id').in('message_id', messageIds)
+        ? supabase.from('messages').select('id, content, sender_id').in('id', replyIds)
+        : Promise.resolve({ data: [] as ReplyMessage[] })
     ]);
 
-    // Build reaction aggregation map
-    const reactionMap = new Map<string, Map<string, { count: number; reacted: boolean }>>();
-    ((reactionsRes.data || []) as Reaction[]).forEach((r) => {
-      if (!reactionMap.has(r.message_id)) {
-        reactionMap.set(r.message_id, new Map());
-      }
-      const emojiMap = reactionMap.get(r.message_id)!;
-      if (!emojiMap.has(r.emoji)) {
-        emojiMap.set(r.emoji, { count: 0, reacted: false });
-      }
-      const emojiData = emojiMap.get(r.emoji)!;
-      emojiData.count++;
-      if (r.attendee_id === attendee_id) {
-        emojiData.reacted = true;
-      }
-    });
+    // Get user_ids from attendees for profile lookup
+    const userIds = [...new Set((attendeesRes.data || []).filter((a: any) => a.user_id).map((a: any) => a.user_id))];
+    
+    const profilesRes = userIds.length > 0 
+      ? await supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', userIds)
+      : { data: [] as Profile[] };
 
     // 4. Build lookup maps
     const attendeeMap = new Map(((attendeesRes.data || []) as Attendee[]).map((a) => [a.id, a]));
-    const profileMap = new Map(((profilesRes.data || []) as AttendeeProfile[]).map((p) => [p.attendee_id, p]));
-    const speakerMap = new Map(((speakersRes.data || []) as Speaker[]).map((s) => [s.id, s]));
+    const profileMap = new Map(((profilesRes.data || []) as Profile[]).map((p) => [p.user_id, p]));
     const replyMap = new Map(((replyMessagesRes.data || []) as ReplyMessage[]).map((m) => [m.id, m]));
 
-    // Get reply sender info
-    const replyAttendeeIds = [...new Set(
+    // Get reply sender info (attendees not already fetched)
+    const replySenderIds = [...new Set(
       ((replyMessagesRes.data || []) as ReplyMessage[])
-        .filter((m) => m.sender_attendee_id && !attendeeMap.has(m.sender_attendee_id))
-        .map((m) => m.sender_attendee_id)
-    )] as string[];
-    const replySpeakerIds = [...new Set(
-      ((replyMessagesRes.data || []) as ReplyMessage[])
-        .filter((m) => m.sender_speaker_id && !speakerMap.has(m.sender_speaker_id))
-        .map((m) => m.sender_speaker_id)
+        .filter((m) => m.sender_id && !attendeeMap.has(m.sender_id))
+        .map((m) => m.sender_id)
     )] as string[];
 
-    if (replyAttendeeIds.length > 0 || replySpeakerIds.length > 0) {
-      const [replyProfilesRes, replyAttendeesRes, replySpeakersRes] = await Promise.all([
-        replyAttendeeIds.length > 0 
-          ? supabase.from('attendee_profiles').select('attendee_id, display_name').in('attendee_id', replyAttendeeIds)
-          : Promise.resolve({ data: [] as AttendeeProfile[] }),
-        replyAttendeeIds.length > 0 
-          ? supabase.from('attendees').select('id, attendee_name').in('id', replyAttendeeIds)
-          : Promise.resolve({ data: [] as Attendee[] }),
-        replySpeakerIds.length > 0 
-          ? supabase.from('speakers').select('id, name').in('id', replySpeakerIds)
-          : Promise.resolve({ data: [] as Speaker[] })
-      ]);
+    if (replySenderIds.length > 0) {
+      const { data: replyAttendees } = await supabase.from('attendees').select('id, attendee_name, user_id').in('id', replySenderIds);
+      ((replyAttendees || []) as Attendee[]).forEach((a) => attendeeMap.set(a.id, a));
       
-      ((replyProfilesRes.data || []) as AttendeeProfile[]).forEach((p) => profileMap.set(p.attendee_id, p));
-      ((replyAttendeesRes.data || []) as Attendee[]).forEach((a) => attendeeMap.set(a.id, a));
-      ((replySpeakersRes.data || []) as Speaker[]).forEach((s) => speakerMap.set(s.id, s));
+      const replyUserIds = [...new Set((replyAttendees || []).filter((a: any) => a.user_id).map((a: any) => a.user_id))];
+      if (replyUserIds.length > 0) {
+        const { data: replyProfiles } = await supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', replyUserIds);
+        ((replyProfiles || []) as Profile[]).forEach((p) => profileMap.set(p.user_id, p));
+      }
     }
 
     // 5. Enrich messages
     const enrichedMessages = messages.map(msg => {
       let sender = null;
 
-      if (msg.sender_attendee_id) {
-        const attendee = attendeeMap.get(msg.sender_attendee_id);
-        const profile = profileMap.get(msg.sender_attendee_id);
+      if (msg.sender_id) {
+        const attendee = attendeeMap.get(msg.sender_id);
+        const profile = attendee?.user_id ? profileMap.get(attendee.user_id) : null;
         sender = {
           type: 'attendee',
-          id: attendee?.id || msg.sender_attendee_id,
-          name: profile?.display_name || attendee?.attendee_name || 'Attendee',
+          id: attendee?.id || msg.sender_id,
+          name: profile?.full_name || attendee?.attendee_name || 'Attendee',
           avatar_url: profile?.avatar_url
-        };
-      } else if (msg.sender_speaker_id) {
-        const speaker = speakerMap.get(msg.sender_speaker_id);
-        sender = {
-          type: 'speaker',
-          id: speaker?.id || msg.sender_speaker_id,
-          name: speaker?.name || 'Speaker',
-          avatar_url: speaker?.photo_url,
-          title: speaker?.title,
-          company: speaker?.company
         };
       }
 
@@ -251,13 +194,10 @@ serve(async (req): Promise<Response> => {
         const originalMsg = replyMap.get(msg.reply_to_id);
         if (originalMsg) {
           let originalSenderName = 'Unknown';
-          if (originalMsg.sender_attendee_id) {
-            const profile = profileMap.get(originalMsg.sender_attendee_id);
-            const attendee = attendeeMap.get(originalMsg.sender_attendee_id);
-            originalSenderName = profile?.display_name || attendee?.attendee_name || 'Attendee';
-          } else if (originalMsg.sender_speaker_id) {
-            const speaker = speakerMap.get(originalMsg.sender_speaker_id);
-            originalSenderName = speaker?.name || 'Speaker';
+          if (originalMsg.sender_id) {
+            const attendee = attendeeMap.get(originalMsg.sender_id);
+            const profile = attendee?.user_id ? profileMap.get(attendee.user_id) : null;
+            originalSenderName = profile?.full_name || attendee?.attendee_name || 'Attendee';
           }
 
           replyTo = {
@@ -268,14 +208,14 @@ serve(async (req): Promise<Response> => {
         }
       }
 
-      const msgReactions = reactionMap.get(msg.id);
-      const reactions = msgReactions 
-        ? Array.from(msgReactions.entries()).map(([emoji, data]) => ({
-            emoji,
-            count: data.count,
-            reacted: data.reacted
-          }))
-        : [];
+      // Parse reactions from JSONB column
+      // Format: { "👍": ["attendee-uuid-1", "attendee-uuid-2"], "❤️": [...] }
+      const reactionsJson = msg.reactions || {};
+      const reactions = Object.entries(reactionsJson).map(([emoji, attendeeIds]) => ({
+        emoji,
+        count: (attendeeIds as string[]).length,
+        reacted: (attendeeIds as string[]).includes(attendee_id)
+      }));
 
       const attachment = msg.attachment_url ? {
         url: msg.attachment_url,
@@ -288,7 +228,7 @@ serve(async (req): Promise<Response> => {
         ...msg,
         sender,
         reply_to: replyTo,
-        is_own: msg.sender_attendee_id === attendee_id,
+        is_own: msg.sender_id === attendee_id,
         reactions,
         attachment
       };
