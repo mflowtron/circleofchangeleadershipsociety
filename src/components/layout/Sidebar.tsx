@@ -51,7 +51,7 @@ const navItems = {
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isLMSAdmin, isLMSAdvisor, hasEventsAccess } = useAuth();
+  const { isLMSAdmin, isLMSAdvisor, hasEMAccess } = useAuth();
   const { isOpen, setIsOpen } = useSidebar();
   const { resolvedTheme } = useTheme();
   
@@ -141,7 +141,7 @@ export default function Sidebar() {
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border/50 space-y-3">
           {/* Switch to Events Dashboard button for users with events access */}
-          {hasEventsAccess && (
+          {hasEMAccess && (
             <Button 
               variant="outline" 
               className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border/50 text-sidebar-foreground hover:bg-sidebar-accent"

@@ -2,13 +2,11 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-// New role system - users can have multiple roles
+// Role system - users can have multiple roles
 export type AppRole = 
   | 'lms_student' | 'lms_advisor' | 'lms_admin'
   | 'em_advisor' | 'em_manager' | 'em_admin'
-  | 'attendee_student' | 'attendee_advisor'
-  // Legacy roles (for backward compatibility during migration)
-  | 'admin' | 'advisor' | 'student' | 'event_organizer';
+  | 'attendee_student' | 'attendee_advisor';
 
 export type AccessArea = 'lms' | 'em' | 'attendee';
 
@@ -32,17 +30,13 @@ interface AuthContextType {
   defaultRole: AppRole | null;
   isApproved: boolean;
   
-  // Legacy compatibility - primary role (first LMS role or first role)
-  role: AppRole | null;
   signOut: () => Promise<void>;
   setDefaultRole: (role: AppRole) => Promise<void>;
   
   // Computed access flags
   hasLMSAccess: boolean;
   hasEMAccess: boolean;
-  hasEventsAccess: boolean; // Alias for hasEMAccess (legacy compatibility)
   hasAttendeeAccess: boolean;
-  hasDualAccess: boolean; // Legacy: has both LMS and EM access
   accessibleAreas: AccessArea[];
   
   // Helper functions
@@ -61,14 +55,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Helper to determine which area a role belongs to
-function getRoleArea(role: AppRole): AccessArea | null {
-  if (role.startsWith('lms_') || ['admin', 'advisor', 'student'].includes(role)) return 'lms';
-  if (role.startsWith('em_') || role === 'event_organizer') return 'em';
-  if (role.startsWith('attendee_')) return 'attendee';
-  return null;
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -148,21 +134,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return rolesToCheck.some(role => roles.includes(role));
   }, [roles]);
 
-  // Compute access flags based on roles
-  const hasLMSAccess = hasAnyRole(['lms_admin', 'lms_advisor', 'lms_student', 'admin', 'advisor', 'student']);
-  const hasEMAccess = hasAnyRole(['em_admin', 'em_manager', 'em_advisor', 'admin', 'event_organizer']);
-  const hasEventsAccess = hasEMAccess; // Legacy alias
+  // Compute access flags based on roles (no legacy role support)
+  const hasLMSAccess = hasAnyRole(['lms_admin', 'lms_advisor', 'lms_student']);
+  const hasEMAccess = hasAnyRole(['em_admin', 'em_manager', 'em_advisor']);
   const hasAttendeeAccess = hasAnyRole(['attendee_student', 'attendee_advisor']);
-  const hasDualAccess = hasLMSAccess && hasEMAccess; // Legacy
 
-  // LMS role checks
-  const isLMSAdmin = hasAnyRole(['lms_admin', 'admin']);
-  const isLMSAdvisor = hasAnyRole(['lms_advisor', 'advisor']) || isLMSAdmin;
-  const isLMSStudent = hasAnyRole(['lms_student', 'student']) || isLMSAdvisor;
+  // LMS role checks (hierarchical)
+  const isLMSAdmin = hasRole('lms_admin');
+  const isLMSAdvisor = hasRole('lms_advisor') || isLMSAdmin;
+  const isLMSStudent = hasRole('lms_student') || isLMSAdvisor;
 
-  // EM role checks
-  const isEMAdmin = hasAnyRole(['em_admin', 'admin']);
-  const isEMManager = hasAnyRole(['em_manager', 'event_organizer']) || isEMAdmin;
+  // EM role checks (hierarchical)
+  const isEMAdmin = hasRole('em_admin');
+  const isEMManager = hasRole('em_manager') || isEMAdmin;
   const isEMAdvisor = hasRole('em_advisor') || isEMManager;
 
   // Compute accessible areas
@@ -173,11 +157,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isApproved = profile?.is_approved ?? false;
   const defaultRole = (profile?.default_role as AppRole) ?? null;
-  
-  // Legacy: primary role for backward compatibility (prefer LMS roles)
-  const primaryRole: AppRole | null = roles.find(r => 
-    ['lms_admin', 'lms_advisor', 'lms_student', 'admin', 'advisor', 'student'].includes(r)
-  ) || roles[0] || null;
 
   return (
     <AuthContext.Provider value={{ 
@@ -186,16 +165,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading, 
       profile, 
       roles,
-      role: primaryRole,
       defaultRole,
       isApproved,
       signOut,
       setDefaultRole,
       hasLMSAccess,
       hasEMAccess,
-      hasEventsAccess,
       hasAttendeeAccess,
-      hasDualAccess,
       accessibleAreas,
       hasRole,
       hasAnyRole,

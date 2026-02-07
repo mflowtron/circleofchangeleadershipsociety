@@ -91,28 +91,20 @@ export default function Auth() {
       });
       setLoading(false);
     } else if (data.user) {
-      // Fetch profile and role to determine correct redirect
-      const [profileResult, roleResult] = await Promise.all([
-        supabase.from('profiles').select('is_approved').eq('user_id', data.user.id).single(),
-        supabase.from('user_roles').select('role').eq('user_id', data.user.id).single()
-      ]);
+      // Fetch profile to check approval status
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('is_approved')
+        .eq('user_id', data.user.id)
+        .single();
       
-      const isApproved = profileResult.data?.is_approved ?? false;
-      const role = roleResult.data?.role;
+      const isApproved = profileData?.is_approved ?? false;
       
       if (!isApproved) {
         navigate('/pending-approval');
       } else {
-        const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
-        const hasEventsAccess = role === 'admin' || role === 'event_organizer';
-        
-        if (hasLMSAccess && hasEventsAccess) {
-          navigate('/select-dashboard');
-        } else if (hasEventsAccess && !hasLMSAccess) {
-          navigate('/events/manage');
-        } else {
-          navigate('/');
-        }
+        // Redirect to root - let RootRouter handle routing based on roles
+        navigate('/');
       }
       setLoading(false);
     }
