@@ -31,7 +31,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, CheckCircle, Clock, Users as UsersIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { toast } from 'sonner';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -138,17 +137,14 @@ export default function Users() {
         .update({ chapter_id: editChapter === 'none' ? null : editChapter })
         .eq('user_id', editingUser.user_id);
 
-      showToast({
-        title: 'User updated',
+      toast.success('User updated', {
         description: 'User role and chapter have been updated.',
       });
 
       setEditingUser(null);
       queryClient.invalidateQueries({ queryKey: ['all-users-with-approval'] });
     } catch (error: any) {
-      showToast({
-        variant: 'destructive',
-        title: 'Error updating user',
+      toast.error('Error updating user', {
         description: error.message,
       });
     }
