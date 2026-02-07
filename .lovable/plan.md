@@ -1,194 +1,315 @@
 
 
-# Optimize Messaging Performance
+# Add Message Reactions
 
-## Analysis Summary
+## Overview
 
-After reviewing the entire messaging codebase, I've identified **critical N+1 query problems** in the backend Edge Functions that are the primary cause of slow performance. The frontend has some minor inefficiencies, but the backend is the main bottleneck.
-
----
-
-## Performance Issues Identified
-
-### Critical: N+1 Query Problems in Edge Functions
-
-| Function | Issue | Impact |
-|----------|-------|--------|
-| `get-conversation-messages` | For each message, makes 2-6 separate DB queries to fetch sender info, profiles, and reply data | 50 messages = 100-300 queries |
-| `get-attendee-conversations` | For each conversation, makes 4-6 separate queries for last message, unread count, other participant, participant count | 10 conversations = 40-60 queries |
-
-### Moderate: Frontend Re-renders
-
-| Component | Issue | Impact |
-|-----------|-------|--------|
-| `useConversations` | Realtime subscription on ALL messages triggers full refetch | Frequent unnecessary API calls |
-| `Conversation.tsx` | Fetches all conversations just to find one by ID | Redundant data fetching |
-| `MessageBubble` | Not memoized; re-renders on any parent state change | Minor UI performance impact |
-
-### Minor: Missing Index
-
-| Table | Column | Query Pattern |
-|-------|--------|---------------|
-| `attendee_messages` | `sender_attendee_id` | Filtered in unread count queries |
+Add emoji reactions (like, heart, thumbs up, etc.) to messages, allowing attendees to quickly respond to messages without typing a full reply. This is a common feature in modern messaging apps like Slack, iMessage, and WhatsApp.
 
 ---
 
-## Solution: Batch Queries in Edge Functions
+## User Experience
 
-### 1. Optimize `get-conversation-messages` (High Impact)
+### Adding a Reaction
+- Long-press (mobile) or hover (desktop) on a message reveals a reaction picker
+- Quick-access emoji bar shows common reactions: 👍 ❤️ 😂 😮 😢 🎉
+- Tapping an emoji adds the reaction immediately (optimistic UI)
+- Tapping the same emoji again removes the reaction
 
-**Current approach** (N+1 pattern):
-```
-For each message:
-  → Query attendees table
-  → Query attendee_profiles table
-  → If reply: Query attendee_messages
-  → If reply from attendee: Query attendee_profiles again
-```
+### Viewing Reactions
+- Reactions appear below the message bubble as small emoji chips
+- Each chip shows the emoji and count (e.g., "👍 3")
+- Tapping a reaction chip shows who reacted (optional enhancement)
 
-**Optimized approach** (Batch queries):
+### Visual Design
 ```text
-1. Fetch all messages in one query
-2. Collect unique sender_attendee_ids and sender_speaker_ids
-3. Batch fetch all attendees in one query
-4. Batch fetch all profiles in one query
-5. Batch fetch all speakers in one query
-6. Collect unique reply_to_ids, batch fetch original messages
-7. Enrich messages in memory using lookup maps
+┌─────────────────────────────────────┐
+│  Great presentation today!          │
+└─────────────────────────────────────┘
+  [👍 2] [❤️ 1]          3:42 PM
+
+     ↓ Long-press shows picker ↓
+
+┌─────────────────────────────────────┐
+│  Great presentation today!          │
+└─────────────────────────────────────┘
+    ┌────────────────────────┐
+    │ 👍  ❤️  😂  😮  😢  🎉 │
+    └────────────────────────┘
 ```
-
-### 2. Optimize `get-attendee-conversations` (High Impact)
-
-**Current approach** (N+1 pattern):
-```
-For each conversation:
-  → Query last message
-  → Query unread count
-  → Query other participants
-  → Query attendee/speaker info for other participant
-  → Query participant count
-```
-
-**Optimized approach**:
-```text
-1. Get all participant records for user in one query
-2. Get all conversations in one query
-3. Batch query last messages (WHERE conversation_id IN (...))
-4. Use a single aggregated query for unread counts
-5. Batch query all other participants
-6. Batch query all attendee/speaker info
-7. Assemble results in memory
-```
-
-### 3. Optimize Frontend Realtime Subscriptions
-
-**Current**: Subscribes to ALL `attendee_messages` inserts globally, which triggers refetch even for unrelated conversations.
-
-**Optimized**: Filter realtime subscription by `event_id` or user's conversation IDs to reduce unnecessary triggers.
-
-### 4. Memoize React Components
-
-Add `React.memo` to `MessageBubble` and `ConversationCard` to prevent unnecessary re-renders.
-
-### 5. Add Missing Database Index
-
-Add index on `attendee_messages.sender_attendee_id` for faster unread count filtering.
 
 ---
 
-## Files to Modify
+## Database Schema
 
-| File | Changes |
-|------|---------|
-| `supabase/functions/get-conversation-messages/index.ts` | Rewrite with batch queries using lookup maps |
-| `supabase/functions/get-attendee-conversations/index.ts` | Rewrite with batch queries for all enrichment |
-| `src/components/attendee/MessageBubble.tsx` | Wrap with `React.memo` |
-| `src/components/attendee/ConversationCard.tsx` | Wrap with `React.memo` |
-| `src/hooks/useConversations.ts` | Scope realtime subscription more narrowly |
-| New migration | Add index on `sender_attendee_id` |
+### New Table: `message_reactions`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uuid | Primary key |
+| `message_id` | uuid | FK to attendee_messages |
+| `attendee_id` | uuid | FK to attendees (who reacted) |
+| `speaker_id` | uuid | FK to speakers (if speaker reacted) |
+| `emoji` | text | The emoji character (e.g., "👍") |
+| `created_at` | timestamptz | When reaction was added |
+
+**Constraints:**
+- Unique constraint on (message_id, attendee_id, emoji) - one reaction type per person per message
+- Either attendee_id OR speaker_id must be set (not both)
+
+**Indexes:**
+- Index on `message_id` for fast reaction lookups
+- Composite index on `(message_id, emoji)` for aggregation
 
 ---
 
-## Technical Implementation
+## Implementation Details
 
-### Batch Query Pattern for Messages
-
-```typescript
-// 1. Fetch all messages
-const { data: messages } = await supabase
-  .from('attendee_messages')
-  .select('*')
-  .eq('conversation_id', conversation_id)
-  .order('created_at', { ascending: false })
-  .limit(limit);
-
-// 2. Collect unique IDs
-const attendeeIds = [...new Set(messages.filter(m => m.sender_attendee_id).map(m => m.sender_attendee_id))];
-const speakerIds = [...new Set(messages.filter(m => m.sender_speaker_id).map(m => m.sender_speaker_id))];
-const replyIds = [...new Set(messages.filter(m => m.reply_to_id).map(m => m.reply_to_id))];
-
-// 3. Batch fetch (3 queries instead of 50-300)
-const [attendees, profiles, speakers, replyMessages] = await Promise.all([
-  supabase.from('attendees').select('id, attendee_name').in('id', attendeeIds),
-  supabase.from('attendee_profiles').select('attendee_id, display_name, avatar_url').in('attendee_id', attendeeIds),
-  supabase.from('speakers').select('id, name, photo_url, title, company').in('id', speakerIds),
-  supabase.from('attendee_messages').select('id, content, sender_attendee_id, sender_speaker_id').in('id', replyIds)
-]);
-
-// 4. Build lookup maps for O(1) access
-const attendeeMap = new Map(attendees.data?.map(a => [a.id, a]));
-const profileMap = new Map(profiles.data?.map(p => [p.attendee_id, p]));
-const speakerMap = new Map(speakers.data?.map(s => [s.id, s]));
-const replyMap = new Map(replyMessages.data?.map(m => [m.id, m]));
-
-// 5. Enrich messages in memory (no additional queries)
-const enrichedMessages = messages.map(msg => {
-  // Use maps for instant lookup...
-});
-```
-
-### Optimized Unread Count Query
-
-Instead of one query per conversation, use a single aggregated query:
+### 1. Database Migration
 
 ```sql
-SELECT 
-  conversation_id,
-  COUNT(*) as unread_count
-FROM attendee_messages
-WHERE conversation_id = ANY($1)
-  AND is_deleted = false
-  AND sender_attendee_id != $2
-  AND created_at > (
-    SELECT last_read_at FROM conversation_participants 
-    WHERE conversation_id = attendee_messages.conversation_id 
-    AND attendee_id = $2
+-- Create message_reactions table
+CREATE TABLE public.message_reactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id uuid NOT NULL REFERENCES public.attendee_messages(id) ON DELETE CASCADE,
+  attendee_id uuid REFERENCES public.attendees(id) ON DELETE CASCADE,
+  speaker_id uuid REFERENCES public.speakers(id) ON DELETE CASCADE,
+  emoji text NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  
+  -- Only one reaction type per person per message
+  CONSTRAINT unique_attendee_reaction UNIQUE (message_id, attendee_id, emoji),
+  CONSTRAINT unique_speaker_reaction UNIQUE (message_id, speaker_id, emoji),
+  
+  -- Must have either attendee or speaker
+  CONSTRAINT sender_check CHECK (
+    (attendee_id IS NOT NULL AND speaker_id IS NULL) OR
+    (attendee_id IS NULL AND speaker_id IS NOT NULL)
   )
-GROUP BY conversation_id
+);
+
+-- Indexes for performance
+CREATE INDEX idx_message_reactions_message ON public.message_reactions(message_id);
+CREATE INDEX idx_message_reactions_message_emoji ON public.message_reactions(message_id, emoji);
+
+-- Enable realtime for reactions
+ALTER PUBLICATION supabase_realtime ADD TABLE public.message_reactions;
+```
+
+### 2. Edge Function: `toggle-message-reaction`
+
+Creates or removes a reaction (toggle behavior):
+
+```typescript
+// Input: { email, session_token, attendee_id, message_id, emoji }
+// 1. Validate session
+// 2. Verify attendee is participant of the message's conversation
+// 3. Check if reaction exists
+//    - If exists: DELETE it
+//    - If not: INSERT it
+// 4. Return updated reaction counts for the message
+```
+
+### 3. Update `get-conversation-messages` Edge Function
+
+Include reaction counts in message response:
+
+```typescript
+// After fetching messages, batch fetch reactions
+const messageIds = messages.map(m => m.id);
+
+// Single query to get all reactions for all messages
+const { data: reactions } = await supabase
+  .from('message_reactions')
+  .select('message_id, emoji, attendee_id, speaker_id')
+  .in('message_id', messageIds);
+
+// Aggregate reactions by message and emoji
+// { "msg-id-1": { "👍": { count: 3, reacted: true }, "❤️": { count: 1, reacted: false } } }
+
+// Include in response:
+// message.reactions: Array<{ emoji: string, count: number, reacted: boolean }>
+```
+
+### 4. Frontend: Update Message Interface
+
+```typescript
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  reacted: boolean; // Did current user react with this emoji?
+}
+
+export interface Message {
+  // ... existing fields
+  reactions?: MessageReaction[];
+}
+```
+
+### 5. Frontend: `useMessageReactions` Hook
+
+```typescript
+function useMessageReactions(conversationId: string) {
+  // Toggle reaction with optimistic update
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    // 1. Optimistically update local state
+    // 2. Call toggle-message-reaction edge function
+    // 3. Revert on error
+  };
+  
+  return { toggleReaction };
+}
+```
+
+### 6. Frontend: `ReactionPicker` Component
+
+A small popup with emoji buttons:
+
+```tsx
+const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
+
+function ReactionPicker({ onSelect, onClose }) {
+  return (
+    <div className="flex gap-1 bg-background border rounded-full px-2 py-1 shadow-lg">
+      {REACTIONS.map(emoji => (
+        <button 
+          key={emoji}
+          onClick={() => onSelect(emoji)}
+          className="p-1 hover:bg-muted rounded-full text-lg"
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+### 7. Frontend: `ReactionBar` Component
+
+Shows existing reactions below a message:
+
+```tsx
+function ReactionBar({ reactions, onToggle }) {
+  return (
+    <div className="flex gap-1 mt-1 flex-wrap">
+      {reactions.map(r => (
+        <button
+          key={r.emoji}
+          onClick={() => onToggle(r.emoji)}
+          className={cn(
+            "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs",
+            r.reacted 
+              ? "bg-primary/20 text-primary border border-primary/30" 
+              : "bg-muted text-muted-foreground"
+          )}
+        >
+          <span>{r.emoji}</span>
+          <span>{r.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+### 8. Update `MessageBubble` Component
+
+Add reaction picker trigger and display:
+
+```tsx
+function MessageBubble({ message, showSender, onReaction }) {
+  const [showPicker, setShowPicker] = useState(false);
+  
+  return (
+    <div 
+      onContextMenu={(e) => { e.preventDefault(); setShowPicker(true); }}
+      onTouchStart={/* long press handler */}
+    >
+      {/* Message content */}
+      <div className="bg-muted rounded-2xl px-4 py-2">
+        <p>{message.content}</p>
+      </div>
+      
+      {/* Reactions bar */}
+      {message.reactions?.length > 0 && (
+        <ReactionBar 
+          reactions={message.reactions} 
+          onToggle={(emoji) => onReaction(message.id, emoji)} 
+        />
+      )}
+      
+      {/* Reaction picker popup */}
+      {showPicker && (
+        <ReactionPicker 
+          onSelect={(emoji) => {
+            onReaction(message.id, emoji);
+            setShowPicker(false);
+          }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+    </div>
+  );
+}
 ```
 
 ---
 
-## Expected Performance Improvement
+## Realtime Updates
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| `get-conversation-messages` (50 msgs) | 100-300 queries | 5-8 queries | 95%+ reduction |
-| `get-attendee-conversations` (10 convs) | 40-60 queries | 6-10 queries | 80%+ reduction |
-| Response time | 2-5 seconds | 200-500ms | 4-10x faster |
+Subscribe to reaction changes so all participants see reactions instantly:
+
+```typescript
+// In useMessages hook
+supabase
+  .channel(`reactions-${conversationId}`)
+  .on('postgres_changes', {
+    event: '*',
+    schema: 'public',
+    table: 'message_reactions',
+    // Filter to only reactions for messages in this conversation
+  }, () => {
+    // Refetch messages or update reaction counts locally
+  })
+  .subscribe();
+```
 
 ---
 
-## Implementation Order
+## Files to Create/Modify
 
-1. **Backend Edge Functions** (highest impact)
-   - Optimize `get-conversation-messages` with batch queries
-   - Optimize `get-attendee-conversations` with batch queries
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/migrations/xxx_add_message_reactions.sql` | Create | New table and indexes |
+| `supabase/functions/toggle-message-reaction/index.ts` | Create | Toggle reaction endpoint |
+| `supabase/functions/get-conversation-messages/index.ts` | Modify | Include reaction data |
+| `src/hooks/useMessages.ts` | Modify | Add reaction interfaces and toggle function |
+| `src/components/attendee/ReactionPicker.tsx` | Create | Emoji picker popup |
+| `src/components/attendee/ReactionBar.tsx` | Create | Display reactions below message |
+| `src/components/attendee/MessageBubble.tsx` | Modify | Integrate picker and bar |
+| `src/pages/attendee/Conversation.tsx` | Modify | Pass reaction handler to bubbles |
 
-2. **Database**
-   - Add index on `sender_attendee_id`
+---
 
-3. **Frontend** (lower impact)
-   - Memoize components
-   - Scope realtime subscriptions
+## Technical Considerations
+
+### Performance
+- Reactions are fetched in batch with messages (no N+1)
+- Aggregation done in memory after single query
+- Realtime only triggers for relevant conversations
+
+### Optimistic UI
+- Reaction appears/disappears immediately on tap
+- Reverts if API call fails with toast notification
+
+### Mobile UX
+- Long-press to show picker (500ms delay)
+- Picker positioned above/below message based on screen space
+- Backdrop to dismiss picker
+
+### Edge Cases
+- Own messages show reactions on the right side
+- Deleted messages: cascade delete removes reactions
+- Offline: queue reaction and sync when back online (future)
 
