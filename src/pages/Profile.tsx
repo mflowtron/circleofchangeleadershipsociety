@@ -12,7 +12,7 @@ import { User, Mail, Shield, Save, Camera, Loader2, Linkedin, Briefcase, Trash2 
 import { clearAllCaches } from '@/utils/pwaUtils';
 
 export default function Profile() {
-  const { profile, role, user } = useAuth();
+  const { profile, isLMSAdmin, isLMSAdvisor, user } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
   const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedin_url || '');
@@ -165,8 +165,13 @@ export default function Profile() {
     }
   };
 
-  const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Member';
-  const roleColor = role === 'admin' ? 'bg-primary text-primary-foreground' : role === 'advisor' ? 'bg-secondary text-secondary-foreground' : 'bg-muted text-muted-foreground';
+  // Determine role label and styling
+  const getRoleInfo = () => {
+    if (isLMSAdmin) return { label: 'Admin', color: 'bg-primary text-primary-foreground' };
+    if (isLMSAdvisor) return { label: 'Advisor', color: 'bg-secondary text-secondary-foreground' };
+    return { label: 'Student', color: 'bg-muted text-muted-foreground' };
+  };
+  const { label: roleLabel, color: roleColor } = getRoleInfo();
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

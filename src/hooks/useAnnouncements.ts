@@ -24,7 +24,7 @@ export function useAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [allAnnouncements, setAllAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, role } = useAuth();
+  const { user, isLMSAdmin } = useAuth();
   const { toast } = useToast();
 
   const fetchAnnouncements = useCallback(async () => {
@@ -65,7 +65,7 @@ export function useAnnouncements() {
   }, [user, fetchAnnouncements]);
 
   const createAnnouncement = async (data: CreateAnnouncementData) => {
-    if (!user || role !== 'admin') return;
+    if (!user || !isLMSAdmin) return;
 
     const { error } = await supabase
       .from('lms_announcements')
@@ -94,7 +94,7 @@ export function useAnnouncements() {
   };
 
   const updateAnnouncement = async (id: string, data: Partial<CreateAnnouncementData>) => {
-    if (!user || role !== 'admin') return;
+    if (!user || !isLMSAdmin) return;
 
     const { error } = await supabase
       .from('lms_announcements')
@@ -118,7 +118,7 @@ export function useAnnouncements() {
   };
 
   const deleteAnnouncement = async (id: string) => {
-    if (!user || role !== 'admin') return;
+    if (!user || !isLMSAdmin) return;
 
     const { error } = await supabase
       .from('lms_announcements')

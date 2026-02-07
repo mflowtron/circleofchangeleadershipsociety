@@ -438,7 +438,9 @@ export type Database = {
           order_id: string
           order_item_id: string
           ticket_type_id: string
+          track_access: string[] | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           additional_info?: Json | null
@@ -450,7 +452,9 @@ export type Database = {
           order_id: string
           order_item_id: string
           ticket_type_id: string
+          track_access?: string[] | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           additional_info?: Json | null
@@ -462,7 +466,9 @@ export type Database = {
           order_id?: string
           order_item_id?: string
           ticket_type_id?: string
+          track_access?: string[] | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1275,6 +1281,7 @@ export type Database = {
           avatar_url: string | null
           chapter_id: string | null
           created_at: string
+          default_role: string | null
           full_name: string
           headline: string | null
           id: string
@@ -1287,6 +1294,7 @@ export type Database = {
           avatar_url?: string | null
           chapter_id?: string | null
           created_at?: string
+          default_role?: string | null
           full_name: string
           headline?: string | null
           id?: string
@@ -1299,6 +1307,7 @@ export type Database = {
           avatar_url?: string | null
           chapter_id?: string | null
           created_at?: string
+          default_role?: string | null
           full_name?: string
           headline?: string | null
           id?: string
@@ -1483,6 +1492,9 @@ export type Database = {
       generate_order_number: { Args: never; Returns: string }
       get_post_like_count: { Args: { post_uuid: string }; Returns: number }
       get_user_chapter: { Args: { _user_id: string }; Returns: string }
+      has_any_attendee_role: { Args: { _user_id: string }; Returns: boolean }
+      has_any_em_role: { Args: { _user_id: string }; Returns: boolean }
+      has_any_lms_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1495,6 +1507,7 @@ export type Database = {
         Args: { _chapter_id: string; _user_id: string }
         Returns: boolean
       }
+      is_any_admin: { Args: { _user_id: string }; Returns: boolean }
       is_event_owner: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
@@ -1521,7 +1534,19 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "advisor" | "student" | "event_organizer"
+      app_role:
+        | "admin"
+        | "advisor"
+        | "student"
+        | "event_organizer"
+        | "lms_student"
+        | "lms_advisor"
+        | "lms_admin"
+        | "em_advisor"
+        | "em_manager"
+        | "em_admin"
+        | "attendee_student"
+        | "attendee_advisor"
       moderation_status: "pending" | "approved" | "flagged" | "auto_flagged"
       order_status: "pending" | "completed" | "cancelled" | "refunded"
     }
@@ -1651,7 +1676,20 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "advisor", "student", "event_organizer"],
+      app_role: [
+        "admin",
+        "advisor",
+        "student",
+        "event_organizer",
+        "lms_student",
+        "lms_advisor",
+        "lms_admin",
+        "em_advisor",
+        "em_manager",
+        "em_admin",
+        "attendee_student",
+        "attendee_advisor",
+      ],
       moderation_status: ["pending", "approved", "flagged", "auto_flagged"],
       order_status: ["pending", "completed", "cancelled", "refunded"],
     },

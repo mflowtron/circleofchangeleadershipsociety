@@ -78,21 +78,12 @@ export default function AuthCallback() {
           }
 
           const isApproved = profileResult.data?.is_approved ?? false;
-          const role = roleResult.data?.role;
 
           if (!isApproved) {
             navigate('/pending-approval', { replace: true });
           } else {
-            const hasLMSAccess = role === 'admin' || role === 'advisor' || role === 'student';
-            const hasEventsAccess = role === 'admin' || role === 'event_organizer';
-
-            if (hasLMSAccess && hasEventsAccess) {
-              navigate('/select-dashboard', { replace: true });
-            } else if (hasEventsAccess && !hasLMSAccess) {
-              navigate('/events/manage', { replace: true });
-            } else {
-              navigate('/', { replace: true });
-            }
+            // Let the RootRouter handle the routing based on roles
+            navigate('/', { replace: true });
           }
         } else {
           // No session, redirect to auth

@@ -54,9 +54,9 @@ if (typeof document !== 'undefined') {
 const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProps) {
   const [showComments, setShowComments] = useState(post.comments_count > 0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const { user, role } = useAuth();
+  const { user, isLMSAdmin } = useAuth();
 
-  const canDelete = user?.id === post.user_id || role === 'admin';
+  const canDelete = user?.id === post.user_id || isLMSAdmin;
   const initials = post.author.full_name
     .split(' ')
     .map((n) => n[0])

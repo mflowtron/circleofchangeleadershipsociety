@@ -23,42 +23,49 @@ import { useSidebar } from '@/contexts/SidebarContext';
 
 const navItems = {
   student: [
-    { path: '/', label: 'Feed', icon: Home },
-    { path: '/recordings', label: 'Recordings', icon: Video },
-    { path: '/lms-events', label: 'Events', icon: CalendarDays },
-    { path: '/profile', label: 'Profile', icon: User },
+    { path: '/lms', label: 'Feed', icon: Home },
+    { path: '/lms/recordings', label: 'Recordings', icon: Video },
+    { path: '/lms/events', label: 'Events', icon: CalendarDays },
+    { path: '/lms/profile', label: 'Profile', icon: User },
   ],
   advisor: [
-    { path: '/', label: 'Feed', icon: Home },
-    { path: '/recordings', label: 'Recordings', icon: Video },
-    { path: '/lms-events', label: 'Events', icon: CalendarDays },
-    { path: '/my-chapter', label: 'My Chapter', icon: BookOpen },
-    { path: '/profile', label: 'Profile', icon: User },
+    { path: '/lms', label: 'Feed', icon: Home },
+    { path: '/lms/recordings', label: 'Recordings', icon: Video },
+    { path: '/lms/events', label: 'Events', icon: CalendarDays },
+    { path: '/lms/my-chapter', label: 'My Chapter', icon: BookOpen },
+    { path: '/lms/profile', label: 'Profile', icon: User },
   ],
   admin: [
-    { path: '/', label: 'Feed', icon: Home },
-    { path: '/admin', label: 'Activity', icon: Activity },
-    { path: '/recordings', label: 'Recordings', icon: Video },
-    { path: '/lms-events', label: 'Events', icon: CalendarDays },
-    { path: '/announcements', label: 'Announcements', icon: Megaphone },
-    { path: '/users', label: 'Users', icon: Users },
-    { path: '/chapters', label: 'Chapters', icon: BookOpen },
-    { path: '/moderation', label: 'Moderation', icon: Shield },
-    { path: '/profile', label: 'Profile', icon: User },
+    { path: '/lms', label: 'Feed', icon: Home },
+    { path: '/lms/admin', label: 'Activity', icon: Activity },
+    { path: '/lms/recordings', label: 'Recordings', icon: Video },
+    { path: '/lms/events', label: 'Events', icon: CalendarDays },
+    { path: '/lms/admin/announcements', label: 'Announcements', icon: Megaphone },
+    { path: '/lms/admin/users', label: 'Users', icon: Users },
+    { path: '/lms/admin/chapters', label: 'Chapters', icon: BookOpen },
+    { path: '/lms/admin/moderation', label: 'Moderation', icon: Shield },
+    { path: '/lms/profile', label: 'Profile', icon: User },
   ],
 };
 
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { role, hasEventsAccess } = useAuth();
+  const { isLMSAdmin, isLMSAdvisor, hasEventsAccess } = useAuth();
   const { isOpen, setIsOpen } = useSidebar();
   const { resolvedTheme } = useTheme();
   
   const isDark = resolvedTheme === 'dark';
   const logo = isDark ? logoDark : logoLight;
   
-  const items = navItems[role as keyof typeof navItems] || navItems.student;
+  // Determine which nav items to show based on role level
+  const getNavItems = () => {
+    if (isLMSAdmin) return navItems.admin;
+    if (isLMSAdvisor) return navItems.advisor;
+    return navItems.student;
+  };
+  
+  const items = getNavItems();
 
   const handleSwitchToEvents = () => {
     setIsOpen(false);

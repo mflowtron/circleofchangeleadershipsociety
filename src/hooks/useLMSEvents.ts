@@ -30,9 +30,9 @@ export interface UpdateLMSEventInput extends Partial<CreateLMSEventInput> {
 }
 
 export function useLMSEvents() {
-  const { user, role } = useAuth();
+  const { user, isLMSAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const isAdmin = role === 'admin';
+  const isAdmin = isLMSAdmin;
 
   // Fetch events - admins see all, others see only active
   const {

@@ -36,15 +36,15 @@ export default function Recordings() {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
-  const { role } = useAuth();
+  const { isLMSAdmin, isLMSAdvisor } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
 
-  const canUpload = role === 'admin' || role === 'advisor';
-  const canDelete = role === 'admin';
-  const canReorder = role === 'admin';
-  const canManageResources = role === 'admin' || role === 'advisor';
+  const canUpload = isLMSAdmin || isLMSAdvisor;
+  const canDelete = isLMSAdmin;
+  const canReorder = isLMSAdmin;
+  const canManageResources = isLMSAdmin || isLMSAdvisor;
 
   const deleteRecording = async (recordingId: string, e: React.MouseEvent) => {
     e.stopPropagation();
