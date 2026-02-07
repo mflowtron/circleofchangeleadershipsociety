@@ -1,141 +1,131 @@
 
 
-# Fix Sidebars and Other Elements to Respect Mobile Safe Areas
+# Fix Stretched Switch Component on iPhone
 
 ## Problem
 
-The sidebars (both LMS Sidebar and Events Dashboard Sidebar) are positioned as `fixed top-0 left-0` but don't account for the safe area inset at the top. This causes their content (logo, close button, navigation items) to appear behind the iOS notch/Dynamic Island.
+The Switch component (used for "Active" toggles) appears stretched or "smooshed" on iPhone devices. This happens in several places throughout the app where the Switch is used:
 
-Additionally, I found a couple of other issues:
-1. The `FloatingTicketBar` uses a class `safe-area-inset-bottom` which doesn't exist in Tailwind config - it has no effect
-2. The `AttendeeLayout` header doesn't account for safe area insets at the top
+- LMS Events form (Active toggle)
+- Announcements page (inline toggle)
+- Create Announcement form
+- Edit Announcement dialog
+- Attendee Profile (Open to Networking toggle)
+- Event Form (Published toggle)
+- Agenda Item Form (toggle)
 
-## Analysis
+## Root Cause
 
-The app uses `viewport-fit=cover` in `index.html` which allows content to extend into safe areas. This is correct and needed for the `env()` CSS function to return non-zero values. However, several fixed-position elements need explicit padding to push their content out of safe areas.
+On iOS Safari, flex containers can sometimes cause sizing issues with inline-flex elements, even with `shrink-0` applied. The Switch needs explicit fixed dimensions that cannot be overridden by parent containers.
 
-Current safe area handling in the codebase:
+## Solution
 
-| Component | Top Safe Area | Bottom Safe Area |
-|-----------|--------------|------------------|
-| Header.tsx | Uses inline style | N/A |
-| EventsDashboardHeader.tsx | Uses inline style | N/A |
-| Sidebar.tsx | Missing | N/A |
-| EventsDashboardSidebar.tsx | Missing | N/A |
-| AttendeeLayout header | Missing | N/A |
-| BottomNavigation.tsx | N/A | Uses inline style |
-| MessageInput.tsx | N/A | Uses inline style |
-| FloatingTicketBar.tsx | N/A | Uses non-existent class |
-| Conversation.tsx | Uses inline style | N/A |
+Update the Switch component in `src/components/ui/switch.tsx` to have more robust fixed sizing:
 
----
-
-## Files to Modify
-
-### 1. `src/components/layout/Sidebar.tsx`
-
-Add `paddingTop` for safe area inset to the header section (the first child div containing the logo) so content doesn't appear behind the notch:
-
-**Line 120** - Update the header div to include safe area padding:
-
+### Current Switch styling:
 ```tsx
-// Before (line 120):
-<div className="p-5 flex items-center justify-between border-b border-sidebar-border/50">
+// Root element
+"peer inline-flex h-6 w-11 shrink-0 cursor-pointer..."
 
-// After:
-<div 
-  className="p-5 flex items-center justify-between border-b border-sidebar-border/50"
-  style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
->
+// Thumb element  
+"pointer-events-none block h-5 w-5 rounded-full..."
 ```
 
-Using `max(1.25rem, env(safe-area-inset-top))` ensures:
-- On devices with safe areas: uses the safe area inset value
-- On devices/browsers without safe areas: maintains the existing 20px (1.25rem = p-5) padding
-
----
-
-### 2. `src/components/events/EventsDashboardSidebar.tsx`
-
-Same fix - add `paddingTop` for safe area inset to the header section:
-
-**Line 78** - Update the header div:
-
+### Fixed Switch styling:
 ```tsx
-// Before (line 78):
-<div className="p-4 flex items-center justify-between border-b border-sidebar-border/50">
+// Root element - add explicit min/max dimensions and box-sizing
+"peer inline-flex shrink-0 cursor-pointer items-center rounded-full 
+ border-2 border-transparent transition-colors 
+ data-[state=checked]:bg-primary data-[state=unchecked]:bg-input..."
+// Plus inline style for fixed dimensions
 
-// After:
-<div 
-  className="p-4 flex items-center justify-between border-b border-sidebar-border/50"
-  style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
->
+// Thumb element - add explicit min/max dimensions
+"pointer-events-none block rounded-full bg-background shadow-lg ring-0 
+ transition-transform data-[state=checked]:translate-x-5 
+ data-[state=unchecked]:translate-x-0"
+// Plus inline style for fixed dimensions
 ```
 
 ---
 
-### 3. `src/components/attendee/AttendeeLayout.tsx`
+## File to Modify
 
-The attendee app header needs safe area handling for the top:
+### `src/components/ui/switch.tsx`
 
-**Line 27** - Update the header element:
+Add inline styles to both the Root and Thumb elements to enforce fixed pixel dimensions that cannot be overridden:
+
+**Root element changes:**
+- Add `style` prop with explicit `width`, `minWidth`, `maxWidth`, `height`, `minHeight`, `maxHeight`
+- Remove Tailwind `h-6 w-11` classes (use inline styles instead for stronger enforcement)
+
+**Thumb element changes:**
+- Add `style` prop with explicit `width`, `minWidth`, `maxWidth`, `height`, `minHeight`, `maxHeight`
+- Remove Tailwind `h-5 w-5` classes
+
+This approach uses inline styles which have higher specificity than Tailwind classes and cannot be accidentally overridden by parent flex layouts on iOS.
+
+---
+
+## Updated Code
 
 ```tsx
-// Before (line 27):
-<header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-
-// After:
-<header 
-  className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border"
-  style={{ paddingTop: 'env(safe-area-inset-top)' }}
->
+const Switch = React.forwardRef<
+  React.ElementRef<typeof SwitchPrimitives.Root>,
+  React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>
+>(({ className, ...props }, ref) => (
+  <SwitchPrimitives.Root
+    className={cn(
+      "peer inline-flex shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors data-[state=checked]:bg-primary data-[state=unchecked]:bg-input focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+      className,
+    )}
+    style={{
+      width: '44px',
+      minWidth: '44px',
+      maxWidth: '44px',
+      height: '24px',
+      minHeight: '24px',
+      maxHeight: '24px',
+      flexShrink: 0,
+      flexGrow: 0,
+    }}
+    {...props}
+    ref={ref}
+  >
+    <SwitchPrimitives.Thumb
+      className={cn(
+        "pointer-events-none block rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0",
+      )}
+      style={{
+        width: '20px',
+        minWidth: '20px',
+        maxWidth: '20px',
+        height: '20px',
+        minHeight: '20px',
+        maxHeight: '20px',
+      }}
+    />
+  </SwitchPrimitives.Root>
+));
 ```
 
 ---
 
-### 4. `src/components/events/FloatingTicketBar.tsx`
+## Why This Fix Works
 
-Fix the non-working `safe-area-inset-bottom` class by using proper inline style:
+| Aspect | Before | After |
+|--------|--------|-------|
+| Root dimensions | Tailwind classes `h-6 w-11` (can be affected by flex) | Inline styles with explicit min/max (cannot be overridden) |
+| Thumb dimensions | Tailwind classes `h-5 w-5` | Inline styles with explicit min/max |
+| Flex behavior | Only `shrink-0` class | Inline `flexShrink: 0` and `flexGrow: 0` for extra safety |
 
-**Line 47** - Update the inner div:
-
-```tsx
-// Before (line 47):
-<div className="glass border-t border-border/50 p-4 safe-area-inset-bottom">
-
-// After:
-<div 
-  className="glass border-t border-border/50 p-4"
-  style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
->
-```
-
----
-
-## Summary of Changes
-
-| File | Change |
-|------|--------|
-| `src/components/layout/Sidebar.tsx` | Add safe area top padding to header div |
-| `src/components/events/EventsDashboardSidebar.tsx` | Add safe area top padding to header div |
-| `src/components/attendee/AttendeeLayout.tsx` | Add safe area top padding to header element |
-| `src/components/events/FloatingTicketBar.tsx` | Replace non-working class with inline style |
-
----
-
-## Technical Details
-
-- **`env(safe-area-inset-top)`**: CSS environment variable for top edge safe area (notch, Dynamic Island). Returns `0px` on devices without safe areas.
-- **`max(value, env(...))`**: Ensures minimum padding is maintained when no safe area exists, preventing layout shifts.
-- **Inline styles**: Used consistently throughout the codebase for safe area handling as CSS env() functions work reliably this way.
-- **Natively compatibility**: This approach is fully compatible with Natively-wrapped native apps. The `viewport-fit=cover` meta tag is already configured, and the `env()` CSS function is the standard, native way to handle safe areas in iOS WebViews.
+Using inline styles is the most reliable approach for fixed-dimension UI elements that must maintain their size across all browsers and devices, especially in WebViews used by Natively for native mobile apps.
 
 ---
 
 ## Expected Results
 
-- LMS sidebar content will appear below the notch/Dynamic Island
-- Events dashboard sidebar content will appear below the notch
-- Attendee app header will respect the top safe area
-- Floating ticket bar will properly account for bottom safe area on devices with home indicators
+- Switch will maintain its exact 44x24px dimensions on all devices
+- Thumb will maintain its exact 20x20px dimensions
+- Switch will render correctly on iPhone regardless of parent flex container
+- All existing Switch usages throughout the app will automatically benefit from this fix
 
