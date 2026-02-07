@@ -1,137 +1,155 @@
 
 
-# Create "First Gen 2026" Test Event with Mock Data
+# Create Mock Agenda and Speakers for First Gen 2026
 
 ## Overview
 
-Based on the First-Generation Student Career Leadership Experience website, I'll create a comprehensive test event with realistic mock data including:
-- 1 Event record
-- 4 Ticket types (matching the conference structure)
-- 2 Hotel records
-- ~20 Orders (simulating group registrations from various schools)
-- ~100 Attendees (distributed across orders)
+Based on the conference website, I'll create a comprehensive set of speakers and a full 3-day agenda for the "First Gen 2026" event (ID: `2e062f79-1693-4883-a3c5-623121810c57`).
 
 ---
 
-## Event Details (from website)
+## Speakers to Create (30 total)
 
-| Field | Value |
-|-------|-------|
-| Title | 2026 First-Generation Student Career Leadership Experience |
-| Slug | first-gen-2026 |
-| Venue | Florida International University Biscayne Bay Campus |
-| Address | 3000 NE 151st St, North Miami, FL 33181 |
-| Dates | April 17-19, 2026 |
-| Description | Three-day career leadership experience for first-generation students |
+### Keynote Speakers (6)
+| Name | Title | Company |
+|------|-------|---------|
+| Dr. Joshua Fredenburg | President | Circle of Change Leadership Experience |
+| Tish Norman | Founder and Principal Consultant | Transforming Leaders Now, Inc |
+| Dr. Tierney Bates | Vice Chancellor for Student Affairs | University of South Carolina Upstate |
+| David Coleman | Nationally Recognized Speaker | Coleman Speaks |
+| Dr. Alex Ellis | Chief Executive Officer | Tied To Greatness |
+| Silvana Marmelojos | Executive Producer | Living Latina Productions |
+
+### College to Career Panel (5)
+| Name | Title | Company |
+|------|-------|---------|
+| Dr. Paula Hopkins | Sr. Director of Strategy | PepsiCo |
+| Charmion Kinder | Head, Office of Communications | Peace Corps |
+| Beth Elletson | Founder & CEO | Abe |
+| Clara Stroude Vazquez | Chief of Culture and Inclusion | Miami Heat |
+| Johanne Wilson | Chief Creative Director | COOL Creative, Inc. |
+
+### Entertainment Industry Panel (4)
+| Name | Title | Company |
+|------|-------|---------|
+| Melissa Exposito | Managing Director Central America & Caribbean | Sony Music Entertainment |
+| Tricia Patella | Vice President | Spinning Plates Management |
+| Marilyn Santana | Chief Talent Officer & Founder | Blendemos, LLC |
+| Corvaya Jefferies | Strategist & Manager, Audience Development | Revolt Media & TV |
+
+### Business Panel (5)
+| Name | Title | Company |
+|------|-------|---------|
+| Lauren Ziadia | Executive Director, Head of Women Without Limits | Morgan Stanley |
+| Jenny Chen | Head of Marketing (Head of Brand) | Wild Fork |
+| Chandler Bishop | Senior Copywriter | TBWA Chiat Day |
+| Tatiana Oueini | Senior Vice President, People & Culture | Redwood Trust, Inc. |
+| Ana Perez | Senior Manager, Supply Chain | Standard Aero |
+
+### Tech Panel (4)
+| Name | Title | Company |
+|------|-------|---------|
+| Michael Lay | Head of Inter-belief and ERGs | Google |
+| Akwasi Owusu-Ansah | Senior Technical Recruiter | Indeed |
+| Darie Dorlus | Engineering Manager | Gusto |
+| Lacey Elmange | Executive Director | Inspire Leadership Network |
+
+### Healthcare Panel (4)
+| Name | Title | Company |
+|------|-------|---------|
+| Dr. Priscilla Torres | Chief Human Resource Officer | Health Choice Network |
+| Joseph West | Managing Director | Capgenus |
+| Dr. Dominique Leveille | Licensed Marriage And Family Therapist | BlissTherapy.Me |
+| Jerson Dulis | Director of Outreach & Development | Broward Community & Family Health Centers |
+
+### Education Panel (2)
+| Name | Title | Company |
+|------|-------|---------|
+| Dr. Ryan Holmes | Associate Vice President for Student Affairs and Dean of Students | University of Miami |
+| Dr. Janett I. Cordoves | Senior Program Director | Presidents Consortium Institute for Citizens & Scholars |
 
 ---
 
-## Ticket Types to Create
+## Agenda Items to Create
 
-| Name | Price | Description |
-|------|-------|-------------|
-| In-Person - Early Bird | $325.00 | Early bird rate (before Feb 27, 2026) - includes all sessions, workbook, lunch, t-shirt |
-| In-Person - Regular | $350.00 | Standard in-person registration |
-| Virtual - Early Bird | $150.00 | Early bird virtual rate (before Mar 25, 2026) |
-| Virtual - Regular | $225.00 | Standard virtual registration |
+### Day 1: Friday, April 17, 2026 (12 items)
 
----
+| Time | Title | Type | Speaker(s) |
+|------|-------|------|------------|
+| 9:00 AM - 10:30 AM | Morning Keynote: Positioning Yourself for Career Success | session | Dr. Joshua Fredenburg |
+| 10:45 AM - 12:15 PM | Career Development Empowerment Session | session | 4 panelists |
+| 12:15 PM - 1:30 PM | Lunch & Networking | meal | - |
+| 1:30 PM - 2:00 PM | Fire-Side Career Development Chat #1: Tech Industry | session | Michael Lay, Darie Dorlus |
+| 2:15 PM - 2:45 PM | Fire-Side Career Development Chat #2: Entertainment Industry | session | Melissa Exposito, Tricia Patella |
+| 3:00 PM - 3:30 PM | Fire-Side Career Development Chat #3: Q&A Session | session | Panel of speakers |
+| 3:30 PM - 3:45 PM | Snack Break | break | - |
+| 3:45 PM - 4:30 PM | Closing Session & Prize Giveaway | session | Dr. Alex Ellis |
+| 4:30 PM - 5:30 PM | Book-Signing, Networking & Professional Headshots | networking | - |
 
-## Hotels to Create
+### Day 2: Saturday, April 18, 2026 (10 items)
 
-| Hotel | Address | Rate |
-|-------|---------|------|
-| Courtyard by Marriott Miami Aventura Mall | 2825 NE 191st Street, Aventura, FL 33180 | $239/night |
-| Hampton Inn Hallandale Beach-Aventura | 1000 S Federal Hwy, Hallandale Beach, FL 33009 | $199/night |
+| Time | Title | Type | Speaker(s) |
+|------|-------|------|------------|
+| 9:00 AM - 10:30 AM | Morning Keynote: Building Resilience as a First-Gen Professional | session | Tish Norman |
+| 10:45 AM - 12:00 PM | Career Leadership Panel: Business Leaders | session | Business panel (5 speakers) |
+| 12:00 PM - 1:15 PM | Lunch & Interactive Games | meal | - |
+| 1:15 PM - 2:15 PM | Style-Shop: The Ultimate Dress for Success Intensive | session | Silvana Marmelojos |
+| 2:30 PM - 3:30 PM | Career Leadership Panel: Tech Industry | session | Tech panel (4 speakers) |
+| 3:45 PM - 4:30 PM | Career Leadership Panel: Healthcare Industry | session | Healthcare panel (4 speakers) |
+| 4:30 PM - 5:30 PM | First-Gen Career & Leadership Society Induction Ceremony | session | Dr. Joshua Fredenburg |
 
----
+### Day 3: Sunday, April 19, 2026 (3 items)
 
-## Mock Orders Structure
-
-I'll create approximately 20 orders representing different registration scenarios:
-
-| Type | Count | Tickets per Order | Total Attendees |
-|------|-------|-------------------|-----------------|
-| Large university groups | 4 | 10-15 students | ~50 |
-| Medium groups | 6 | 3-5 students | ~24 |
-| Small groups | 5 | 2 students | ~10 |
-| Individual registrations | 5 | 1 student | ~5 |
-| Virtual registrations | 4 | 2-4 students | ~11 |
-
-**Total: ~100 attendees across ~20 orders**
-
----
-
-## Sample Mock Data Sources
-
-Universities for purchaser names and emails:
-- UC Berkeley, UCLA, USC
-- Penn State, University of North Texas
-- Florida International University
-- San Jose State, CSUSB, CSULA
-- Norco College, Northern Virginia CC
-- Various other institutions
-
-First and last name pools for realistic attendee generation.
+| Time | Title | Type | Speaker(s) |
+|------|-------|------|------------|
+| 10:00 AM - 12:00 PM | Miami Beach Day Excursion - Morning Session | networking | - |
+| 12:00 PM - 1:00 PM | Beach Lunch & Networking | meal | - |
+| 1:00 PM - 4:00 PM | Miami Beach Day Excursion - Afternoon Activities | networking | - |
 
 ---
 
 ## Database Operations
 
-### Step 1: Create Event
-Insert into `events` table with the admin user as creator.
+### Step 1: Insert 30 Speakers
+Insert all speakers into the `speakers` table linked to event_id `2e062f79-1693-4883-a3c5-623121810c57` with:
+- Name, title, company
+- Bio generated based on their role
+- Sort order based on category (keynotes first, then panels)
 
-### Step 2: Create Ticket Types
-Insert 4 ticket types linked to the event.
+### Step 2: Insert 22 Agenda Items
+Insert all agenda items into the `agenda_items` table with:
+- Proper timestamps for April 17-19, 2026 (EST timezone)
+- item_type: session, meal, break, or networking
+- Locations assigned (Main Ballroom, Panel Room A, Beach Area, etc.)
+- Track assignments where applicable (Main Track, Industry Panels)
 
-### Step 3: Create Hotels
-Insert 2 hotel records with booking information.
-
-### Step 4: Create Orders
-Generate ~20 orders with:
-- Unique order numbers (ORD-XXXXX format)
-- Status: 'completed'
-- Realistic purchaser names/emails
-- Varied ticket quantities
-
-### Step 5: Create Order Items
-Each order gets corresponding order_items records linking tickets.
-
-### Step 6: Create Attendees
-For each order item, create individual attendee records:
-- Some with names/emails filled in
-- Some blank (simulating pending info)
-- Track access assignments (Student or Advisor)
-- Purchaser flagged with `is_purchaser = true`
+### Step 3: Link Speakers to Agenda Items
+Insert records into `agenda_item_speakers` table to:
+- Assign keynote speakers to their sessions
+- Assign panelists to panel sessions with appropriate roles (speaker, panelist, moderator)
 
 ---
 
 ## SQL Migration Approach
 
-This will be implemented as a database migration with:
+A single SQL migration script will:
 
-1. Event insert returning the new event_id
-2. Ticket type inserts using that event_id
-3. Hotel inserts using that event_id
-4. Order generation using a CTE with generate_series for randomization
-5. Order items creation linked to orders and ticket types
-6. Attendee creation with realistic name distribution
+1. Insert all 30 speakers with realistic bios
+2. Insert all 22 agenda items across 3 days
+3. Create speaker-to-agenda-item linkages with proper roles
 
-The migration will use PostgreSQL features like:
-- `gen_random_uuid()` for IDs
-- `generate_series()` for bulk generation
-- Arrays for name pools
-- Random selection from arrays
+The migration will use CTEs to:
+- Store speaker IDs for reference when linking to agenda items
+- Maintain referential integrity between tables
 
 ---
 
 ## Expected Results
 
 After execution:
-- 1 new event visible in Event Management
-- 4 ticket types available
-- 2 hotels listed in travel info
-- ~20 orders in the Orders dashboard
-- ~100 attendees in the Attendees list
-- Mix of complete and incomplete attendee records for realistic testing
+- 30 speakers visible in the Speakers management page
+- 22 agenda items visible in the Agenda builder (calendar view)
+- Proper speaker assignments showing on each session
+- 3-day agenda spanning April 17-19, 2026
+- Mix of session types: keynotes, panels, meals, breaks, networking
 
