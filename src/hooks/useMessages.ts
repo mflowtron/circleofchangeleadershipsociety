@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAttendee } from '@/contexts/AttendeeContext';
 import { fileToBase64 } from '@/lib/fileUtils';
@@ -47,45 +48,33 @@ export interface Message {
   attachment?: MessageAttachment;
 }
 
+interface MessagesQueryData {
+  messages: Message[];
+  hasMore: boolean;
+}
+
 export function useMessages(conversationId: string | null) {
   const { isAuthenticated, selectedAttendee, getCachedMessages, setCachedMessages } = useAttendee();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [sending, setSending] = useState(false);
+  const queryClient = useQueryClient();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const hasFetchedRef = useRef(false);
 
-  // Initialize from cache immediately (stale-while-revalidate)
-  useEffect(() => {
-    if (conversationId) {
-      const cached = getCachedMessages(conversationId);
-      if (cached && cached.length > 0) {
-        setMessages(cached);
-        setLoading(false); // Show cached data immediately
+  // Main query for fetching messages
+  const {
+    data,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ['messages', conversationId],
+    queryFn: async (): Promise<MessagesQueryData> => {
+      if (!isAuthenticated || !selectedAttendee || !conversationId) {
+        return { messages: [], hasMore: false };
       }
-    }
-  }, [conversationId, getCachedMessages]);
 
-  const fetchMessages = useCallback(async (before?: string) => {
-    if (!isAuthenticated || !selectedAttendee || !conversationId) {
-      setLoading(false);
-      return;
-    }
-
-    // Only show loading spinner if we have no messages currently displayed
-    if (!before && messages.length === 0) {
-      setLoading(true);
-    }
-    setError(null);
-
-    try {
       const { data, error: fetchError } = await supabase.functions.invoke('get-conversation-messages', {
         body: {
           attendee_id: selectedAttendee.id,
           conversation_id: conversationId,
-          before,
           limit: 50
         }
       });
@@ -93,24 +82,31 @@ export function useMessages(conversationId: string | null) {
       if (fetchError) throw fetchError;
       if (data?.error) throw new Error(data.error);
 
-      const newMessages = data?.messages || [];
+      const messages = data?.messages || [];
       
-      if (before) {
-        setMessages(prev => [...newMessages, ...prev]);
-      } else {
-        setMessages(newMessages);
-        // Update cache with fresh data
-        setCachedMessages(conversationId, newMessages);
+      // Update context cache for prefetch feature
+      setCachedMessages(conversationId, messages);
+
+      return {
+        messages,
+        hasMore: data?.has_more || false,
+      };
+    },
+    enabled: !!conversationId && isAuthenticated && !!selectedAttendee,
+    placeholderData: () => {
+      if (!conversationId) return undefined;
+      const cached = getCachedMessages(conversationId);
+      if (cached && cached.length > 0) {
+        return { messages: cached, hasMore: false };
       }
-      setHasMore(data?.has_more || false);
-    } catch (err: any) {
-      console.error('Failed to fetch messages:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, selectedAttendee, conversationId, setCachedMessages]);
+      return undefined;
+    },
+    staleTime: 0, // Always refetch since we have realtime
+  });
+
+  const messages = data?.messages || [];
+  const hasMore = data?.hasMore || false;
+  const error = queryError?.message || null;
 
   // Set up realtime subscription
   useEffect(() => {
@@ -133,7 +129,7 @@ export function useMessages(conversationId: string | null) {
         },
         async (payload) => {
           // Don't add if it's from ourselves (already added optimistically)
-          const newMsg = payload.new as any;
+          const newMsg = payload.new as { sender_attendee_id?: string };
           if (newMsg.sender_attendee_id === selectedAttendee.id) {
             return;
           }
@@ -148,13 +144,17 @@ export function useMessages(conversationId: string | null) {
           });
 
           if (data?.messages?.[0]) {
-            setMessages(prev => {
-              // Check if message already exists
-              if (prev.some(m => m.id === data.messages[0].id)) {
-                return prev;
+            queryClient.setQueryData<MessagesQueryData>(
+              ['messages', conversationId],
+              (old) => {
+                if (!old) return { messages: [data.messages[0]], hasMore: false };
+                // Check if message already exists
+                if (old.messages.some(m => m.id === data.messages[0].id)) {
+                  return old;
+                }
+                return { ...old, messages: [...old.messages, data.messages[0]] };
               }
-              return [...prev, data.messages[0]];
-            });
+            );
           }
         }
       )
@@ -168,54 +168,15 @@ export function useMessages(conversationId: string | null) {
         channelRef.current = null;
       }
     };
-  }, [conversationId, selectedAttendee?.id]);
+  }, [conversationId, selectedAttendee?.id, queryClient]);
 
-  // Fetch fresh messages on mount (after showing cached)
-  const prevConversationIdRef = useRef<string | null>(null);
-  
-  useEffect(() => {
-    // Reset fetch flag only when conversation changes
-    if (conversationId !== prevConversationIdRef.current) {
-      hasFetchedRef.current = false;
-      prevConversationIdRef.current = conversationId;
-    }
-    
-    if (conversationId && !hasFetchedRef.current) {
-      hasFetchedRef.current = true;
-      fetchMessages();
-    }
-  }, [conversationId, fetchMessages]);
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ content, replyToId }: { content: string; replyToId?: string }) => {
+      if (!isAuthenticated || !selectedAttendee || !conversationId) {
+        throw new Error('Not authenticated');
+      }
 
-  const sendMessage = useCallback(async (content: string, replyToId?: string) => {
-    if (!isAuthenticated || !selectedAttendee || !conversationId) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
-    // Create optimistic message with temporary ID
-    const tempId = `temp-${Date.now()}`;
-    const optimisticMessage: Message = {
-      id: tempId,
-      conversation_id: conversationId,
-      content,
-      reply_to_id: replyToId,
-      is_deleted: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      sender: {
-        type: 'attendee',
-        id: selectedAttendee.id,
-        name: selectedAttendee.attendee_name || 'You',
-        avatar_url: undefined,
-      },
-      is_own: true,
-      status: 'sending',
-    };
-
-    // Add to list immediately
-    setMessages(prev => [...prev, optimisticMessage]);
-    setSending(true);
-
-    try {
       const { data, error: sendError } = await supabase.functions.invoke('send-attendee-message', {
         body: {
           attendee_id: selectedAttendee.id,
@@ -228,65 +189,79 @@ export function useMessages(conversationId: string | null) {
       if (sendError) throw sendError;
       if (data?.error) throw new Error(data.error);
 
-      // Replace temp message with real one
-      if (data?.message) {
-        setMessages(prev => prev.map(m => 
-          m.id === tempId 
-            ? { ...data.message, status: 'sent' as const }
-            : m
-        ));
-      }
+      return data?.message;
+    },
+    onMutate: async ({ content, replyToId }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
 
-      return { success: true };
-    } catch (err: any) {
-      console.error('Failed to send message:', err);
+      const tempId = `temp-${Date.now()}`;
+      const optimisticMessage: Message = {
+        id: tempId,
+        conversation_id: conversationId!,
+        content,
+        reply_to_id: replyToId,
+        is_deleted: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        sender: {
+          type: 'attendee',
+          id: selectedAttendee!.id,
+          name: selectedAttendee!.attendee_name || 'You',
+          avatar_url: undefined,
+        },
+        is_own: true,
+        status: 'sending',
+      };
+
+      // Add optimistic message
+      queryClient.setQueryData<MessagesQueryData>(
+        ['messages', conversationId],
+        (old) => ({
+          messages: [...(old?.messages || []), optimisticMessage],
+          hasMore: old?.hasMore || false,
+        })
+      );
+
+      return { tempId };
+    },
+    onSuccess: (serverMessage, _variables, context) => {
+      // Replace temp with real message
+      if (serverMessage && context?.tempId) {
+        queryClient.setQueryData<MessagesQueryData>(
+          ['messages', conversationId],
+          (old) => ({
+            messages: old?.messages.map(m =>
+              m.id === context.tempId ? { ...serverMessage, status: 'sent' as const } : m
+            ) || [],
+            hasMore: old?.hasMore || false,
+          })
+        );
+      }
+    },
+    onError: (_error, _variables, context) => {
       // Mark as failed
-      setMessages(prev => prev.map(m => 
-        m.id === tempId 
-          ? { ...m, status: 'failed' as const }
-          : m
-      ));
-      return { success: false, error: err.message };
-    } finally {
-      setSending(false);
-    }
-  }, [isAuthenticated, selectedAttendee, conversationId]);
-
-  const sendMessageWithAttachment = useCallback(async (content: string, file: File) => {
-    if (!isAuthenticated || !selectedAttendee || !conversationId) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
-    // Create optimistic message with temporary ID
-    const tempId = `temp-${Date.now()}`;
-    const optimisticMessage: Message = {
-      id: tempId,
-      conversation_id: conversationId,
-      content,
-      is_deleted: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      sender: {
-        type: 'attendee',
-        id: selectedAttendee.id,
-        name: selectedAttendee.attendee_name || 'You',
-        avatar_url: undefined,
-      },
-      is_own: true,
-      status: 'sending',
-      attachment: {
-        url: URL.createObjectURL(file),
-        type: file.type,
-        name: file.name,
-        size: file.size
+      if (context?.tempId) {
+        queryClient.setQueryData<MessagesQueryData>(
+          ['messages', conversationId],
+          (old) => ({
+            messages: old?.messages.map(m =>
+              m.id === context.tempId ? { ...m, status: 'failed' as const } : m
+            ) || [],
+            hasMore: old?.hasMore || false,
+          })
+        );
       }
-    };
+    },
+  });
 
-    // Add to list immediately
-    setMessages(prev => [...prev, optimisticMessage]);
-    setSending(true);
+  // Send message with attachment mutation
+  const sendMessageWithAttachmentMutation = useMutation({
+    mutationFn: async ({ content, file }: { content: string; file: File }) => {
+      if (!isAuthenticated || !selectedAttendee || !conversationId) {
+        throw new Error('Not authenticated');
+      }
 
-    try {
       // 1. Upload file to storage via edge function
       const base64File = await fileToBase64(file);
       const { data: uploadData, error: uploadError } = await supabase.functions.invoke('upload-chat-attachment', {
@@ -318,70 +293,80 @@ export function useMessages(conversationId: string | null) {
       if (sendError) throw sendError;
       if (data?.error) throw new Error(data.error);
 
-      // Replace temp message with real one
-      if (data?.message) {
-        setMessages(prev => prev.map(m => 
-          m.id === tempId 
-            ? { ...data.message, status: 'sent' as const }
-            : m
-        ));
-      }
+      return data?.message;
+    },
+    onMutate: async ({ content, file }) => {
+      await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
 
-      return { success: true };
-    } catch (err: any) {
-      console.error('Failed to send message with attachment:', err);
-      // Mark as failed
-      setMessages(prev => prev.map(m => 
-        m.id === tempId 
-          ? { ...m, status: 'failed' as const }
-          : m
-      ));
-      return { success: false, error: err.message };
-    } finally {
-      setSending(false);
-    }
-  }, [isAuthenticated, selectedAttendee, conversationId]);
-
-  const loadMore = useCallback(() => {
-    if (messages.length > 0 && hasMore) {
-      fetchMessages(messages[0].created_at);
-    }
-  }, [messages, hasMore, fetchMessages]);
-
-  const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
-    if (!isAuthenticated || !selectedAttendee || !conversationId) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
-    // Optimistic update
-    setMessages(prev => prev.map(msg => {
-      if (msg.id !== messageId) return msg;
-      
-      const reactions = [...(msg.reactions || [])];
-      const existingIndex = reactions.findIndex(r => r.emoji === emoji);
-      
-      if (existingIndex >= 0) {
-        const existing = reactions[existingIndex];
-        if (existing.reacted) {
-          // Remove our reaction
-          if (existing.count === 1) {
-            reactions.splice(existingIndex, 1);
-          } else {
-            reactions[existingIndex] = { ...existing, count: existing.count - 1, reacted: false };
-          }
-        } else {
-          // Add our reaction
-          reactions[existingIndex] = { ...existing, count: existing.count + 1, reacted: true };
+      const tempId = `temp-${Date.now()}`;
+      const optimisticMessage: Message = {
+        id: tempId,
+        conversation_id: conversationId!,
+        content,
+        is_deleted: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        sender: {
+          type: 'attendee',
+          id: selectedAttendee!.id,
+          name: selectedAttendee!.attendee_name || 'You',
+          avatar_url: undefined,
+        },
+        is_own: true,
+        status: 'sending',
+        attachment: {
+          url: URL.createObjectURL(file),
+          type: file.type,
+          name: file.name,
+          size: file.size
         }
-      } else {
-        // New reaction
-        reactions.push({ emoji, count: 1, reacted: true });
-      }
-      
-      return { ...msg, reactions };
-    }));
+      };
 
-    try {
+      queryClient.setQueryData<MessagesQueryData>(
+        ['messages', conversationId],
+        (old) => ({
+          messages: [...(old?.messages || []), optimisticMessage],
+          hasMore: old?.hasMore || false,
+        })
+      );
+
+      return { tempId };
+    },
+    onSuccess: (serverMessage, _variables, context) => {
+      if (serverMessage && context?.tempId) {
+        queryClient.setQueryData<MessagesQueryData>(
+          ['messages', conversationId],
+          (old) => ({
+            messages: old?.messages.map(m =>
+              m.id === context.tempId ? { ...serverMessage, status: 'sent' as const } : m
+            ) || [],
+            hasMore: old?.hasMore || false,
+          })
+        );
+      }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.tempId) {
+        queryClient.setQueryData<MessagesQueryData>(
+          ['messages', conversationId],
+          (old) => ({
+            messages: old?.messages.map(m =>
+              m.id === context.tempId ? { ...m, status: 'failed' as const } : m
+            ) || [],
+            hasMore: old?.hasMore || false,
+          })
+        );
+      }
+    },
+  });
+
+  // Toggle reaction mutation
+  const toggleReactionMutation = useMutation({
+    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+      if (!isAuthenticated || !selectedAttendee) {
+        throw new Error('Not authenticated');
+      }
+
       const { data, error: toggleError } = await supabase.functions.invoke('toggle-message-reaction', {
         body: {
           attendee_id: selectedAttendee.id,
@@ -393,22 +378,99 @@ export function useMessages(conversationId: string | null) {
       if (toggleError) throw toggleError;
       if (data?.error) throw new Error(data.error);
 
-      // Update with server response
-      if (data?.reactions) {
-        setMessages(prev => prev.map(msg => 
-          msg.id === messageId ? { ...msg, reactions: data.reactions } : msg
-        ));
+      return data?.reactions;
+    },
+    onMutate: async ({ messageId, emoji }) => {
+      await queryClient.cancelQueries({ queryKey: ['messages', conversationId] });
+
+      const previousData = queryClient.getQueryData<MessagesQueryData>(['messages', conversationId]);
+
+      // Optimistic update
+      queryClient.setQueryData<MessagesQueryData>(
+        ['messages', conversationId],
+        (old) => ({
+          messages: old?.messages.map(msg => {
+            if (msg.id !== messageId) return msg;
+            
+            const reactions = [...(msg.reactions || [])];
+            const existingIndex = reactions.findIndex(r => r.emoji === emoji);
+            
+            if (existingIndex >= 0) {
+              const existing = reactions[existingIndex];
+              if (existing.reacted) {
+                if (existing.count === 1) {
+                  reactions.splice(existingIndex, 1);
+                } else {
+                  reactions[existingIndex] = { ...existing, count: existing.count - 1, reacted: false };
+                }
+              } else {
+                reactions[existingIndex] = { ...existing, count: existing.count + 1, reacted: true };
+              }
+            } else {
+              reactions.push({ emoji, count: 1, reacted: true });
+            }
+            
+            return { ...msg, reactions };
+          }) || [],
+          hasMore: old?.hasMore || false,
+        })
+      );
+
+      return { previousData };
+    },
+    onSuccess: (serverReactions, { messageId }) => {
+      if (serverReactions) {
+        queryClient.setQueryData<MessagesQueryData>(
+          ['messages', conversationId],
+          (old) => ({
+            messages: old?.messages.map(msg =>
+              msg.id === messageId ? { ...msg, reactions: serverReactions } : msg
+            ) || [],
+            hasMore: old?.hasMore || false,
+          })
+        );
       }
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['messages', conversationId], context.previousData);
+      }
+    },
+  });
 
-      return { success: true };
-    } catch (err: any) {
-      console.error('Failed to toggle reaction:', err);
-      // Revert optimistic update by refetching
-      fetchMessages();
-      return { success: false, error: err.message };
+  // Load more function (for pagination)
+  const loadMore = useCallback(async () => {
+    if (!isAuthenticated || !selectedAttendee || !conversationId || messages.length === 0 || !hasMore) {
+      return;
     }
-  }, [isAuthenticated, selectedAttendee, conversationId, fetchMessages]);
 
+    const { data, error: fetchError } = await supabase.functions.invoke('get-conversation-messages', {
+      body: {
+        attendee_id: selectedAttendee.id,
+        conversation_id: conversationId,
+        before: messages[0].created_at,
+        limit: 50
+      }
+    });
+
+    if (fetchError || data?.error) {
+      console.error('Failed to load more messages:', fetchError || data?.error);
+      return;
+    }
+
+    const olderMessages = data?.messages || [];
+    
+    queryClient.setQueryData<MessagesQueryData>(
+      ['messages', conversationId],
+      (old) => ({
+        messages: [...olderMessages, ...(old?.messages || [])],
+        hasMore: data?.has_more || false,
+      })
+    );
+  }, [isAuthenticated, selectedAttendee, conversationId, messages, hasMore, queryClient]);
+
+  // Get reactors function
   const getReactors = useCallback(async (messageId: string, emoji: string) => {
     if (!isAuthenticated || !selectedAttendee) {
       throw new Error('Not authenticated');
@@ -428,17 +490,51 @@ export function useMessages(conversationId: string | null) {
     return data?.reactors || [];
   }, [isAuthenticated, selectedAttendee]);
 
+  // Wrapper functions to maintain the same API
+  const sendMessage = async (content: string, replyToId?: string) => {
+    try {
+      await sendMessageMutation.mutateAsync({ content, replyToId });
+      return { success: true };
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('Failed to send message:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const sendMessageWithAttachment = async (content: string, file: File) => {
+    try {
+      await sendMessageWithAttachmentMutation.mutateAsync({ content, file });
+      return { success: true };
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('Failed to send message with attachment:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    try {
+      await toggleReactionMutation.mutateAsync({ messageId, emoji });
+      return { success: true };
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error('Failed to toggle reaction:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   return {
     messages,
     loading,
     error,
-    sending,
+    sending: sendMessageMutation.isPending || sendMessageWithAttachmentMutation.isPending,
     hasMore,
     sendMessage,
     sendMessageWithAttachment,
     loadMore,
     toggleReaction,
     getReactors,
-    refetch: fetchMessages
+    refetch,
   };
 }
