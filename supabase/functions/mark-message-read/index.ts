@@ -3,12 +3,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface MarkReadRequest {
-  email: string;
-  session_token: string;
   message_id: string;
 }
 
@@ -18,38 +16,46 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { email, session_token, message_id }: MarkReadRequest = await req.json();
-
-    if (!email || !session_token || !message_id) {
+    // Extract and verify JWT from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
-        JSON.stringify({ error: 'Email, session token, and message ID are required' }),
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims?.email) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const normalizedEmail = (claimsData.claims.email as string).toLowerCase().trim();
+
+    const { message_id }: MarkReadRequest = await req.json();
+
+    if (!message_id) {
+      return new Response(
+        JSON.stringify({ error: 'Message ID is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Create Supabase client with service role
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
-
-    // Validate session token
-    const { data: session, error: sessionError } = await supabaseAdmin
-      .from('order_access_codes')
-      .select('*')
-      .ilike('email', normalizedEmail)
-      .eq('code', session_token)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-
-    if (sessionError || !session) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired session' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Verify the message belongs to an order owned by this email
     const { data: message, error: messageError } = await supabaseAdmin

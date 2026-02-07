@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -12,42 +12,53 @@ serve(async (req) => {
   }
 
   try {
-    const { email, session_token, order_id, message } = await req.json();
+    // Extract and verify JWT from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    if (!email || !session_token || !order_id || !message) {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims?.email) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const email = (claimsData.claims.email as string).toLowerCase().trim();
+
+    const { order_id, message } = await req.json();
+
+    if (!order_id || !message) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Verify session token
-    const { data: accessCode, error: codeError } = await supabase
-      .from("order_access_codes")
-      .select("*")
-      .eq("email", email.toLowerCase())
-      .eq("code", session_token)
-      .not("used_at", "is", null)
-      .gt("expires_at", new Date().toISOString())
-      .single();
-
-    if (codeError || !accessCode) {
-      return new Response(
-        JSON.stringify({ error: "Invalid or expired session" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
     // Verify the order belongs to this email
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .select("id, email")
       .eq("id", order_id)
-      .eq("email", email.toLowerCase())
+      .eq("email", email)
       .single();
 
     if (orderError || !order) {
@@ -58,13 +69,13 @@ serve(async (req) => {
     }
 
     // Insert the customer message
-    const { data: newMessage, error: insertError } = await supabase
+    const { data: newMessage, error: insertError } = await supabaseAdmin
       .from("order_messages")
       .insert({
         order_id,
         message: message.trim(),
         sender_type: "customer",
-        sender_email: email.toLowerCase(),
+        sender_email: email,
         is_important: false,
       })
       .select()

@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -12,16 +12,39 @@ serve(async (req) => {
   }
 
   try {
+    // Extract and verify JWT from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims?.email) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { 
-      email, 
-      session_token, 
       attendee_id, 
       event_id,
       target_attendee_id,
       target_speaker_id 
     } = await req.json();
 
-    if (!email || !session_token || !attendee_id || !event_id) {
+    if (!attendee_id || !event_id) {
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -36,25 +59,9 @@ serve(async (req) => {
     }
 
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
-
-    // Validate session
-    const { data: session, error: sessionError } = await supabase
-      .from('order_access_codes')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .eq('code', session_token)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-
-    if (sessionError || !session) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired session' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Verify sender attendee exists and belongs to the event
     const { data: senderAttendee } = await supabase
@@ -70,16 +77,8 @@ serve(async (req) => {
       );
     }
 
-    // Check if DM already exists between these two parties
-    let existingConversationQuery = supabase
-      .from('attendee_conversations')
-      .select('id')
-      .eq('event_id', event_id)
-      .eq('type', 'direct');
-
     // For attendee-to-attendee DM
     if (target_attendee_id) {
-      // Verify target attendee exists
       const { data: targetAttendee } = await supabase
         .from('attendees')
         .select('id')
@@ -93,7 +92,6 @@ serve(async (req) => {
         );
       }
 
-      // Check if target has networking enabled (or is in a shared conversation)
       const { data: targetProfile } = await supabase
         .from('attendee_profiles')
         .select('open_to_networking')
@@ -110,7 +108,6 @@ serve(async (req) => {
         .eq('event_id', event_id)
         .eq('type', 'direct');
 
-      // Find if a DM between these two attendees exists
       let existingConvId = null;
       if (existingDMs) {
         for (const conv of existingDMs) {
@@ -179,7 +176,6 @@ serve(async (req) => {
 
       if (convError) throw convError;
 
-      // Add both participants
       const { error: partError } = await supabase
         .from('conversation_participants')
         .insert([
@@ -201,7 +197,6 @@ serve(async (req) => {
 
     // For attendee-to-speaker DM
     if (target_speaker_id) {
-      // Verify speaker exists for this event
       const { data: speaker } = await supabase
         .from('speakers')
         .select('id, event_id')
@@ -262,7 +257,6 @@ serve(async (req) => {
 
       if (convError) throw convError;
 
-      // Add both participants
       const { error: partError } = await supabase
         .from('conversation_participants')
         .insert([

@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -12,9 +12,34 @@ serve(async (req) => {
   }
 
   try {
-    const { email, session_token, attendee_id, conversation_id, before, limit = 50 } = await req.json();
+    // Extract and verify JWT from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    if (!email || !session_token || !attendee_id || !conversation_id) {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims?.email) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { attendee_id, conversation_id, before, limit = 50 } = await req.json();
+
+    if (!attendee_id || !conversation_id) {
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -22,25 +47,9 @@ serve(async (req) => {
     }
 
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
-
-    // Validate session
-    const { data: session, error: sessionError } = await supabase
-      .from('order_access_codes')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .eq('code', session_token)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-
-    if (sessionError || !session) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired session' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Verify attendee is a participant
     const { data: participant, error: participantError } = await supabase
@@ -91,7 +100,6 @@ serve(async (req) => {
     }
 
     if (!messages || messages.length === 0) {
-      // Update last_read_at even if no messages
       await supabase
         .from('conversation_participants')
         .update({ last_read_at: new Date().toISOString() })
@@ -109,11 +117,10 @@ serve(async (req) => {
     const speakerIds = [...new Set(messages.filter(m => m.sender_speaker_id).map(m => m.sender_speaker_id))];
     const replyIds = [...new Set(messages.filter(m => m.reply_to_id).map(m => m.reply_to_id))];
 
-    // 3. Batch fetch all related data in parallel (3-5 queries instead of 100-300)
+    // 3. Batch fetch all related data in parallel
     const batchQueries: Promise<any>[] = [];
     const messageIds = messages.map(m => m.id);
 
-    // Attendees batch
     if (attendeeIds.length > 0) {
       batchQueries.push(
         supabase.from('attendees').select('id, attendee_name').in('id', attendeeIds)
@@ -126,7 +133,6 @@ serve(async (req) => {
       batchQueries.push(Promise.resolve({ data: [] }));
     }
 
-    // Speakers batch
     if (speakerIds.length > 0) {
       batchQueries.push(
         supabase.from('speakers').select('id, name, photo_url, title, company').in('id', speakerIds)
@@ -135,7 +141,6 @@ serve(async (req) => {
       batchQueries.push(Promise.resolve({ data: [] }));
     }
 
-    // Reply messages batch
     if (replyIds.length > 0) {
       batchQueries.push(
         supabase.from('attendee_messages').select('id, content, sender_attendee_id, sender_speaker_id').in('id', replyIds)
@@ -144,7 +149,6 @@ serve(async (req) => {
       batchQueries.push(Promise.resolve({ data: [] }));
     }
 
-    // Reactions batch - fetch all reactions for all messages in one query
     batchQueries.push(
       supabase.from('message_reactions').select('message_id, emoji, attendee_id, speaker_id').in('message_id', messageIds)
     );
@@ -168,13 +172,13 @@ serve(async (req) => {
       }
     });
 
-    // 4. Build lookup maps for O(1) access
+    // 4. Build lookup maps
     const attendeeMap = new Map((attendeesRes.data || []).map((a: any) => [a.id, a]));
     const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.attendee_id, p]));
     const speakerMap = new Map((speakersRes.data || []).map((s: any) => [s.id, s]));
     const replyMap = new Map((replyMessagesRes.data || []).map((m: any) => [m.id, m]));
 
-    // Get reply sender info (need attendee IDs from reply messages)
+    // Get reply sender info
     const replyAttendeeIds = [...new Set(
       (replyMessagesRes.data || [])
         .filter((m: any) => m.sender_attendee_id && !attendeeMap.has(m.sender_attendee_id))
@@ -186,7 +190,6 @@ serve(async (req) => {
         .map((m: any) => m.sender_speaker_id)
     )];
 
-    // Fetch additional sender info for replies if needed
     if (replyAttendeeIds.length > 0 || replySpeakerIds.length > 0) {
       const additionalQueries: Promise<any>[] = [];
       
@@ -212,13 +215,12 @@ serve(async (req) => {
 
       const [replyProfilesRes, replyAttendeesRes, replySpeakersRes] = await Promise.all(additionalQueries);
       
-      // Add to maps
       (replyProfilesRes.data || []).forEach((p: any) => profileMap.set(p.attendee_id, p));
       (replyAttendeesRes.data || []).forEach((a: any) => attendeeMap.set(a.id, a));
       (replySpeakersRes.data || []).forEach((s: any) => speakerMap.set(s.id, s));
     }
 
-    // 5. Enrich messages in memory (no additional queries)
+    // 5. Enrich messages
     const enrichedMessages = messages.map(msg => {
       let sender = null;
 
@@ -243,7 +245,6 @@ serve(async (req) => {
         };
       }
 
-      // Handle reply info using lookup maps
       let replyTo = null;
       if (msg.reply_to_id) {
         const originalMsg = replyMap.get(msg.reply_to_id);
@@ -266,7 +267,6 @@ serve(async (req) => {
         }
       }
 
-      // Build reactions array for this message
       const msgReactions = reactionMap.get(msg.id);
       const reactions = msgReactions 
         ? Array.from(msgReactions.entries()).map(([emoji, data]) => ({
@@ -276,7 +276,6 @@ serve(async (req) => {
           }))
         : [];
 
-      // Build attachment object if present
       const attachment = msg.attachment_url ? {
         url: msg.attachment_url,
         type: msg.attachment_type,
@@ -294,7 +293,7 @@ serve(async (req) => {
       };
     });
 
-    // Update last_read_at for this participant
+    // Update last_read_at
     await supabase
       .from('conversation_participants')
       .update({ last_read_at: new Date().toISOString() })
@@ -303,7 +302,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        messages: enrichedMessages.reverse(), // Return in chronological order
+        messages: enrichedMessages.reverse(),
         has_more: messages.length === limit
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

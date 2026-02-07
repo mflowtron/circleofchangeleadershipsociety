@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
 Deno.serve(async (req) => {
@@ -11,58 +11,46 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, session_token, attendee_id, message_id, emoji } = await req.json()
+    // Extract and verify JWT from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    if (!email || !session_token || !attendee_id || !message_id || !emoji) {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims?.email) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { attendee_id, message_id, emoji } = await req.json()
+
+    if (!attendee_id || !message_id || !emoji) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
 
-    // 1. Validate session
-    const { data: accessCode, error: sessionError } = await supabase
-      .from('order_access_codes')
-      .select('email, used_at')
-      .eq('code', session_token)
-      .eq('email', email.toLowerCase())
-      .not('used_at', 'is', null)
-      .single()
-
-    if (sessionError || !accessCode) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid session' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // 2. Verify attendee belongs to user
-    const { data: attendee, error: attendeeError } = await supabase
-      .from('attendees')
-      .select('id, order_id, orders!inner(email)')
-      .eq('id', attendee_id)
-      .single()
-
-    if (attendeeError || !attendee) {
-      return new Response(
-        JSON.stringify({ error: 'Attendee not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const orderEmail = (attendee.orders as any).email?.toLowerCase()
-    if (orderEmail !== email.toLowerCase()) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // 3. Get the message and verify access to conversation
+    // Get the message and verify access to conversation
     const { data: message, error: messageError } = await supabase
       .from('attendee_messages')
       .select('id, conversation_id')
@@ -92,7 +80,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 4. Get all reactions for this message + emoji
+    // Get all reactions for this message + emoji
     const { data: reactions, error: reactionsError } = await supabase
       .from('message_reactions')
       .select('id, attendee_id, speaker_id')
@@ -110,7 +98,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 5. Fetch attendee and speaker details
+    // Fetch attendee and speaker details
     const attendeeIds = reactions.filter(r => r.attendee_id).map(r => r.attendee_id)
     const speakerIds = reactions.filter(r => r.speaker_id).map(r => r.speaker_id)
 
