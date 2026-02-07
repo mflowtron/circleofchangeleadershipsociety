@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -25,17 +25,40 @@ export interface Post {
 
 type FilterType = 'all' | 'chapter' | 'mine';
 
-export function usePosts(filter: FilterType = 'all') {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { user, profile } = useAuth();
+const uploadImage = async (file: File, userId: string): Promise<string | null> => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${userId}/${Date.now()}.${fileExt}`;
 
-  const fetchPosts = useCallback(async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    
-    try {
+  const { data, error } = await supabase.storage
+    .from('post-images')
+    .upload(fileName, file);
+
+  if (error) {
+    console.error('Upload error:', error);
+    throw error;
+  }
+
+  const { data: urlData } = supabase.storage
+    .from('post-images')
+    .getPublicUrl(data.path);
+
+  return urlData.publicUrl;
+};
+
+export function usePosts(filter: FilterType = 'all') {
+  const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Main query for fetching posts
+  const {
+    data: posts = [],
+    isLoading: loading,
+    refetch,
+  } = useQuery({
+    queryKey: ['posts', filter, profile?.chapter_id],
+    queryFn: async (): Promise<Post[]> => {
+      if (!user) return [];
+
       // Build the base query
       let query = supabase
         .from('lms_posts')
@@ -64,9 +87,7 @@ export function usePosts(filter: FilterType = 'all') {
       if (postsError) throw postsError;
 
       if (!postsData || postsData.length === 0) {
-        setPosts([]);
-        setLoading(false);
-        return;
+        return [];
       }
 
       const postIds = postsData.map(p => p.id);
@@ -74,22 +95,18 @@ export function usePosts(filter: FilterType = 'all') {
 
       // Batch fetch all data in parallel
       const [profilesResult, likesResult, commentsResult, userLikesResult] = await Promise.all([
-        // Batch fetch profiles for all unique user IDs
         supabase
           .from('profiles')
           .select('user_id, full_name, avatar_url')
           .in('user_id', userIds),
-        // Batch fetch likes counts
         supabase
           .from('lms_likes')
           .select('post_id')
           .in('post_id', postIds),
-        // Batch fetch comments counts
         supabase
           .from('lms_comments')
           .select('post_id')
           .in('post_id', postIds),
-        // Batch fetch user's likes
         supabase
           .from('lms_likes')
           .select('post_id')
@@ -116,7 +133,7 @@ export function usePosts(filter: FilterType = 'all') {
       const userLikesSet = new Set(userLikesResult.data?.map(l => l.post_id) || []);
 
       // Transform posts with enriched data
-      const enrichedPosts: Post[] = postsData.map((post) => ({
+      return postsData.map((post) => ({
         id: post.id,
         content: post.content,
         image_url: post.image_url,
@@ -132,51 +149,29 @@ export function usePosts(filter: FilterType = 'all') {
         comments_count: commentsCountMap.get(post.id) || 0,
         user_has_liked: userLikesSet.has(post.id),
       }));
+    },
+    enabled: !!user,
+  });
 
-      setPosts(enrichedPosts);
-    } catch (error: any) {
-      toast.error('Error loading posts', {
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [user, filter, profile?.chapter_id]);
+  // Create post mutation
+  const createPostMutation = useMutation({
+    mutationFn: async ({ 
+      content, 
+      isGlobal, 
+      imageFile, 
+      videoPlaybackId 
+    }: { 
+      content: string; 
+      isGlobal: boolean; 
+      imageFile?: File; 
+      videoPlaybackId?: string;
+    }) => {
+      if (!user) throw new Error('Not authenticated');
 
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
-
-  const uploadImage = async (file: File): Promise<string | null> => {
-    if (!user) return null;
-
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-
-    const { data, error } = await supabase.storage
-      .from('post-images')
-      .upload(fileName, file);
-
-    if (error) {
-      console.error('Upload error:', error);
-      throw error;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('post-images')
-      .getPublicUrl(data.path);
-
-    return urlData.publicUrl;
-  };
-
-  const createPost = async (content: string, isGlobal: boolean, imageFile?: File, videoPlaybackId?: string) => {
-    if (!user) return;
-
-    try {
       let imageUrl: string | null = null;
 
       if (imageFile) {
-        imageUrl = await uploadImage(imageFile);
+        imageUrl = await uploadImage(imageFile, user.id);
       }
 
       const { error } = await supabase.from('lms_posts').insert({
@@ -189,36 +184,25 @@ export function usePosts(filter: FilterType = 'all') {
       });
 
       if (error) throw error;
-
+    },
+    onSuccess: () => {
       toast.success('Post created!', {
         description: 'Your post has been shared.',
       });
-
-      fetchPosts();
-    } catch (error: any) {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+    },
+    onError: (error: Error) => {
       toast.error('Error creating post', {
         description: error.message,
       });
-    }
-  };
+    },
+  });
 
-  const toggleLike = useCallback(async (postId: string, hasLiked: boolean) => {
-    if (!user) return;
+  // Toggle like mutation with optimistic updates
+  const toggleLikeMutation = useMutation({
+    mutationFn: async ({ postId, hasLiked }: { postId: string; hasLiked: boolean }) => {
+      if (!user) throw new Error('Not authenticated');
 
-    // Optimistic update - immediately update UI
-    setPosts(prevPosts =>
-      prevPosts.map(post =>
-        post.id === postId
-          ? {
-              ...post,
-              user_has_liked: !hasLiked,
-              likes_count: hasLiked ? post.likes_count - 1 : post.likes_count + 1,
-            }
-          : post
-      )
-    );
-
-    try {
       if (hasLiked) {
         await supabase
           .from('lms_likes')
@@ -231,40 +215,82 @@ export function usePosts(filter: FilterType = 'all') {
           user_id: user.id,
         });
       }
-    } catch (error: any) {
-      // Revert optimistic update on error
-      setPosts(prevPosts =>
-        prevPosts.map(post =>
+    },
+    onMutate: async ({ postId, hasLiked }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['posts', filter, profile?.chapter_id] });
+
+      // Snapshot previous value
+      const previousPosts = queryClient.getQueryData<Post[]>(['posts', filter, profile?.chapter_id]);
+
+      // Optimistically update
+      queryClient.setQueryData<Post[]>(['posts', filter, profile?.chapter_id], (old) =>
+        old?.map(post =>
           post.id === postId
             ? {
                 ...post,
-                user_has_liked: hasLiked,
-                likes_count: hasLiked ? post.likes_count + 1 : post.likes_count - 1,
+                user_has_liked: !hasLiked,
+                likes_count: hasLiked ? post.likes_count - 1 : post.likes_count + 1,
               }
             : post
-        )
+        ) || []
       );
+
+      return { previousPosts };
+    },
+    onError: (error: Error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousPosts) {
+        queryClient.setQueryData(['posts', filter, profile?.chapter_id], context.previousPosts);
+      }
       toast.error('Error', {
         description: error.message,
       });
-    }
-  }, [user]);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+    },
+  });
 
-  const deletePost = useCallback(async (postId: string) => {
-    try {
+  // Delete post mutation
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
       const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
       if (error) throw error;
-      
+    },
+    onSuccess: () => {
       toast.success('Post deleted', {
         description: 'The post has been removed.',
       });
-      fetchPosts();
-    } catch (error: any) {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+    },
+    onError: (error: Error) => {
       toast.error('Error deleting post', {
         description: error.message,
       });
-    }
-  }, [fetchPosts]);
+    },
+  });
 
-  return { posts, loading, createPost, toggleLike, deletePost, refetch: fetchPosts };
+  // Wrapper functions to maintain the same API
+  const createPost = async (content: string, isGlobal: boolean, imageFile?: File, videoPlaybackId?: string) => {
+    await createPostMutation.mutateAsync({ content, isGlobal, imageFile, videoPlaybackId });
+  };
+
+  const toggleLike = async (postId: string, hasLiked: boolean) => {
+    await toggleLikeMutation.mutateAsync({ postId, hasLiked });
+  };
+
+  const deletePost = async (postId: string) => {
+    await deletePostMutation.mutateAsync(postId);
+  };
+
+  return { 
+    posts, 
+    loading, 
+    createPost, 
+    toggleLike, 
+    deletePost, 
+    refetch,
+    isCreating: createPostMutation.isPending,
+  };
 }
