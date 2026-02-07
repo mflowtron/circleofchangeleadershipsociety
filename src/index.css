@@ -37,6 +37,10 @@
     --accent: 45 60% 92%;
     --accent-foreground: 30 15% 12%;
 
+    /* Amber tones for gradients */
+    --amber-mid: 38 90% 50%;
+    --amber-deep: 32 85% 42%;
+
     /* Destructive */
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 85% 97%;
@@ -101,6 +105,10 @@
 
     --accent: 30 10% 16%;
     --accent-foreground: 42 80% 55%;
+
+    /* Amber tones for gradients */
+    --amber-mid: 38 92% 55%;
+    --amber-deep: 32 88% 45%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 85% 97%;
