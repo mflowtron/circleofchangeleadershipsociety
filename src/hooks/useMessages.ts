@@ -28,6 +28,7 @@ export interface Message {
   sender: MessageSender;
   reply_to?: ReplyTo;
   is_own: boolean;
+  status?: 'sending' | 'sent' | 'failed';
 }
 
 export function useMessages(conversationId: string | null) {
@@ -147,6 +148,28 @@ export function useMessages(conversationId: string | null) {
       return { success: false, error: 'Not authenticated' };
     }
 
+    // Create optimistic message with temporary ID
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: tempId,
+      conversation_id: conversationId,
+      content,
+      reply_to_id: replyToId,
+      is_deleted: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      sender: {
+        type: 'attendee',
+        id: selectedAttendee.id,
+        name: selectedAttendee.attendee_name || 'You',
+        avatar_url: undefined,
+      },
+      is_own: true,
+      status: 'sending',
+    };
+
+    // Add to list immediately
+    setMessages(prev => [...prev, optimisticMessage]);
     setSending(true);
 
     try {
@@ -164,14 +187,24 @@ export function useMessages(conversationId: string | null) {
       if (sendError) throw sendError;
       if (data?.error) throw new Error(data.error);
 
-      // Add message to list
+      // Replace temp message with real one
       if (data?.message) {
-        setMessages(prev => [...prev, data.message]);
+        setMessages(prev => prev.map(m => 
+          m.id === tempId 
+            ? { ...data.message, status: 'sent' as const }
+            : m
+        ));
       }
 
       return { success: true };
     } catch (err: any) {
       console.error('Failed to send message:', err);
+      // Mark as failed
+      setMessages(prev => prev.map(m => 
+        m.id === tempId 
+          ? { ...m, status: 'failed' as const }
+          : m
+      ));
       return { success: false, error: err.message };
     } finally {
       setSending(false);
