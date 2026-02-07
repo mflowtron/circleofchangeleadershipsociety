@@ -21,10 +21,9 @@ export interface BadgeTemplate {
   background_image_url: string | null;
   fields: BadgeField[];
   orientation: BadgeOrientation;
-  created_at: string;
-  updated_at: string;
 }
 
+// Badge templates are now stored in the events.badge_template JSONB column
 export function useBadgeTemplate(eventId: string | null) {
   return useQuery({
     queryKey: ['badge-template', eventId],
@@ -32,18 +31,25 @@ export function useBadgeTemplate(eventId: string | null) {
       if (!eventId) return null;
       
       const { data, error } = await supabase
-        .from('badge_templates')
-        .select('*')
-        .eq('event_id', eventId)
-        .maybeSingle();
+        .from('events')
+        .select('id, badge_template')
+        .eq('id', eventId)
+        .single();
       
       if (error) throw error;
       
-      if (data) {
+      if (data?.badge_template) {
+        const template = data.badge_template as {
+          background_image_url?: string | null;
+          fields?: BadgeField[];
+          orientation?: BadgeOrientation;
+        };
         return {
-          ...data,
-          fields: (data.fields as unknown as BadgeField[]) || [],
-          orientation: ((data as any).orientation as BadgeOrientation) || 'landscape',
+          id: data.id, // Use event ID as template ID
+          event_id: data.id,
+          background_image_url: template.background_image_url || null,
+          fields: template.fields || [],
+          orientation: template.orientation || 'landscape',
         } as BadgeTemplate;
       }
       
@@ -63,16 +69,16 @@ export function useCreateBadgeTemplate() {
       backgroundImageUrl?: string | null;
       orientation?: BadgeOrientation;
     }) => {
-      const insertData = {
-        event_id: eventId,
-        fields: JSON.parse(JSON.stringify(fields)),
+      const badgeTemplate = {
         background_image_url: backgroundImageUrl || null,
+        fields: JSON.parse(JSON.stringify(fields)),
         orientation,
       };
       
       const { data, error } = await supabase
-        .from('badge_templates')
-        .insert(insertData as any)
+        .from('events')
+        .update({ badge_template: badgeTemplate as unknown as Record<string, unknown> })
+        .eq('id', eventId)
         .select()
         .single();
       
@@ -96,15 +102,32 @@ export function useUpdateBadgeTemplate() {
       backgroundImageUrl?: string | null;
       orientation?: BadgeOrientation;
     }) => {
-      const updates: Record<string, unknown> = {};
-      if (fields !== undefined) updates.fields = JSON.parse(JSON.stringify(fields));
-      if (backgroundImageUrl !== undefined) updates.background_image_url = backgroundImageUrl;
-      if (orientation !== undefined) updates.orientation = orientation;
+      // First get current badge_template
+      const { data: currentEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('badge_template')
+        .eq('id', eventId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      const currentTemplate = (currentEvent?.badge_template as {
+        background_image_url?: string | null;
+        fields?: BadgeField[];
+        orientation?: BadgeOrientation;
+      }) || {};
+      
+      const updatedTemplate = {
+        ...currentTemplate,
+        ...(fields !== undefined && { fields: JSON.parse(JSON.stringify(fields)) }),
+        ...(backgroundImageUrl !== undefined && { background_image_url: backgroundImageUrl }),
+        ...(orientation !== undefined && { orientation }),
+      };
       
       const { data, error } = await supabase
-        .from('badge_templates')
-        .update(updates)
-        .eq('id', id)
+        .from('events')
+        .update({ badge_template: updatedTemplate as unknown as Record<string, unknown> })
+        .eq('id', eventId)
         .select()
         .single();
       

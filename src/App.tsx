@@ -115,7 +115,7 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
   useEventsLayout?: boolean;
   requireApproval?: boolean;
 }) {
-  const { roles, loading, isApproved } = useAuth();
+  const { loading, isApproved, isAdmin, hasModuleAccess, profile } = useAuth();
   
   if (loading) return null;
   
@@ -124,11 +124,17 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
     return <Navigate to="/pending-approval" replace />;
   }
   
-  // Check role access
+  // Check role access - map old role names to new system
   if (allowedRoles && allowedRoles.length > 0) {
-    const hasAccess = allowedRoles.some(allowedRole => 
-      roles.includes(allowedRole as any)
-    );
+    // Map legacy role names to new access checks
+    const hasAccess = allowedRoles.some(allowedRole => {
+      if (isAdmin) return true;
+      if (allowedRole === 'lms_admin') return isAdmin;
+      if (allowedRole === 'lms_advisor') return profile?.role === 'advisor' && hasModuleAccess('lms');
+      if (allowedRole === 'em_admin') return isAdmin;
+      if (allowedRole === 'em_manager') return (profile?.role === 'organizer' || isAdmin) && hasModuleAccess('events');
+      return false;
+    });
     
     if (!hasAccess) {
       return <Navigate to="/" replace />;
@@ -147,7 +153,7 @@ function ProtectedRoute({ children, allowedRoles, useEventsLayout, requireApprov
 }
 
 function AppRoutes() {
-  const { user, loading, hasLMSAccess, hasEMAccess, isApproved, accessibleAreas } = useAuth();
+  const { user, loading, hasLMSAccess, hasEMAccess, isApproved } = useAuth();
 
   if (loading) {
     return <FullPageLoader />;

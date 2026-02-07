@@ -59,9 +59,9 @@ export function usePosts(filter: FilterType = 'all') {
     queryFn: async (): Promise<Post[]> => {
       if (!user) return [];
 
-      // Build the base query
+      // Build the base query - using new 'posts' table name (not lms_posts)
       let query = supabase
-        .from('lms_posts')
+        .from('posts')
         .select(`
           id,
           content,
@@ -93,23 +93,26 @@ export function usePosts(filter: FilterType = 'all') {
       const postIds = postsData.map(p => p.id);
       const userIds = [...new Set(postsData.map(p => p.user_id))];
 
-      // Batch fetch all data in parallel
+      // Batch fetch all data in parallel - using post_interactions table
       const [profilesResult, likesResult, commentsResult, userLikesResult] = await Promise.all([
         supabase
           .from('profiles')
           .select('user_id, full_name, avatar_url')
           .in('user_id', userIds),
         supabase
-          .from('lms_likes')
+          .from('post_interactions')
           .select('post_id')
+          .eq('type', 'like')
           .in('post_id', postIds),
         supabase
-          .from('lms_comments')
+          .from('post_interactions')
           .select('post_id')
+          .eq('type', 'comment')
           .in('post_id', postIds),
         supabase
-          .from('lms_likes')
+          .from('post_interactions')
           .select('post_id')
+          .eq('type', 'like')
           .eq('user_id', user.id)
           .in('post_id', postIds),
       ]);
@@ -174,7 +177,7 @@ export function usePosts(filter: FilterType = 'all') {
         imageUrl = await uploadImage(imageFile, user.id);
       }
 
-      const { error } = await supabase.from('lms_posts').insert({
+      const { error } = await supabase.from('posts').insert({
         user_id: user.id,
         content,
         is_global: isGlobal,
@@ -198,21 +201,23 @@ export function usePosts(filter: FilterType = 'all') {
     },
   });
 
-  // Toggle like mutation with optimistic updates
+  // Toggle like mutation with optimistic updates - using post_interactions table
   const toggleLikeMutation = useMutation({
     mutationFn: async ({ postId, hasLiked }: { postId: string; hasLiked: boolean }) => {
       if (!user) throw new Error('Not authenticated');
 
       if (hasLiked) {
         await supabase
-          .from('lms_likes')
+          .from('post_interactions')
           .delete()
           .eq('post_id', postId)
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .eq('type', 'like');
       } else {
-        await supabase.from('lms_likes').insert({
+        await supabase.from('post_interactions').insert({
           post_id: postId,
           user_id: user.id,
+          type: 'like',
         });
       }
     },
@@ -255,7 +260,7 @@ export function usePosts(filter: FilterType = 'all') {
   // Delete post mutation
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
-      const { error } = await supabase.from('lms_posts').delete().eq('id', postId);
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
       if (error) throw error;
     },
     onSuccess: () => {
