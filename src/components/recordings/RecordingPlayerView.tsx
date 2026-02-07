@@ -39,38 +39,33 @@ export function RecordingPlayerView({
     captionsTrackId
   );
 
-  // Subscribe to realtime updates for caption status
+  // Poll for caption status while generating
   useEffect(() => {
-    const channel = supabase
-      .channel(`recording-captions-${recording.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'recordings',
-          filter: `id=eq.${recording.id}`,
-        },
-        (payload) => {
-          const newRecord = payload.new as { captions_status: string | null; captions_track_id: string | null };
-          setCaptionsStatus(newRecord.captions_status);
-          setCaptionsTrackId(newRecord.captions_track_id);
-          
-          if (newRecord.captions_status === 'ready') {
-            toast.success('Captions are now available!');
-            setIsGeneratingCaptions(false);
-          } else if (newRecord.captions_status === 'error') {
-            toast.error('Caption generation failed');
-            setIsGeneratingCaptions(false);
-          }
-        }
-      )
-      .subscribe();
+    if (captionsStatus !== 'generating') return;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [recording.id]);
+    const interval = setInterval(async () => {
+      const { data, error } = await supabase
+        .from('lms_recordings')
+        .select('captions_status, captions_track_id')
+        .eq('id', recording.id)
+        .single();
+
+      if (error || !data) return;
+
+      setCaptionsStatus(data.captions_status);
+      setCaptionsTrackId(data.captions_track_id);
+
+      if (data.captions_status === 'ready') {
+        toast.success('Captions are now available!');
+        setIsGeneratingCaptions(false);
+      } else if (data.captions_status === 'error') {
+        toast.error('Caption generation failed');
+        setIsGeneratingCaptions(false);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [captionsStatus, recording.id]);
 
   // Handle time updates from the player
   const handleTimeUpdate = useCallback(() => {

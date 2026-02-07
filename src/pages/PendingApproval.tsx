@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+
+const APPROVAL_POLL_INTERVAL = 10000; // 10 seconds
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, LogOut } from 'lucide-react';
@@ -18,31 +20,21 @@ export default function PendingApproval() {
   useEffect(() => {
     if (!user) return;
 
-    // Subscribe to realtime changes on the user's profile
-    const channel = supabase
-      .channel('profile-approval')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `user_id=eq.${user.id}`,
-        },
-        async (payload) => {
-          const newProfile = payload.new as { is_approved: boolean };
-          
-          if (newProfile.is_approved) {
-            // Redirect to root - let RootRouter handle routing based on roles
-            navigate('/');
-          }
-        }
-      )
-      .subscribe();
+    const checkApproval = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('is_approved')
+        .eq('user_id', user.id)
+        .single();
 
-    return () => {
-      supabase.removeChannel(channel);
+      if (data?.is_approved) {
+        navigate('/');
+      }
     };
+
+    const interval = setInterval(checkApproval, APPROVAL_POLL_INTERVAL);
+
+    return () => clearInterval(interval);
   }, [user, navigate]);
 
   return (
