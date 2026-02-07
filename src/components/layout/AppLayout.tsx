@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import InstallBanner from '@/components/pwa/InstallBanner';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { FullPageLoader } from '@/components/ui/circle-loader';
@@ -43,7 +42,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
         </main>
       </div>
-      <InstallBanner />
     </div>
   );
 }
