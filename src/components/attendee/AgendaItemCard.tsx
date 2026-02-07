@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
-import { MapPin, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BookmarkButton } from './BookmarkButton';
@@ -7,61 +8,49 @@ import type { AgendaItemType } from '@/hooks/useAgendaItems';
 import { cn } from '@/lib/utils';
 import { AgendaTypeIcon } from '@/components/events/agenda/AgendaTypeIcon';
 
-interface Speaker {
-  id: string;
-  name: string;
-  title: string | null;
-  company: string | null;
-  photo_url: string | null;
-}
-
 interface AgendaItemCardProps {
   id: string;
   title: string;
-  description?: string | null;
   starts_at: string;
   ends_at?: string | null;
   location?: string | null;
   track?: string | null;
   item_type: AgendaItemType;
   is_highlighted?: boolean;
-  speakers?: Speaker[];
   isBookmarked: boolean;
   onToggleBookmark: () => Promise<void>;
-  isExpanded?: boolean;
-  onToggleExpand?: () => void;
 }
 
 export function AgendaItemCard({
   id,
   title,
-  description,
   starts_at,
   ends_at,
   location,
   track,
   item_type,
   is_highlighted,
-  speakers = [],
   isBookmarked,
   onToggleBookmark,
-  isExpanded = false,
-  onToggleExpand,
 }: AgendaItemCardProps) {
+  const navigate = useNavigate();
   const startTime = format(new Date(starts_at), 'h:mm a');
   const endTime = ends_at ? format(new Date(ends_at), 'h:mm a') : null;
   
   // Sessions and networking events can be bookmarked
   const isBookmarkable = item_type === 'session' || item_type === 'networking';
 
+  const handleCardClick = () => {
+    navigate(`/attendee/app/agenda/${id}`);
+  };
+
   return (
     <Card 
       className={cn(
-        "transition-all duration-200 touch-manipulation",
-        is_highlighted && "border-primary/50 bg-primary/5",
-        isExpanded && "ring-2 ring-primary/20"
+        "transition-all duration-200 touch-manipulation cursor-pointer active:scale-[0.98]",
+        is_highlighted && "border-primary/50 bg-primary/5"
       )}
-      onClick={onToggleExpand}
+      onClick={handleCardClick}
     >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
@@ -92,56 +81,6 @@ export function AgendaItemCard({
                   <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                     <MapPin className="h-3 w-3" />
                     <span>{location}</span>
-                  </div>
-                )}
-                
-                {/* Expanded content */}
-                {isExpanded && (
-                  <div className="mt-3 space-y-3">
-                    {description && (
-                      <p className="text-sm text-muted-foreground">
-                        {description}
-                      </p>
-                    )}
-                    
-                    {/* Speakers */}
-                    {speakers.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                          <Users className="h-3 w-3" />
-                          <span>Speakers</span>
-                        </div>
-                        <div className="space-y-2">
-                          {speakers.map(speaker => (
-                            <div key={speaker.id} className="flex items-center gap-2">
-                              {speaker.photo_url ? (
-                                <img 
-                                  src={speaker.photo_url} 
-                                  alt={speaker.name}
-                                  className="h-8 w-8 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                  <span className="text-xs font-medium">
-                                    {speaker.name.charAt(0)}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium truncate">
-                                  {speaker.name}
-                                </div>
-                                {(speaker.title || speaker.company) && (
-                                  <div className="text-xs text-muted-foreground truncate">
-                                    {[speaker.title, speaker.company].filter(Boolean).join(' · ')}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
