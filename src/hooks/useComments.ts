@@ -21,10 +21,12 @@ export function useComments(postId: string) {
 
   const fetchComments = useCallback(async () => {
     try {
+      // Using post_interactions table with type='comment'
       const { data, error } = await supabase
-        .from('lms_comments')
+        .from('post_interactions')
         .select('id, content, created_at, user_id')
         .eq('post_id', postId)
+        .eq('type', 'comment')
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -50,7 +52,7 @@ export function useComments(postId: string) {
 
       const enrichedComments: Comment[] = data.map((comment) => ({
         id: comment.id,
-        content: comment.content,
+        content: comment.content || '',
         created_at: comment.created_at,
         user_id: comment.user_id,
         author: profilesMap.get(comment.user_id) || { full_name: 'Unknown', avatar_url: null },
@@ -74,9 +76,10 @@ export function useComments(postId: string) {
     if (!user) return;
 
     try {
-      const { error } = await supabase.from('lms_comments').insert({
+      const { error } = await supabase.from('post_interactions').insert({
         post_id: postId,
         user_id: user.id,
+        type: 'comment',
         content,
       });
 
@@ -91,7 +94,7 @@ export function useComments(postId: string) {
 
   const deleteComment = useCallback(async (commentId: string) => {
     try {
-      const { error } = await supabase.from('lms_comments').delete().eq('id', commentId);
+      const { error } = await supabase.from('post_interactions').delete().eq('id', commentId);
       if (error) throw error;
       fetchComments();
     } catch (error: any) {

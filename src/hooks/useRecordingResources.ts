@@ -1,16 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export interface RecordingResource {
-  id: string;
-  recording_id: string;
   name: string;
   file_url: string;
   file_type: string;
   file_size: number;
-  uploaded_by: string;
-  created_at: string;
 }
 
 export function useRecordingResources(recordingId: string | null) {
@@ -18,34 +14,36 @@ export function useRecordingResources(recordingId: string | null) {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
+  const fetchResources = useCallback(async () => {
     if (!recordingId) {
       setResources([]);
       return;
     }
 
-    fetchResources();
-  }, [recordingId]);
-
-  const fetchResources = async () => {
-    if (!recordingId) return;
-
     setLoading(true);
     try {
+      // Resources are now stored in the recordings.resources JSONB column
       const { data, error } = await supabase
-        .from('lms_recording_resources')
-        .select('*')
-        .eq('recording_id', recordingId)
-        .order('created_at', { ascending: true });
+        .from('recordings')
+        .select('resources')
+        .eq('id', recordingId)
+        .single();
 
       if (error) throw error;
-      setResources(data || []);
+      
+      // Parse the JSONB resources array
+      const resourcesArray = (data?.resources as RecordingResource[]) || [];
+      setResources(resourcesArray);
     } catch (error: any) {
       console.error('Error fetching resources:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [recordingId]);
+
+  useEffect(() => {
+    fetchResources();
+  }, [fetchResources]);
 
   const uploadResource = async (file: File) => {
     if (!recordingId) return;
@@ -71,19 +69,30 @@ export function useRecordingResources(recordingId: string | null) {
         .from('recording-resources')
         .getPublicUrl(fileName);
 
-      // Insert record
-      const { error: insertError } = await supabase
-        .from('lms_recording_resources')
-        .insert({
-          recording_id: recordingId,
-          name: file.name,
-          file_url: publicUrl,
-          file_type: fileExt.toLowerCase(),
-          file_size: file.size,
-          uploaded_by: user.id,
-        });
+      // Get current resources and add new one
+      const { data: currentData, error: fetchError } = await supabase
+        .from('recordings')
+        .select('resources')
+        .eq('id', recordingId)
+        .single();
 
-      if (insertError) throw insertError;
+      if (fetchError) throw fetchError;
+
+      const currentResources = (currentData?.resources as RecordingResource[]) || [];
+      const newResource: RecordingResource = {
+        name: file.name,
+        file_url: publicUrl,
+        file_type: fileExt.toLowerCase(),
+        file_size: file.size,
+      };
+
+      // Update recording with new resources array
+      const { error: updateError } = await supabase
+        .from('recordings')
+        .update({ resources: [...currentResources, newResource] })
+        .eq('id', recordingId);
+
+      if (updateError) throw updateError;
 
       toast.success('Resource uploaded', {
         description: `${file.name} has been attached to this recording.`,
@@ -100,6 +109,8 @@ export function useRecordingResources(recordingId: string | null) {
   };
 
   const deleteResource = async (resource: RecordingResource) => {
+    if (!recordingId) return;
+
     try {
       // Extract file path from URL for deletion
       const urlParts = resource.file_url.split('/recording-resources/');
@@ -110,13 +121,25 @@ export function useRecordingResources(recordingId: string | null) {
           .remove([filePath]);
       }
 
-      // Delete database record
-      const { error } = await supabase
-        .from('lms_recording_resources')
-        .delete()
-        .eq('id', resource.id);
+      // Get current resources and filter out the deleted one
+      const { data: currentData, error: fetchError } = await supabase
+        .from('recordings')
+        .select('resources')
+        .eq('id', recordingId)
+        .single();
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
+
+      const currentResources = (currentData?.resources as RecordingResource[]) || [];
+      const updatedResources = currentResources.filter(r => r.file_url !== resource.file_url);
+
+      // Update recording with filtered resources array
+      const { error: updateError } = await supabase
+        .from('recordings')
+        .update({ resources: updatedResources })
+        .eq('id', recordingId);
+
+      if (updateError) throw updateError;
 
       toast.success('Resource deleted', {
         description: `${resource.name} has been removed.`,

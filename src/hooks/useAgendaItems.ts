@@ -4,17 +4,6 @@ import { toast } from 'sonner';
 import type { Speaker } from './useSpeakers';
 
 export type AgendaItemType = 'session' | 'break' | 'meal' | 'networking' | 'other';
-export type SpeakerRole = 'speaker' | 'moderator' | 'panelist';
-
-export interface AgendaItemSpeaker {
-  id: string;
-  agenda_item_id: string;
-  speaker_id: string;
-  role: SpeakerRole;
-  sort_order: number;
-  created_at: string;
-  speaker?: Speaker;
-}
 
 export interface AgendaItem {
   id: string;
@@ -28,18 +17,15 @@ export interface AgendaItem {
   track: string | null;
   sort_order: number;
   is_highlighted: boolean;
+  speaker_ids: string[] | null;
   created_at: string;
   updated_at: string;
-  speakers?: AgendaItemSpeaker[];
+  // Populated client-side from speaker_ids
+  speakers?: Speaker[];
 }
 
 export type AgendaItemInsert = Omit<AgendaItem, 'id' | 'created_at' | 'updated_at' | 'speakers'>;
 export type AgendaItemUpdate = Partial<Omit<AgendaItem, 'id' | 'event_id' | 'created_at' | 'updated_at' | 'speakers'>>;
-
-export interface SpeakerAssignment {
-  speaker_id: string;
-  role: SpeakerRole;
-}
 
 export function useAgendaItems(eventId: string | undefined) {
   const queryClient = useQueryClient();
@@ -59,30 +45,35 @@ export function useAgendaItems(eventId: string | undefined) {
 
       if (itemsError) throw itemsError;
 
-      // Fetch speakers for all agenda items
-      const itemIds = items.map(item => item.id);
-      if (itemIds.length === 0) return items as AgendaItem[];
+      // Collect all speaker IDs from all items
+      const allSpeakerIds = new Set<string>();
+      items.forEach(item => {
+        if (item.speaker_ids && Array.isArray(item.speaker_ids)) {
+          item.speaker_ids.forEach((id: string) => allSpeakerIds.add(id));
+        }
+      });
 
-      const { data: itemSpeakers, error: speakersError } = await supabase
-        .from('agenda_item_speakers')
-        .select(`
-          *,
-          speaker:speakers(*)
-        `)
-        .in('agenda_item_id', itemIds)
-        .order('sort_order', { ascending: true });
+      // Fetch all speakers referenced by agenda items
+      let speakersMap = new Map<string, Speaker>();
+      if (allSpeakerIds.size > 0) {
+        const { data: speakers, error: speakersError } = await supabase
+          .from('speakers')
+          .select('*')
+          .in('id', Array.from(allSpeakerIds));
 
-      if (speakersError) throw speakersError;
+        if (speakersError) throw speakersError;
+
+        speakers?.forEach(speaker => {
+          speakersMap.set(speaker.id, speaker as Speaker);
+        });
+      }
 
       // Merge speakers into agenda items
       const itemsWithSpeakers = items.map(item => ({
         ...item,
-        speakers: itemSpeakers
-          .filter(is => is.agenda_item_id === item.id)
-          .map(is => ({
-            ...is,
-            speaker: is.speaker,
-          })),
+        speakers: (item.speaker_ids || [])
+          .map((id: string) => speakersMap.get(id))
+          .filter(Boolean) as Speaker[],
       }));
 
       return itemsWithSpeakers as AgendaItem[];
@@ -91,13 +82,7 @@ export function useAgendaItems(eventId: string | undefined) {
   });
 
   const createAgendaItem = useMutation({
-    mutationFn: async ({ 
-      item, 
-      speakerAssignments 
-    }: { 
-      item: AgendaItemInsert; 
-      speakerAssignments?: SpeakerAssignment[] 
-    }) => {
+    mutationFn: async ({ item }: { item: AgendaItemInsert }) => {
       const { data, error } = await supabase
         .from('agenda_items')
         .insert(item)
@@ -105,23 +90,6 @@ export function useAgendaItems(eventId: string | undefined) {
         .single();
 
       if (error) throw error;
-
-      // Add speaker assignments if provided
-      if (speakerAssignments && speakerAssignments.length > 0) {
-        const assignments = speakerAssignments.map((sa, index) => ({
-          agenda_item_id: data.id,
-          speaker_id: sa.speaker_id,
-          role: sa.role,
-          sort_order: index,
-        }));
-
-        const { error: assignError } = await supabase
-          .from('agenda_item_speakers')
-          .insert(assignments);
-
-        if (assignError) throw assignError;
-      }
-
       return data;
     },
     onSuccess: () => {
@@ -134,15 +102,7 @@ export function useAgendaItems(eventId: string | undefined) {
   });
 
   const updateAgendaItem = useMutation({
-    mutationFn: async ({ 
-      id, 
-      updates, 
-      speakerAssignments 
-    }: { 
-      id: string; 
-      updates: AgendaItemUpdate; 
-      speakerAssignments?: SpeakerAssignment[] 
-    }) => {
+    mutationFn: async ({ id, updates }: { id: string; updates: AgendaItemUpdate }) => {
       const { data, error } = await supabase
         .from('agenda_items')
         .update(updates)
@@ -151,34 +111,6 @@ export function useAgendaItems(eventId: string | undefined) {
         .single();
 
       if (error) throw error;
-
-      // Update speaker assignments if provided
-      if (speakerAssignments !== undefined) {
-        // Remove existing assignments
-        const { error: deleteError } = await supabase
-          .from('agenda_item_speakers')
-          .delete()
-          .eq('agenda_item_id', id);
-
-        if (deleteError) throw deleteError;
-
-        // Add new assignments
-        if (speakerAssignments.length > 0) {
-          const assignments = speakerAssignments.map((sa, index) => ({
-            agenda_item_id: id,
-            speaker_id: sa.speaker_id,
-            role: sa.role,
-            sort_order: index,
-          }));
-
-          const { error: insertError } = await supabase
-            .from('agenda_item_speakers')
-            .insert(assignments);
-
-          if (insertError) throw insertError;
-        }
-      }
-
       return data;
     },
     onSuccess: () => {

@@ -2,13 +2,9 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-// Role system - users can have multiple roles
-export type AppRole = 
-  | 'lms_student' | 'lms_advisor' | 'lms_admin'
-  | 'em_advisor' | 'em_manager' | 'em_admin'
-  | 'attendee_student' | 'attendee_advisor';
-
-export type AccessArea = 'lms' | 'em' | 'attendee';
+// Simplified role system - users have one role and module_access array
+export type UserRole = 'admin' | 'organizer' | 'advisor' | 'member';
+export type AccessModule = 'lms' | 'events' | 'attendee';
 
 interface ProfileData {
   id: string;
@@ -19,6 +15,8 @@ interface ProfileData {
   linkedin_url: string | null;
   headline: string | null;
   default_role: string | null;
+  role: UserRole;
+  module_access: string[] | null;
 }
 
 interface AuthContextType {
@@ -26,29 +24,23 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   profile: ProfileData | null;
-  roles: AppRole[];
-  defaultRole: AppRole | null;
   isApproved: boolean;
   
   signOut: () => Promise<void>;
-  setDefaultRole: (role: AppRole) => Promise<void>;
   
-  // Computed access flags
+  // Role check
+  isAdmin: boolean;
+  
+  // Module access checks
+  hasModuleAccess: (module: AccessModule) => boolean;
   hasLMSAccess: boolean;
   hasEMAccess: boolean;
   hasAttendeeAccess: boolean;
-  accessibleAreas: AccessArea[];
   
-  // Helper functions
-  hasRole: (role: AppRole) => boolean;
-  hasAnyRole: (roles: AppRole[]) => boolean;
-  
-  // LMS-specific role checks
+  // Legacy compatibility - these map to the new simplified system
   isLMSAdmin: boolean;
   isLMSAdvisor: boolean;
   isLMSStudent: boolean;
-  
-  // EM-specific role checks
   isEMAdmin: boolean;
   isEMManager: boolean;
   isEMAdvisor: boolean;
@@ -61,7 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [roles, setRoles] = useState<AppRole[]>([]);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -71,27 +62,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Fetch profile and roles using setTimeout to avoid Supabase deadlock
+          // Fetch profile using setTimeout to avoid Supabase deadlock
           setTimeout(async () => {
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('id, full_name, avatar_url, chapter_id, is_approved, linkedin_url, headline, default_role')
+              .select('id, full_name, avatar_url, chapter_id, is_approved, linkedin_url, headline, default_role, role, module_access')
               .eq('user_id', session.user.id)
               .single();
 
-            // Fetch ALL roles for this user (users can have multiple)
-            const { data: rolesData } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', session.user.id);
-
-            setProfile(profileData);
-            setRoles(rolesData?.map(r => r.role as AppRole) ?? []);
+            setProfile(profileData as ProfileData | null);
             setLoading(false);
           }, 0);
         } else {
           setProfile(null);
-          setRoles([]);
           setLoading(false);
         }
       }
@@ -111,52 +94,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  const setDefaultRole = useCallback(async (role: AppRole) => {
-    if (!profile) return;
-    
-    const { error } = await supabase
-      .from('profiles')
-      .update({ default_role: role })
-      .eq('id', profile.id);
-    
-    if (!error) {
-      setProfile(prev => prev ? { ...prev, default_role: role } : null);
-    }
+  // Check if user has access to a specific module
+  const hasModuleAccess = useCallback((module: AccessModule): boolean => {
+    if (!profile) return false;
+    if (profile.role === 'admin') return true;
+    return profile.module_access?.includes(module) ?? false;
   }, [profile]);
 
-  // Helper function to check if user has a specific role
-  const hasRole = useCallback((role: AppRole) => {
-    return roles.includes(role);
-  }, [roles]);
-
-  // Helper function to check if user has any of the specified roles
-  const hasAnyRole = useCallback((rolesToCheck: AppRole[]) => {
-    return rolesToCheck.some(role => roles.includes(role));
-  }, [roles]);
-
-  // Compute access flags based on roles (no legacy role support)
-  const hasLMSAccess = hasAnyRole(['lms_admin', 'lms_advisor', 'lms_student']);
-  const hasEMAccess = hasAnyRole(['em_admin', 'em_manager', 'em_advisor']);
-  const hasAttendeeAccess = hasAnyRole(['attendee_student', 'attendee_advisor']);
-
-  // LMS role checks (hierarchical)
-  const isLMSAdmin = hasRole('lms_admin');
-  const isLMSAdvisor = hasRole('lms_advisor') || isLMSAdmin;
-  const isLMSStudent = hasRole('lms_student') || isLMSAdvisor;
-
-  // EM role checks (hierarchical)
-  const isEMAdmin = hasRole('em_admin');
-  const isEMManager = hasRole('em_manager') || isEMAdmin;
-  const isEMAdvisor = hasRole('em_advisor') || isEMManager;
-
-  // Compute accessible areas
-  const accessibleAreas: AccessArea[] = [];
-  if (hasLMSAccess) accessibleAreas.push('lms');
-  if (hasEMAccess) accessibleAreas.push('em');
-  if (hasAttendeeAccess) accessibleAreas.push('attendee');
-
+  // Computed values
+  const isAdmin = profile?.role === 'admin';
   const isApproved = profile?.is_approved ?? false;
-  const defaultRole = (profile?.default_role as AppRole) ?? null;
+  
+  // Module access checks
+  const hasLMSAccess = hasModuleAccess('lms');
+  const hasEMAccess = hasModuleAccess('events');
+  const hasAttendeeAccess = hasModuleAccess('attendee');
+
+  // Legacy compatibility - map to new simplified role system
+  // For LMS: admin = lms_admin, advisor = lms_advisor, member = lms_student
+  const isLMSAdmin = isAdmin;
+  const isLMSAdvisor = isAdmin || (profile?.role === 'advisor' && hasLMSAccess);
+  const isLMSStudent = hasLMSAccess;
+
+  // For EM: admin = em_admin, organizer = em_manager, advisor = em_advisor
+  const isEMAdmin = isAdmin;
+  const isEMManager = isAdmin || (profile?.role === 'organizer' && hasEMAccess);
+  const isEMAdvisor = hasEMAccess;
 
   return (
     <AuthContext.Provider value={{ 
@@ -164,17 +127,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session, 
       loading, 
       profile, 
-      roles,
-      defaultRole,
       isApproved,
       signOut,
-      setDefaultRole,
+      isAdmin,
+      hasModuleAccess,
       hasLMSAccess,
       hasEMAccess,
       hasAttendeeAccess,
-      accessibleAreas,
-      hasRole,
-      hasAnyRole,
       isLMSAdmin,
       isLMSAdvisor,
       isLMSStudent,

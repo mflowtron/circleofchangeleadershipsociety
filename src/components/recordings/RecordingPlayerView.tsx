@@ -39,13 +39,13 @@ export function RecordingPlayerView({
     captionsTrackId
   );
 
-  // Poll for caption status while generating
+  // Poll for caption status while generating - using new 'recordings' table name
   useEffect(() => {
     if (captionsStatus !== 'generating') return;
 
     const interval = setInterval(async () => {
       const { data, error } = await supabase
-        .from('lms_recordings')
+        .from('recordings')
         .select('captions_status, captions_track_id')
         .eq('id', recording.id)
         .single();
