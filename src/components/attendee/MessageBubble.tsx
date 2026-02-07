@@ -97,7 +97,8 @@ export const MessageBubble = memo(function MessageBubble({
         isSending && "opacity-70"
       )}>
         <div 
-          className="max-w-[80%] relative"
+          className="max-w-[80%] relative select-none"
+          style={{ WebkitTouchCallout: 'none' }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -176,7 +177,8 @@ export const MessageBubble = memo(function MessageBubble({
       {!showSender && <div className="w-8" />}
       
       <div 
-        className="max-w-[80%] relative"
+        className="max-w-[80%] relative select-none"
+        style={{ WebkitTouchCallout: 'none' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
