@@ -80,7 +80,7 @@ export function EventsDashboardHeader({ onMenuClick }: EventsDashboardHeaderProp
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to="/lms/profile" className="flex items-center gap-2 cursor-pointer rounded-lg">
+                <Link to="/events/manage/profile" className="flex items-center gap-2 cursor-pointer rounded-lg">
                   <User className="h-4 w-4" />
                   View Profile
                 </Link>

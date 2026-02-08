@@ -469,6 +469,16 @@ function AppRoutes() {
             </ProtectedRoute>
           } 
         />
+        <Route 
+          path="/events/manage/profile" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <Profile />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
       </Route>
       
       <Route path="*" element={<NotFound />} />
