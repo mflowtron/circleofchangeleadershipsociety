@@ -169,7 +169,8 @@ export function NotificationHistory({ notifications, isLoading, onCancel, isCanc
                       <AlertDialogHeader>
                         <AlertDialogTitle>Cancel Scheduled Notification?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This notification will not be sent. This action cannot be undone.
+                          This scheduled notification will be cancelled and will not be sent to attendees.
+                          It will be removed from this list.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
