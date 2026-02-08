@@ -1,68 +1,113 @@
 
-# Add Profile Dropdown to Events Dashboard Header
+
+# Keep Users in Events App When Viewing Profile
 
 ## Overview
-Replace the simple logout button in the Events Dashboard header with the same profile dropdown component used in the LMS header, providing a consistent user experience across both modules.
+When a user clicks "View Profile" from the Events Management dashboard, they should stay within the Events layout rather than switching to the LMS layout. This requires adding a new profile route under `/events/manage/profile` and updating the Profile component to be context-aware.
 
 ---
 
-## Current State vs Desired State
+## Current Behavior
 
-| Current (Events) | Desired (Like LMS) |
-|------------------|-------------------|
-| Plain name text | Avatar with ring styling |
-| Simple logout button | Full dropdown menu |
-| No role display | Role badge (Organizer, Admin, etc.) |
-| No profile link | View Profile link |
+| Action | Result |
+|--------|--------|
+| Click "View Profile" in Events header | Navigates to `/lms/profile` → switches to LMS layout |
+
+## Desired Behavior
+
+| Action | Result |
+|--------|--------|
+| Click "View Profile" in Events header | Navigates to `/events/manage/profile` → stays in Events layout |
+| Role badge shows | "Admin", "Organizer", or "Staff" (not "Admin", "Advisor", "Student") |
 
 ---
 
-## Changes
+## Changes Required
 
-### File: `src/components/events/EventsDashboardHeader.tsx`
+### 1. Add Events Profile Route
+**File:** `src/App.tsx`
 
-**Add imports:**
-- `Avatar`, `AvatarFallback`, `AvatarImage` from UI components
-- `DropdownMenu` components
-- `Link` from react-router-dom
-- `User`, `ChevronDown` icons from lucide-react
+Add a new route within the `EventsManagementWrapper` that renders the Profile component with the Events layout:
 
-**Add role label logic:**
 ```typescript
-const getRoleLabel = () => {
-  if (isEMAdmin) return 'Admin';
-  if (isEMManager) return 'Organizer';
-  return 'Staff';
-};
+<Route 
+  path="/events/manage/profile" 
+  element={
+    <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+      <SuspenseWithErrorBoundary>
+        <Profile />
+      </SuspenseWithErrorBoundary>
+    </ProtectedRoute>
+  } 
+/>
 ```
 
-**Replace the header content** with:
-- Avatar with initials fallback and primary ring styling
-- Name and role displayed beside avatar (hidden on mobile)
-- Dropdown menu with:
-  - User info header
-  - "View Profile" link → `/lms/profile` (shared profile page)
-  - Sign Out option with destructive styling
+### 2. Update Events Dashboard Header
+**File:** `src/components/events/EventsDashboardHeader.tsx`
+
+Change the profile link from `/lms/profile` to `/events/manage/profile`:
+
+```typescript
+// Before
+<Link to="/lms/profile" ...>
+
+// After  
+<Link to="/events/manage/profile" ...>
+```
+
+### 3. Make Profile Component Context-Aware
+**File:** `src/pages/Profile.tsx`
+
+Detect the current route and show appropriate role labels:
+
+```typescript
+import { useLocation } from 'react-router-dom';
+
+// Inside component:
+const location = useLocation();
+const isEventsContext = location.pathname.startsWith('/events');
+
+const getRoleInfo = () => {
+  if (isEventsContext) {
+    // Events Management roles
+    if (isEMAdmin) return { label: 'Admin', color: 'bg-primary text-primary-foreground' };
+    if (isEMManager) return { label: 'Organizer', color: 'bg-secondary text-secondary-foreground' };
+    return { label: 'Staff', color: 'bg-muted text-muted-foreground' };
+  } else {
+    // LMS roles
+    if (isLMSAdmin) return { label: 'Admin', color: 'bg-primary text-primary-foreground' };
+    if (isLMSAdvisor) return { label: 'Advisor', color: 'bg-secondary text-secondary-foreground' };
+    return { label: 'Student', color: 'bg-muted text-muted-foreground' };
+  }
+};
+```
 
 ---
 
 ## Visual Result
 
+### Events Dashboard (After)
 ```text
-┌──────────────────────────────────────────────────────┐
-│  [☰]                     Events     [🌙] [👤 Name ▼] │
-│                                           Organizer  │
-│                                                      │
-│                          Dropdown:                   │
-│                          ┌─────────────────┐         │
-│                          │ Michael Flotron │         │
-│                          │ Organizer       │         │
-│                          ├─────────────────┤         │
-│                          │ 👤 View Profile │         │
-│                          ├─────────────────┤         │
-│                          │ 🚪 Sign Out     │         │
-│                          └─────────────────┘         │
-└──────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  Profile Page - Events Layout                       │
+│  ┌───────────────────────────────────────────────┐  │
+│  │  [Avatar]  Michael Flotron                    │  │
+│  │            michael@example.com                │  │
+│  │            [Organizer Badge] ← Events role    │  │
+│  └───────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
+
+### LMS Dashboard (Unchanged)
+```text
+┌─────────────────────────────────────────────────────┐
+│  Profile Page - LMS Layout                          │
+│  ┌───────────────────────────────────────────────┐  │
+│  │  [Avatar]  Michael Flotron                    │  │
+│  │            michael@example.com                │  │
+│  │            [Advisor Badge] ← LMS role         │  │
+│  └───────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -71,13 +116,16 @@ const getRoleLabel = () => {
 
 | File | Changes |
 |------|---------|
-| `src/components/events/EventsDashboardHeader.tsx` | Replace logout button with full dropdown menu matching LMS Header pattern |
+| `src/App.tsx` | Add `/events/manage/profile` route with Events layout |
+| `src/components/events/EventsDashboardHeader.tsx` | Change profile link to `/events/manage/profile` |
+| `src/pages/Profile.tsx` | Add route detection and context-aware role labels |
 
 ---
 
 ## Technical Notes
 
-- Uses the same `useAuth` hook which already provides `isEMAdmin` and `isEMManager` for role checks
-- Profile link points to `/lms/profile` since profiles are shared across modules
-- Maintains existing mobile menu button and theme toggle functionality
-- Consistent styling with LMS header (ring-primary/20, rounded-xl button, etc.)
+- The Profile component already has access to both LMS (`isLMSAdmin`, `isLMSAdvisor`) and Events (`isEMAdmin`, `isEMManager`) role flags via `useAuth()`
+- The route is placed inside `EventsManagementWrapper` to maintain event selection context
+- Using `location.pathname.startsWith('/events')` provides a simple and reliable way to detect context
+- All profile functionality (avatar upload, name editing, etc.) remains identical in both contexts
+
