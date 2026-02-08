@@ -14,6 +14,7 @@ export interface Attendee {
   updated_at: string;
   ticket_type?: {
     name: string;
+    is_virtual: boolean;
   };
   order?: {
     order_number: string;
@@ -36,7 +37,7 @@ export function useEventAttendees(eventId: string | undefined) {
           *,
           order_item:order_items(
             id,
-            ticket_type:ticket_types(name),
+            ticket_type:ticket_types(name, is_virtual),
             order:orders(order_number, full_name, email, event_id)
           )
         `)
@@ -73,7 +74,7 @@ export function useOrderAttendees(orderId: string | undefined) {
           order_item:order_items!inner(
             id,
             order_id,
-            ticket_type:ticket_types(name)
+            ticket_type:ticket_types(name, is_virtual)
           )
         `)
         .eq('order_item.order_id', orderId)
@@ -207,7 +208,7 @@ export function useMultiEventAttendees(eventIds: string[] | null) {
           *,
           order_item:order_items(
             id,
-            ticket_type:ticket_types(name),
+            ticket_type:ticket_types(name, is_virtual),
             order:orders(order_number, full_name, email, event_id)
           )
         `)

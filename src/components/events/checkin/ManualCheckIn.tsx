@@ -27,18 +27,23 @@ export function ManualCheckIn({ eventId, date = format(new Date(), 'yyyy-MM-dd')
     return new Set(checkins.map(c => c.attendee_id));
   }, [checkins]);
 
+  // Filter to only in-person attendees (exclude virtual)
+  const inPersonAttendees = useMemo(() => {
+    return attendees.filter(a => !a.ticket_type?.is_virtual);
+  }, [attendees]);
+
   const filteredAttendees = useMemo(() => {
-    if (!searchQuery.trim()) return attendees;
+    if (!searchQuery.trim()) return inPersonAttendees;
     
     const query = searchQuery.toLowerCase();
-    return attendees.filter(attendee => {
+    return inPersonAttendees.filter(attendee => {
       const name = (attendee.attendee_name || attendee.order?.full_name || '').toLowerCase();
       const email = (attendee.attendee_email || attendee.order?.email || '').toLowerCase();
       const orderNumber = (attendee.order?.order_number || '').toLowerCase();
       
       return name.includes(query) || email.includes(query) || orderNumber.includes(query);
     });
-  }, [attendees, searchQuery]);
+  }, [inPersonAttendees, searchQuery]);
 
   const handleCheckIn = async (attendee: Attendee) => {
     if (checkedInIds.has(attendee.id)) {

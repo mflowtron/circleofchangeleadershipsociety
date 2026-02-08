@@ -14,6 +14,7 @@ export interface TicketType {
   sales_end_at: string | null;
   max_per_order: number;
   sort_order: number;
+  is_virtual: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +29,7 @@ export interface CreateTicketTypeData {
   sales_end_at?: string;
   max_per_order?: number;
   sort_order?: number;
+  is_virtual?: boolean;
 }
 
 export interface UpdateTicketTypeData extends Partial<Omit<CreateTicketTypeData, 'event_id'>> {

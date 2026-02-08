@@ -107,17 +107,18 @@ export function useCheckInStats(eventId: string | undefined, date: string = form
     queryFn: async (): Promise<CheckInStats> => {
       if (!eventId) return { total: 0, checkedIn: 0, percentage: 0, byTicketType: {} };
 
-      // Get all attendees for the event through order_items
+      // Get all in-person attendees for the event through order_items
       const { data: attendees, error: attendeesError } = await supabase
         .from('attendees')
         .select(`
           id,
           order_item:order_items!inner(
-            ticket_type:ticket_types(name),
+            ticket_type:ticket_types!inner(name, is_virtual),
             order:orders!inner(event_id)
           )
         `)
-        .eq('order_item.order.event_id', eventId);
+        .eq('order_item.order.event_id', eventId)
+        .eq('order_item.ticket_type.is_virtual', false);
 
       if (attendeesError) throw attendeesError;
 
