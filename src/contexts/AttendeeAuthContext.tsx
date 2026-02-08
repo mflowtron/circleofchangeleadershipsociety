@@ -9,7 +9,6 @@ interface AttendeeAuthContextType {
   email: string | null;
   loading: boolean;
   error: string | null;
-  sendMagicLink: (email: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   orders: PortalOrder[];
   fetchOrders: () => Promise<void>;
@@ -25,7 +24,6 @@ export function AttendeeAuthProvider({ children }: { children: ReactNode }) {
     email: orderPortal.email,
     loading: orderPortal.loading,
     error: orderPortal.error,
-    sendMagicLink: orderPortal.sendMagicLink,
     logout: orderPortal.logout,
     orders: orderPortal.orders,
     fetchOrders: orderPortal.fetchOrders,

@@ -83,28 +83,6 @@ export function useOrderPortal() {
     }
   }, [user?.email]);
 
-  const sendMagicLink = useCallback(async (email: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { error: authError } = await supabase.auth.signInWithOtp({
-        email: email.toLowerCase().trim(),
-        options: {
-          emailRedirectTo: `${window.location.origin}/my-orders/dashboard`,
-        },
-      });
-
-      if (authError) throw authError;
-
-      return { success: true, message: 'Check your email for the magic link!' };
-    } catch (err: any) {
-      const message = err.message || 'Failed to send magic link';
-      setError(message);
-      return { success: false, message };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   const fetchOrders = useCallback(async () => {
     if (!user?.email) return;
@@ -174,7 +152,6 @@ export function useOrderPortal() {
     orders,
     loading: loading || initializing,
     error,
-    sendMagicLink,
     fetchOrders,
     updateAttendee,
     logout,

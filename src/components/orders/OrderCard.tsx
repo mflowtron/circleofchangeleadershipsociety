@@ -99,7 +99,7 @@ export function OrderCard({ order }: OrderCardProps) {
             {/* Event App Link */}
             {order.status === 'completed' && (
               <Link 
-                to="/attendee" 
+                to="/attendee/app/home" 
                 className="mt-3 flex items-center gap-2 text-sm text-primary hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >

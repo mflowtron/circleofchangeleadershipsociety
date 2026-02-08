@@ -13,13 +13,13 @@ export default function OrderPortalDashboard() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/my-orders');
+      navigate('/auth');
     }
   }, [isAuthenticated, navigate]);
 
   const handleLogout = () => {
     logout();
-    navigate('/my-orders');
+    navigate('/auth');
   };
 
   if (!isAuthenticated) {
@@ -36,7 +36,7 @@ export default function OrderPortalDashboard() {
             <p className="text-sm text-muted-foreground">{email}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/attendee">
+            <Link to="/attendee/app/home">
               <Button variant="default" size="sm" className="gap-2">
                 <Smartphone className="h-4 w-4" />
                 Event App

@@ -36,9 +36,9 @@ function DashboardContent() {
     );
   }
 
-  // Redirect to login if not authenticated
+  // Redirect to auth if not authenticated
   if (!isAuthenticated) {
-    return <Navigate to="/attendee" state={{ from: location }} replace />;
+    return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   // Show loading while fetching orders/events (orders are still being loaded)
