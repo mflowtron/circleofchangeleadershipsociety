@@ -802,6 +802,7 @@ export type Database = {
           is_approved: boolean
           linkedin_url: string | null
           module_access: string[] | null
+          onesignal_player_id: string | null
           open_to_networking: boolean | null
           role: Database["public"]["Enums"]["user_role"]
           title: string | null
@@ -821,6 +822,7 @@ export type Database = {
           is_approved?: boolean
           linkedin_url?: string | null
           module_access?: string[] | null
+          onesignal_player_id?: string | null
           open_to_networking?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
           title?: string | null
@@ -840,6 +842,7 @@ export type Database = {
           is_approved?: boolean
           linkedin_url?: string | null
           module_access?: string[] | null
+          onesignal_player_id?: string | null
           open_to_networking?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
           title?: string | null
@@ -852,6 +855,59 @@ export type Database = {
             columns: ["chapter_id"]
             isOneToOne: false
             referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_notifications: {
+        Row: {
+          audience_filter: Json | null
+          audience_type: string
+          created_at: string
+          created_by: string
+          error_message: string | null
+          event_id: string | null
+          id: string
+          message: string
+          recipient_count: number
+          redirect_url: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          audience_filter?: Json | null
+          audience_type?: string
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          event_id?: string | null
+          id?: string
+          message: string
+          recipient_count?: number
+          redirect_url?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          audience_filter?: Json | null
+          audience_type?: string
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          event_id?: string | null
+          id?: string
+          message?: string
+          recipient_count?: number
+          redirect_url?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_notifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
