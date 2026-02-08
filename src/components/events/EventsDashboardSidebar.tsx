@@ -149,8 +149,8 @@ export function EventsDashboardSidebar({
               className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border/50 text-sidebar-foreground hover:bg-sidebar-accent"
               onClick={onSwitchDashboard}
             >
-              <ArrowLeftRight className="h-4 w-4" />
-              Switch to LMS
+            <ArrowLeftRight className="h-4 w-4" />
+              Switch Dashboard
             </Button>
           </div>
         )}
