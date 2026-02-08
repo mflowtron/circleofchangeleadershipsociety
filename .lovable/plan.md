@@ -1,113 +1,115 @@
 
-
-# Add Individual Attendee Search/Selection to Push Notifications
+# Add Confirmation Dialog for Push Notifications
 
 ## Overview
-Enable the "Individual Attendee(s)" option in the Push Notifications audience selector, allowing organizers to search and select specific attendees for targeted notifications.
+Add a confirmation dialog before sending push notifications to prevent accidental sends. This provides a safety check showing the notification details and recipient count before final confirmation.
 
 ---
 
-## Current State
+## Implementation Approach
 
-- The `AudienceSelector` shows "Individual Attendee(s)" as disabled with "Coming soon"
-- The `AudienceFilter` interface already supports `attendee_ids: string[]`
-- The edge function already handles `audience_type: 'individual'` with `attendee_ids` filter
-- The `useAudienceCounts` hook fetches attendee `id` and `user_id`, but not names/emails
+Use the existing `AlertDialog` component from the UI library to show a confirmation modal when the user clicks "Send Notification".
 
 ---
 
-## Changes Required
+## Changes to NotificationComposer
 
-### 1. Update `useAudienceCounts` Hook
-
-Enhance the hook to fetch attendee names for display in the search:
+### 1. Add State for Dialog
 
 ```typescript
-// Add to the attendees mapping
-attendees: eventAttendees.map(a => ({
-  id: a.id,
-  user_id: a.user_id,
-  first_name: a.first_name,
-  last_name: a.last_name,
-  email: a.email,
-})),
+const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 ```
 
-The attendees table already has `first_name`, `last_name`, and `email` fields.
+### 2. Modify Submit Flow
 
-### 2. Create `AttendeeSearchSelector` Component
+Instead of sending immediately on form submit:
+1. Form submit opens the confirmation dialog
+2. Dialog shows notification preview (title, message, recipient count)
+3. "Confirm" button triggers the actual send
+4. "Cancel" button closes the dialog without sending
 
-New component `src/components/events/push/AttendeeSearchSelector.tsx`:
+### 3. Dialog Content
 
-- Multi-select combobox using Command/Popover pattern (like SpeakerSelector)
-- Search attendees by name or email
-- Display selected attendees as removable chips
-- Show avatar with initials, name, and email
+The confirmation dialog will display:
+- Warning icon to draw attention
+- Title: "Send Push Notification?"
+- Preview of the notification title and message
+- Audience type and recipient count
+- Clear warning that this action cannot be undone
+- Cancel and Confirm buttons
+
+---
+
+## UI Design
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│  Selected:                                                       │
-│  ┌──────────────────────────────┐ ┌──────────────────────────┐  │
-│  │ [JD] John Doe           [x]  │ │ [JS] Jane Smith     [x]  │  │
-│  │     john@example.com         │ │     jane@example.com     │  │
-│  └──────────────────────────────┘ └──────────────────────────┘  │
-│                                                                  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ [Search attendees...]                                  ▼  │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                  │
-│  Dropdown when open:                                             │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ [AB] Alice Brown - alice@company.com                      │  │
-│  │ [BC] Bob Chen - bob@organization.org                      │  │
-│  │ [CD] Carol Davis - carol@business.net                     │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 3. Update `AudienceSelector` Component
-
-- Enable the "Individual Attendee(s)" radio option (remove `disabled` and opacity)
-- Render the `AttendeeSearchSelector` component when `audienceType === 'individual'`
-- Pass handlers to manage `audienceFilter.attendee_ids`
-
-### 4. Update `AudienceCounts` Interface
-
-Update the interface to include attendee display information:
-
-```typescript
-interface AudienceCounts {
-  total: number;
-  inPerson: number;
-  virtual: number;
-  ticketTypes: Array<{ id: string; name: string; count: number }>;
-  attendees: Array<{
-    id: string;
-    user_id: string | null;
-    first_name: string | null;
-    last_name: string | null;
-    email: string | null;
-  }>;
-}
+┌──────────────────────────────────────────────────────────┐
+│  ⚠️ Send Push Notification?                              │
+│                                                          │
+│  You are about to send a notification to 125 attendees.  │
+│                                                          │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │  Title: Welcome to CLC 2026!                       │  │
+│  │  Message: Doors open in 15 minutes. Head to the... │  │
+│  │  Audience: All Attendees                           │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+│  This action cannot be undone. Notifications will be     │
+│  sent immediately to all targeted devices.               │
+│                                                          │
+│                            [Cancel]  [Send Notification] │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Component Structure
+## Code Changes
 
-```text
-AudienceSelector
-├── RadioGroup
-│   ├── All Attendees
-│   ├── In-Person Only
-│   ├── Virtual Only
-│   ├── By Ticket Type → [Checkbox list when selected]
-│   └── Individual Attendee(s) → [AttendeeSearchSelector when selected]
-│
-└── AttendeeSearchSelector (new)
-    ├── Selected attendees chips
-    └── Popover with Command search
+### File: `src/components/events/push/NotificationComposer.tsx`
+
+**Add imports:**
+```typescript
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { AlertTriangle } from 'lucide-react';
 ```
+
+**Add state:**
+```typescript
+const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+```
+
+**Modify handleSubmit:**
+- Rename to `handleConfirm` for the actual send logic
+- Create new `handleSubmit` that opens the dialog instead
+
+**Add helper function:**
+```typescript
+const getAudienceLabel = () => {
+  switch (audienceType) {
+    case 'all': return 'All Attendees';
+    case 'in_person': return 'In-Person Only';
+    case 'virtual': return 'Virtual Only';
+    case 'ticket_type': return 'By Ticket Type';
+    case 'individual': return 'Individual Attendees';
+    default: return audienceType;
+  }
+};
+```
+
+**Add AlertDialog component** after the form, showing:
+- Recipient count in the description
+- Preview card with title, message (truncated), and audience type
+- Warning about immediate delivery
+- Cancel and confirm actions
 
 ---
 
@@ -115,29 +117,14 @@ AudienceSelector
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/hooks/usePushNotifications.ts` | Modify | Add first_name, last_name, email to attendee selection in useAudienceCounts |
-| `src/components/events/push/AttendeeSearchSelector.tsx` | Create | New multi-select search component for attendees |
-| `src/components/events/push/AudienceSelector.tsx` | Modify | Enable individual option and integrate AttendeeSearchSelector |
+| `src/components/events/push/NotificationComposer.tsx` | Modify | Add AlertDialog confirmation before sending |
 
 ---
 
 ## Technical Notes
 
-- Uses existing Command/Popover pattern consistent with SpeakerSelector
-- Searches across first_name, last_name, and email fields
-- Attendees table already has these fields populated during registration
-- Edge function logic for `individual` type already exists and works
-- Filter count shows number of selected attendees
-
----
-
-## UI Interaction Flow
-
-1. Organizer selects "Individual Attendee(s)" radio option
-2. Search input and selected chips area appears
-3. Organizer types in search field to filter attendees
-4. Clicking an attendee adds them to selection
-5. Selected attendees appear as chips with remove button
-6. Recipient count updates to show selected count
-7. On send, `audience_filter.attendee_ids` is populated with selected IDs
-
+- Uses existing AlertDialog component (already in the project)
+- Dialog is controlled by state, not a trigger element
+- Message preview truncated to prevent dialog overflow
+- Confirm button disabled while sending to prevent double-sends
+- Dialog closes automatically after successful send (form reset already handles this)
