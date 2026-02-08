@@ -27,7 +27,7 @@ export function AnnouncementCard({ announcement, onAcknowledge }: AnnouncementCa
       />
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-[340px] px-6 animate-slide-up">
+      <div className="relative z-10 w-full max-w-[340px] mx-auto px-6 animate-slide-up">
         {/* Icon */}
         <div 
           className="w-[72px] h-[72px] rounded-[20px] flex items-center justify-center mx-auto mb-6"
