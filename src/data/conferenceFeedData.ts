@@ -55,7 +55,7 @@ export const initialFeedData: FeedItem[] = [
     caption: "This mixer is EVERYTHING 🎉 The DJ is reading the room perfectly and the energy is unmatched!",
     tag: "📍 Grand Ballroom · Evening Mixer",
     tagColor: "#8b5cf6",
-    playbackId: "3vPfOOlLqPuEMRfJFog02n9Pdj01hmCgNfesDEzqZvqaU",
+    playbackId: "gO2JK4y62Jku3YglqsNmNfT01h600mxaDFNasW3JtOUng",
     videoDuration: "0:24",
     likes: 186,
     comments: 23,
