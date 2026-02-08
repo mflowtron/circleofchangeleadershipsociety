@@ -144,6 +144,14 @@ export default {
           "0%": { opacity: "0", transform: "translateY(12px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "slide-down": {
+          "0%": { opacity: "0", transform: "translateY(-8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        spin: {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -159,6 +167,8 @@ export default {
         "slide-out-to-right": "slide-out-to-right 0.25s ease-out forwards",
         "fab-pop-in": "fab-pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards",
         "slide-up": "slide-up 0.4s ease-out forwards",
+        "slide-down": "slide-down 0.4s ease-out forwards",
+        spin: "spin 0.8s linear infinite",
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],

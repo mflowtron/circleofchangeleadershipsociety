@@ -1,13 +1,18 @@
 import { AnnouncementCard as AnnouncementCardType } from '@/types/conferenceFeed';
-import { Lock, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { NudgeBanner } from '../NudgeBanner';
 
 interface AnnouncementCardProps {
   announcement: AnnouncementCardType;
+  nudgeLevel?: number;
   onAcknowledge: () => void;
 }
 
-export function AnnouncementCard({ announcement, onAcknowledge }: AnnouncementCardProps) {
+export function AnnouncementCard({ announcement, nudgeLevel = 0, onAcknowledge }: AnnouncementCardProps) {
   const isImportant = announcement.priority === 'important';
+
+  // Show nudge only on resurface (nudgeLevel >= 1) and if not acknowledged
+  const showNudge = !announcement.acknowledged && nudgeLevel >= 1;
 
   return (
     <div className="relative h-full w-full bg-[#09090b] overflow-hidden flex items-center justify-center">
@@ -28,6 +33,14 @@ export function AnnouncementCard({ announcement, onAcknowledge }: AnnouncementCa
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-[340px] px-6 text-center animate-slide-up">
+        {/* Nudge Banner */}
+        {showNudge && (
+          <NudgeBanner 
+            text="📢 You may have missed this update" 
+            color={announcement.accentColor} 
+          />
+        )}
+
         {/* Icon */}
         <div 
           className="w-[72px] h-[72px] rounded-[20px] flex items-center justify-center mx-auto mb-6"
@@ -69,26 +82,16 @@ export function AnnouncementCard({ announcement, onAcknowledge }: AnnouncementCa
 
         {/* Got it Button */}
         {!announcement.acknowledged ? (
-          <>
-            <button
-              onClick={onAcknowledge}
-              className="w-full py-3.5 rounded-[14px] text-[14px] font-extrabold text-white transition-all hover:opacity-90"
-              style={{
-                background: `linear-gradient(135deg, ${announcement.accentColor} 0%, ${announcement.accentColor}dd 100%)`,
-                boxShadow: `0 4px 20px -4px ${announcement.accentColor}50`,
-              }}
-            >
-              Got it ✓
-            </button>
-
-            {/* Lock Hint */}
-            <div className="flex items-center justify-center gap-1.5 mt-4">
-              <Lock className="w-3 h-3 text-white/30" />
-              <span className="text-[11px] text-white/30">
-                Acknowledge to continue scrolling
-              </span>
-            </div>
-          </>
+          <button
+            onClick={onAcknowledge}
+            className="w-full py-3.5 rounded-[14px] text-[14px] font-extrabold text-white transition-all hover:opacity-90"
+            style={{
+              background: `linear-gradient(135deg, ${announcement.accentColor} 0%, ${announcement.accentColor}dd 100%)`,
+              boxShadow: `0 4px 20px -4px ${announcement.accentColor}50`,
+            }}
+          >
+            Got it ✓
+          </button>
         ) : (
           <div className="flex items-center justify-center gap-2 py-3">
             <Check className="w-5 h-5 text-green-500" />

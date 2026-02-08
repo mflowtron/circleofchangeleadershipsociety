@@ -1,19 +1,30 @@
 import { useReducer, useRef, useState, useEffect, useCallback } from 'react';
 import { initialFeedData } from '@/data/conferenceFeedData';
 import { FeedItem, FeedAction, isBlockingCard, isResolved, isPostCard, isAnnouncementCard, isPollCard, isVideoAskCard } from '@/types/conferenceFeed';
+import { FeedItemViewState, createInitialViewState } from '@/types/feedViewState';
 import { PostCard } from './cards/PostCard';
 import { AnnouncementCard } from './cards/AnnouncementCard';
 import { PollCard } from './cards/PollCard';
 import { VideoAskCard } from './cards/VideoAskCard';
+import { LoadingCard } from './cards/LoadingCard';
 import { FeedHeader } from './FeedHeader';
 import { ScrollDots } from './ScrollDots';
-import { ScrollLockIndicator } from './ScrollLockIndicator';
-import { EndOfFeedCard } from './EndOfFeedCard';
 import { BottomNavigation } from '../BottomNavigation';
 import { FeedCommentsSheet } from './FeedCommentsSheet';
 import { useAttendeeEvent } from '@/contexts/AttendeeEventContext';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
+
+// Constants for infinite queue
+const LOAD_THRESHOLD = 4;
+const BATCH_SIZE = 6;
+const MIN_INTERSTITIAL_GAP = 4;
+
+// Queue item wraps FeedItem with instance-specific data
+interface QueueItem {
+  item: FeedItem;
+  instanceId: string; // Unique ID for this queue position
+}
 
 function feedReducer(state: FeedItem[], action: FeedAction): FeedItem[] {
   return state.map((item) => {
@@ -75,11 +86,15 @@ function feedReducer(state: FeedItem[], action: FeedAction): FeedItem[] {
 export function ConferenceFeed() {
   const [feedItems, dispatch] = useReducer(feedReducer, initialFeedData);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isBlocked, setIsBlocked] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
+  const [viewStates, setViewStates] = useState<Map<string, FeedItemViewState>>(new Map());
+  const [renderedQueue, setRenderedQueue] = useState<QueueItem[]>([]);
+  const [instanceCounter, setInstanceCounter] = useState(0);
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const prevActiveIndexRef = useRef(0);
 
   // Get event context for comments - may not be available
   let eventId: string | null = null;
@@ -91,6 +106,175 @@ export function ConferenceFeed() {
   } catch {
     // Context not available, comments will be disabled
   }
+
+  // Helper to generate unique instance IDs
+  const generateInstanceId = useCallback(() => {
+    setInstanceCounter(prev => prev + 1);
+    return `instance-${instanceCounter}-${Date.now()}`;
+  }, [instanceCounter]);
+
+  // Build initial queue on mount
+  useEffect(() => {
+    const initialQueue: QueueItem[] = feedItems.map((item, idx) => ({
+      item,
+      instanceId: `initial-${idx}`,
+    }));
+    setRenderedQueue(initialQueue);
+  }, []); // Only run once on mount
+
+  // Helper to check if an item is an interstitial
+  const isInterstitial = useCallback((item: FeedItem) => {
+    return isBlockingCard(item);
+  }, []);
+
+  // Build next batch function
+  const buildNextBatch = useCallback((count: number): QueueItem[] => {
+    const batch: QueueItem[] = [];
+    const usedIds = new Set<string>();
+    let interstitialGap = 0;
+
+    // Check last items in queue for gap calculation
+    for (let i = renderedQueue.length - 1; i >= 0 && i >= renderedQueue.length - MIN_INTERSTITIAL_GAP; i--) {
+      const queueItem = renderedQueue[i];
+      if (queueItem && isInterstitial(queueItem.item)) {
+        interstitialGap = renderedQueue.length - 1 - i;
+        break;
+      }
+      interstitialGap = renderedQueue.length - i;
+    }
+
+    const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
+
+    const tryAdd = (item: FeedItem, isResurface: boolean = false): boolean => {
+      if (usedIds.has(item.id)) return false;
+      if (batch.length >= count) return false;
+
+      const isInter = isInterstitial(item);
+      if (isInter && interstitialGap < MIN_INTERSTITIAL_GAP) return false;
+
+      // For resurfaced interstitials, increment nudge level
+      if (isResurface) {
+        const state = viewStates.get(item.id);
+        if (state) {
+          setViewStates(prev => {
+            const next = new Map(prev);
+            next.set(item.id, { 
+              ...state, 
+              nudgeLevel: Math.min(3, (state.nudgeLevel || 0) + 1) as 0 | 1 | 2 | 3, 
+              skippedAt: null 
+            });
+            return next;
+          });
+        }
+      }
+
+      batch.push({ 
+        item, 
+        instanceId: `batch-${Date.now()}-${batch.length}-${Math.random().toString(36).slice(2)}` 
+      });
+      usedIds.add(item.id);
+      interstitialGap = isInter ? 0 : interstitialGap + 1;
+      return true;
+    };
+
+    // Priority 1: Unseen content
+    const unseen = feedItems.filter(item => {
+      const state = viewStates.get(item.id);
+      return !state || state.viewCount === 0;
+    });
+
+    // Priority 2: Skipped interstitials that haven't been interacted with (nudgeLevel < 3)
+    const skippedInterstitials = feedItems.filter(item => {
+      if (!isInterstitial(item)) return false;
+      const state = viewStates.get(item.id);
+      return state?.skippedAt && !state.interacted && (state.nudgeLevel || 0) < 3;
+    });
+
+    // Priority 3: Previously seen regular posts for replay
+    const replayable = feedItems.filter(item => {
+      const state = viewStates.get(item.id);
+      if (!state || state.viewCount === 0) return false;
+      if (isInterstitial(item)) return false;
+      return true;
+    });
+
+    // Sort replayable by engagement
+    const sortedReplayable = [...replayable].sort((a, b) => {
+      const aLiked = isPostCard(a) && a.liked ? 1 : 0;
+      const bLiked = isPostCard(b) && b.liked ? 1 : 0;
+      if (aLiked !== bLiked) return bLiked - aLiked;
+      const aLikes = isPostCard(a) ? a.likes : 0;
+      const bLikes = isPostCard(b) ? b.likes : 0;
+      return bLikes - aLikes;
+    });
+
+    // Fill the batch
+    for (const item of shuffle(unseen)) tryAdd(item);
+    for (const item of shuffle(skippedInterstitials)) tryAdd(item, true);
+    for (const item of sortedReplayable) tryAdd(item);
+
+    // If still need more, shuffle replayable
+    if (batch.length < count) {
+      for (const item of shuffle(sortedReplayable)) tryAdd(item);
+    }
+
+    return batch;
+  }, [feedItems, viewStates, renderedQueue, isInterstitial]);
+
+  // Load more when approaching end
+  useEffect(() => {
+    if (renderedQueue.length === 0) return;
+    
+    if (activeIndex >= renderedQueue.length - LOAD_THRESHOLD) {
+      const nextBatch = buildNextBatch(BATCH_SIZE);
+      if (nextBatch.length > 0) {
+        setRenderedQueue(prev => [...prev, ...nextBatch]);
+      }
+    }
+  }, [activeIndex, renderedQueue.length, buildNextBatch]);
+
+  // Update view state when active card changes
+  useEffect(() => {
+    const currentQueueItem = renderedQueue[activeIndex];
+    if (!currentQueueItem) return;
+
+    const itemId = currentQueueItem.item.id;
+    setViewStates(prev => {
+      const next = new Map(prev);
+      const existing = next.get(itemId) || createInitialViewState();
+      next.set(itemId, {
+        ...existing,
+        viewCount: existing.viewCount + 1,
+        lastViewedAt: Date.now(),
+      });
+      return next;
+    });
+  }, [activeIndex, renderedQueue]);
+
+  // Detect skipped interstitials
+  useEffect(() => {
+    const prevIndex = prevActiveIndexRef.current;
+    const prevQueueItem = renderedQueue[prevIndex];
+    
+    if (prevQueueItem && activeIndex > prevIndex) {
+      const prevItem = prevQueueItem.item;
+      const isInter = isInterstitial(prevItem);
+      const state = viewStates.get(prevItem.id);
+      
+      if (isInter && !state?.interacted && !isResolved(prevItem)) {
+        setViewStates(prev => {
+          const next = new Map(prev);
+          const existing = next.get(prevItem.id);
+          if (existing && !existing.skippedAt) {
+            next.set(prevItem.id, { ...existing, skippedAt: Date.now() });
+          }
+          return next;
+        });
+      }
+    }
+    
+    prevActiveIndexRef.current = activeIndex;
+  }, [activeIndex, renderedQueue, viewStates, isInterstitial]);
 
   const handleToggleMute = useCallback(() => {
     setIsMuted(prev => !prev);
@@ -108,15 +292,19 @@ export function ConferenceFeed() {
     dispatch({ type: "UPDATE_COMMENT_COUNT", id: postId, delta });
   }, []);
 
-  // Calculate if current card is blocked
-  useEffect(() => {
-    const currentItem = feedItems[activeIndex];
-    if (currentItem && isBlockingCard(currentItem) && !isResolved(currentItem)) {
-      setIsBlocked(true);
-    } else {
-      setIsBlocked(false);
-    }
-  }, [activeIndex, feedItems]);
+  // Mark item as interacted
+  const markInteracted = useCallback((id: string) => {
+    setViewStates(prev => {
+      const next = new Map(prev);
+      const existing = next.get(id);
+      if (existing) {
+        next.set(id, { ...existing, interacted: true });
+      } else {
+        next.set(id, { ...createInitialViewState(), interacted: true });
+      }
+      return next;
+    });
+  }, []);
 
   // Set up intersection observer to track active card
   useEffect(() => {
@@ -145,79 +333,47 @@ export function ConferenceFeed() {
     });
 
     return () => observer.disconnect();
-  }, [feedItems.length]);
-
-  // Handle scroll blocking
-  const handleScroll = useCallback(() => {
-    if (!containerRef.current) return;
-
-    const currentItem = feedItems[activeIndex];
-    const shouldBlock = currentItem && isBlockingCard(currentItem) && !isResolved(currentItem);
-
-    if (shouldBlock) {
-      const cardHeight = containerRef.current.clientHeight;
-      const targetScrollTop = activeIndex * cardHeight;
-      containerRef.current.scrollTop = targetScrollTop;
-    }
-  }, [activeIndex, feedItems]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
-
-  // Auto-advance after interaction
-  const autoAdvance = useCallback(() => {
-    if (!containerRef.current) return;
-    
-    const cardHeight = containerRef.current.clientHeight;
-    const nextIndex = activeIndex + 1;
-    
-    if (nextIndex < feedItems.length + 1) { // +1 for end card
-      setTimeout(() => {
-        containerRef.current?.scrollTo({
-          top: nextIndex * cardHeight,
-          behavior: 'smooth',
-        });
-      }, 600);
-    }
-  }, [activeIndex, feedItems.length]);
+  }, [renderedQueue.length]);
 
   const handleAcknowledge = (id: string) => {
     dispatch({ type: "ACKNOWLEDGE_ANNOUNCEMENT", id });
-    autoAdvance();
+    markInteracted(id);
   };
 
   const handleVote = (id: string, optionId: string) => {
     dispatch({ type: "VOTE_POLL", id, optionId });
-    // Delay auto-advance to let animation play
-    setTimeout(autoAdvance, 1200);
+    markInteracted(id);
   };
 
   const handleVideoAskRespond = (id: string) => {
     dispatch({ type: "RESPOND_VIDEOASK", id });
-    setTimeout(autoAdvance, 1500);
+    markInteracted(id);
   };
 
   const handleVideoAskSkip = (id: string) => {
     dispatch({ type: "SKIP_VIDEOASK", id });
-    autoAdvance();
+    markInteracted(id);
   };
 
   const handleLike = (id: string) => {
     dispatch({ type: "TOGGLE_LIKE", id });
+    // Note: liking doesn't count as "interacted" for interstitial logic
   };
 
-  const renderCard = (item: FeedItem, index: number) => {
+  // Get the current state of an item from feedItems (which has the updated state)
+  const getCurrentItem = useCallback((originalItem: FeedItem): FeedItem => {
+    return feedItems.find(item => item.id === originalItem.id) || originalItem;
+  }, [feedItems]);
+
+  const renderCard = (queueItem: QueueItem, index: number) => {
     const isActive = index === activeIndex;
+    const item = getCurrentItem(queueItem.item);
+    const nudgeLevel = viewStates.get(item.id)?.nudgeLevel || 0;
 
     if (isPostCard(item)) {
       return (
         <PostCard
-          key={item.id}
+          key={queueItem.instanceId}
           post={item}
           isActive={isActive}
           isMuted={isMuted}
@@ -231,8 +387,9 @@ export function ConferenceFeed() {
     if (isAnnouncementCard(item)) {
       return (
         <AnnouncementCard
-          key={item.id}
+          key={queueItem.instanceId}
           announcement={item}
+          nudgeLevel={nudgeLevel}
           onAcknowledge={() => handleAcknowledge(item.id)}
         />
       );
@@ -241,8 +398,9 @@ export function ConferenceFeed() {
     if (isPollCard(item)) {
       return (
         <PollCard
-          key={item.id}
+          key={queueItem.instanceId}
           poll={item}
+          nudgeLevel={nudgeLevel}
           onVote={(optionId) => handleVote(item.id, optionId)}
         />
       );
@@ -251,8 +409,9 @@ export function ConferenceFeed() {
     if (isVideoAskCard(item)) {
       return (
         <VideoAskCard
-          key={item.id}
+          key={queueItem.instanceId}
           videoAsk={item}
+          nudgeLevel={nudgeLevel}
           onRespond={() => handleVideoAskRespond(item.id)}
           onSkip={() => handleVideoAskSkip(item.id)}
         />
@@ -266,6 +425,9 @@ export function ConferenceFeed() {
     toast.info('Create post coming soon!');
   };
 
+  // Extract items for ScrollDots
+  const queueItems = renderedQueue.map(q => getCurrentItem(q.item));
+
   return (
     <div className="feed-dark fixed inset-0 bg-[#09090b] overflow-hidden">
       {/* Feed Header */}
@@ -277,36 +439,33 @@ export function ConferenceFeed() {
         className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
         style={{ scrollSnapType: 'y mandatory' }}
       >
-        {feedItems.map((item, index) => (
+        {renderedQueue.map((queueItem, index) => (
           <div
-            key={item.id}
+            key={queueItem.instanceId}
             ref={(el) => (cardRefs.current[index] = el)}
             className="h-full w-full snap-start snap-always flex-shrink-0"
             style={{ scrollSnapStop: 'always' }}
           >
-            {renderCard(item, index)}
+            {renderCard(queueItem, index)}
           </div>
         ))}
         
-        {/* End of Feed Card */}
+        {/* Loading Card at the end */}
         <div
-          ref={(el) => (cardRefs.current[feedItems.length] = el)}
+          ref={(el) => (cardRefs.current[renderedQueue.length] = el)}
           className="h-full w-full snap-start snap-always flex-shrink-0"
           style={{ scrollSnapStop: 'always' }}
         >
-          <EndOfFeedCard />
+          <LoadingCard />
         </div>
       </div>
 
       {/* Scroll Dots */}
       <ScrollDots
-        items={feedItems}
+        items={queueItems}
         activeIndex={activeIndex}
-        totalCount={feedItems.length + 1}
+        totalCount={renderedQueue.length + 1}
       />
-
-      {/* Scroll Lock Indicator */}
-      <ScrollLockIndicator isVisible={isBlocked} />
 
       {/* Floating Action Button */}
       <button

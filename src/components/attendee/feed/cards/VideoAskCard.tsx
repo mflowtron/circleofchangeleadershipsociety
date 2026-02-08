@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { VideoAskCard as VideoAskCardType } from '@/types/conferenceFeed';
-import { Lock, Check, Video, SkipForward, Square } from 'lucide-react';
+import { Check, Video, Square } from 'lucide-react';
+import { NudgeBanner } from '../NudgeBanner';
 
 interface VideoAskCardProps {
   videoAsk: VideoAskCardType;
+  nudgeLevel?: number;
   onRespond: () => void;
   onSkip: () => void;
 }
 
-export function VideoAskCard({ videoAsk, onRespond, onSkip }: VideoAskCardProps) {
+export function VideoAskCard({ videoAsk, nudgeLevel = 0, onRespond, onSkip }: VideoAskCardProps) {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [recording, setRecording] = useState(false);
   const [recorded, setRecorded] = useState(videoAsk.responded);
@@ -67,6 +69,9 @@ export function VideoAskCard({ videoAsk, onRespond, onSkip }: VideoAskCardProps)
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Show nudge only on first resurface (nudgeLevel === 1) and if not responded
+  const showNudge = !recorded && !recording && countdown === null && nudgeLevel === 1;
+
   return (
     <div className="relative h-full w-full bg-[#09090b] overflow-hidden flex items-center justify-center">
       {/* Background Effects */}
@@ -100,6 +105,14 @@ export function VideoAskCard({ videoAsk, onRespond, onSkip }: VideoAskCardProps)
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-[340px] px-6">
+        {/* Nudge Banner */}
+        {showNudge && (
+          <NudgeBanner 
+            text="🎥 Still time to share your take!" 
+            color={videoAsk.accentColor} 
+          />
+        )}
+
         {/* Badge */}
         <div className="flex justify-center mb-6">
           <div 
@@ -206,19 +219,9 @@ export function VideoAskCard({ videoAsk, onRespond, onSkip }: VideoAskCardProps)
         )}
 
         {/* Source + Time */}
-        <p className="text-[11px] text-center text-white/30 mb-4">
+        <p className="text-[11px] text-center text-white/30">
           {videoAsk.from} · {videoAsk.date} · {videoAsk.time}
         </p>
-
-        {/* Lock Hint */}
-        {!recorded && !recording && countdown === null && (
-          <div className="flex items-center justify-center gap-1.5">
-            <Lock className="w-3 h-3 text-white/30" />
-            <span className="text-[11px] text-white/30">
-              Record or skip to continue
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );
