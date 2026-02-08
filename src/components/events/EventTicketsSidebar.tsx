@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Ticket } from 'lucide-react';
+import { Ticket, Clock } from 'lucide-react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,8 @@ const isTicketAvailable = (ticket: TicketType) => {
 export function EventTicketsSidebar({ eventId, eventSlug }: EventTicketsSidebarProps) {
   const { ticketTypes, isLoading } = useTicketTypes(eventId);
 
+  const availableTickets = ticketTypes.filter(isTicketAvailable);
+
   return (
     <Card className="sticky top-24 card-premium">
       <CardHeader>
@@ -44,14 +47,13 @@ export function EventTicketsSidebar({ eventId, eventSlug }: EventTicketsSidebarP
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />
           </div>
-        ) : ticketTypes.length === 0 ? (
+        ) : availableTickets.length === 0 ? (
           <p className="text-muted-foreground text-center py-4">
             Tickets not yet available
           </p>
         ) : (
           <>
-            {ticketTypes.map((ticket) => {
-              const available = isTicketAvailable(ticket);
+            {availableTickets.map((ticket) => {
               const remaining =
                 ticket.quantity_available !== null
                   ? ticket.quantity_available - ticket.quantity_sold
@@ -82,10 +84,11 @@ export function EventTicketsSidebar({ eventId, eventSlug }: EventTicketsSidebarP
                       )}
                     </div>
                   </div>
-                  {!available && (
-                    <Badge variant="outline" className="w-full justify-center">
-                      {remaining === 0 ? 'Sold Out' : 'Not Available'}
-                    </Badge>
+                  {ticket.sales_end_at && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>Available until {format(new Date(ticket.sales_end_at), 'MMM d, yyyy')}</span>
+                    </div>
                   )}
                 </div>
               );
