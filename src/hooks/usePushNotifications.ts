@@ -104,12 +104,14 @@ export function useAudienceCounts(eventId: string | null) {
     queryFn: async () => {
       if (!eventId) return null;
 
-      // Get all attendees for the event with their ticket types
+      // Get all attendees for the event with their ticket types and contact info
       const { data: attendees, error } = await supabase
         .from('attendees')
         .select(`
           id,
           user_id,
+          attendee_name,
+          attendee_email,
           order_item_id,
           order_items!inner(
             ticket_type_id,
@@ -157,15 +159,26 @@ export function useAudienceCounts(eventId: string | null) {
         }
       });
 
+      // Parse attendee names into first/last for display
+      const attendeesWithNames = eventAttendees.map(a => {
+        const nameParts = (a.attendee_name || '').trim().split(' ');
+        const firstName = nameParts[0] || null;
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
+        return {
+          id: a.id,
+          user_id: a.user_id,
+          first_name: firstName,
+          last_name: lastName,
+          email: a.attendee_email || null,
+        };
+      });
+
       return {
         total,
         inPerson,
         virtual,
         ticketTypes: Array.from(ticketTypeMap.values()),
-        attendees: eventAttendees.map(a => ({
-          id: a.id,
-          user_id: a.user_id,
-        })),
+        attendees: attendeesWithNames,
       };
     },
     enabled: !!eventId,
