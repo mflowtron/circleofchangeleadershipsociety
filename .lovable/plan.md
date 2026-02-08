@@ -1,130 +1,80 @@
 
 
-# Remove Unused Dependencies and Dead Code
+# Add 3 Users to Attendee App
 
 ## Summary
 
-Clean up the codebase by removing unused UI components, npm packages, a hook, and a stale edge function. All items verified as truly unused - no imports or references exist anywhere in the application.
+Create attendee records for all 3 existing users (Michael Flotron, Leanna Mouton, and Joshua Fredenburg) by adding them to orders for the First Gen Career Conference 2026 event.
 
 ---
 
-## Verification Results
+## Users to Add
 
-| Item | Status |
-|------|--------|
-| 14 UI components | No imports found in any `.tsx` or `.ts` file |
-| `useAttendeeBookmarks.ts` | Only self-references (never imported by other files) |
-| `backfill-video-aspect-ratios/` | No references anywhere in codebase |
-| 5 npm packages | Only imported by the UI components being deleted |
-
----
-
-## Changes
-
-### 1. Delete Unused UI Component Files (14 files)
-
-Remove from `src/components/ui/`:
-
-| File | Package Dependency |
-|------|--------------------|
-| `accordion.tsx` | radix (kept) |
-| `breadcrumb.tsx` | radix (kept) |
-| `carousel.tsx` | `embla-carousel-react` |
-| `chart.tsx` | `recharts` |
-| `context-menu.tsx` | radix (kept) |
-| `drawer.tsx` | `vaul` |
-| `hover-card.tsx` | radix (kept) |
-| `input-otp.tsx` | `input-otp` |
-| `menubar.tsx` | radix (kept) |
-| `navigation-menu.tsx` | radix (kept) |
-| `pagination.tsx` | none |
-| `resizable.tsx` | `react-resizable-panels` |
-| `sidebar.tsx` | none |
-| `slider.tsx` | radix (kept) |
-
-### 2. Remove Unused npm Packages (5 packages)
-
-Remove from `package.json` dependencies:
-
-- `embla-carousel-react` - only used by `carousel.tsx`
-- `input-otp` - only used by `input-otp.tsx`
-- `react-resizable-panels` - only used by `resizable.tsx`
-- `recharts` - only used by `chart.tsx`
-- `vaul` - only used by `drawer.tsx`
-
-### 3. Delete Unused Hook
-
-Remove `src/hooks/useAttendeeBookmarks.ts` - a wrapper hook that is never imported anywhere.
-
-### 4. Delete Stale Edge Function
-
-Remove entire directory `supabase/functions/backfill-video-aspect-ratios/` - one-time migration script no longer needed.
+| User | Email | User ID |
+|------|-------|---------|
+| Michael Flotron | mflotron91@gmail.com | 6d8fab70-f16c-4092-917c-0da9af673f9a |
+| Leanna Mouton | leanna@coclc.org | 18628588-8533-4472-8ab5-3704f4fc5414 |
+| Joshua Fredenburg | circleofchangeleadconference@gmail.com | f3387031-a52b-43f8-bf8c-f58abb023cde |
 
 ---
 
-## Preserved Items
+## Event Details
 
-| Item | Reason |
-|------|--------|
-| `toggle.tsx` | Imported by `toggle-group.tsx` |
-| `command.tsx` | Used by `SpeakerSelector.tsx` |
-| `cmdk` package | Required by `command.tsx` |
-| `natively` package | App will be wrapped as native app |
+| Field | Value |
+|-------|-------|
+| Event | 2026 First Generation Student Career Leadership Experience |
+| Event ID | f47ac10b-58cc-4372-a567-0e02b2c3d479 |
+| Ticket Type | In-Person Early Bird ($325) |
 
 ---
 
-## Technical Notes
+## Database Operations
 
-### File Deletions
+### 1. Create 3 Orders (one per user)
 
-```text
-src/components/ui/
-├── accordion.tsx      ← DELETE
-├── breadcrumb.tsx     ← DELETE
-├── carousel.tsx       ← DELETE
-├── chart.tsx          ← DELETE
-├── context-menu.tsx   ← DELETE
-├── drawer.tsx         ← DELETE
-├── hover-card.tsx     ← DELETE
-├── input-otp.tsx      ← DELETE
-├── menubar.tsx        ← DELETE
-├── navigation-menu.tsx ← DELETE
-├── pagination.tsx     ← DELETE
-├── resizable.tsx      ← DELETE
-├── sidebar.tsx        ← DELETE
-└── slider.tsx         ← DELETE
+Each order will:
+- Be linked to the user's `user_id`
+- Use the user's email as the order email
+- Have status = 'completed'
+- Include 1 In-Person Early Bird ticket
 
-src/hooks/
-└── useAttendeeBookmarks.ts ← DELETE
+### 2. Create 3 Order Items
 
-supabase/functions/
-└── backfill-video-aspect-ratios/ ← DELETE (entire directory)
-```
+Link each order to the In-Person Early Bird ticket type with quantity 1.
 
-### Package.json Changes
+### 3. Create 3 Attendees
 
-```json
-{
-  "dependencies": {
-    // REMOVE these 5 lines:
-    "embla-carousel-react": "^8.6.0",
-    "input-otp": "^1.4.2",
-    "react-resizable-panels": "^2.1.9",
-    "recharts": "^2.15.4",
-    "vaul": "^0.9.9"
-  }
-}
+Create attendee records with:
+- `attendee_name` = user's full name
+- `attendee_email` = user's email
+- `user_id` = linked to their auth user
+- `order_item_id` = linked to their order item
+
+---
+
+## SQL Migration
+
+```sql
+-- Order 1: Michael Flotron
+INSERT INTO orders (id, event_id, user_id, order_number, email, full_name, status, subtotal_cents, total_cents, completed_at)
+VALUES ('ord-michael-001', 'f47ac10b-...', '6d8fab70-...', 'ORD-STAFF-0001', 'mflotron91@gmail.com', 'Michael Flotron', 'completed', 32500, 32500, now());
+
+INSERT INTO order_items (id, order_id, ticket_type_id, quantity, unit_price_cents)
+VALUES ('oi-michael-001', 'ord-michael-001', 'a1b2c3d4-e5f6-4789-abcd-111111111111', 1, 32500);
+
+INSERT INTO attendees (order_item_id, attendee_name, attendee_email, user_id)
+VALUES ('oi-michael-001', 'Michael Flotron', 'mflotron91@gmail.com', '6d8fab70-...');
+
+-- (Repeat for Leanna and Joshua)
 ```
 
 ---
 
 ## Result
 
-After cleanup:
-- 14 fewer UI component files
-- 5 fewer npm dependencies (smaller bundle size)
-- 1 fewer unused hook
-- 1 fewer stale edge function
-
-The app will build and function identically with no behavioral changes.
+After implementation:
+- All 3 users will have completed orders for the First Gen Career Conference
+- Each user will have an attendee record linked to their auth account
+- They will be able to access the Attendee app at `/attendee` using their email
+- Their attendee profiles will be pre-populated with their names and emails
 
