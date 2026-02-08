@@ -12,6 +12,8 @@ import { EndOfFeedCard } from './EndOfFeedCard';
 import { BottomNavigation } from '../BottomNavigation';
 import { FeedCommentsSheet } from './FeedCommentsSheet';
 import { useAttendeeEvent } from '@/contexts/AttendeeEventContext';
+import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
 function feedReducer(state: FeedItem[], action: FeedAction): FeedItem[] {
   return state.map((item) => {
@@ -260,6 +262,10 @@ export function ConferenceFeed() {
     return null;
   };
 
+  const handleCreatePost = () => {
+    toast.info('Create post coming soon!');
+  };
+
   return (
     <div className="feed-dark fixed inset-0 bg-[#09090b] overflow-hidden">
       {/* Feed Header */}
@@ -301,6 +307,16 @@ export function ConferenceFeed() {
 
       {/* Scroll Lock Indicator */}
       <ScrollLockIndicator isVisible={isBlocked} />
+
+      {/* Floating Action Button */}
+      <button
+        onClick={handleCreatePost}
+        className="fixed right-4 z-40 w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center touch-manipulation active:scale-95 transition-transform"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
+        aria-label="Create post"
+      >
+        <Plus className="h-6 w-6 text-primary-foreground" />
+      </button>
 
       {/* Bottom Navigation */}
       <div className="feed-dark">
