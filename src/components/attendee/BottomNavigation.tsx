@@ -77,7 +77,7 @@ export function BottomNavigation() {
             onClick={handleCreatePost}
             className="flex flex-col items-center justify-center flex-1 h-full gap-1 touch-manipulation active:scale-95"
           >
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg animate-scale-in">
               <Plus className="h-5 w-5 text-primary-foreground" />
             </div>
           </button>
