@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Ticket } from 'lucide-react';
+import { Ticket, Clock } from 'lucide-react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useTicketTypes, TicketType } from '@/hooks/useTicketTypes';
@@ -29,27 +30,28 @@ const isTicketAvailable = (ticket: TicketType) => {
 export function EventTicketsSection({ eventId, eventSlug }: EventTicketsSectionProps) {
   const { ticketTypes, isLoading } = useTicketTypes(eventId);
 
+  const availableTickets = ticketTypes.filter(isTicketAvailable);
+
   return (
     <section className="py-12 lg:hidden">
       <h2 className="text-2xl font-semibold mb-8 flex items-center gap-3">
         <span className="w-1 h-8 bg-primary rounded-full" />
         Tickets
       </h2>
-      
+
       {isLoading ? (
         <div className="space-y-4">
           <Skeleton className="h-24 w-full rounded-xl" />
           <Skeleton className="h-24 w-full rounded-xl" />
         </div>
-      ) : ticketTypes.length === 0 ? (
+      ) : availableTickets.length === 0 ? (
         <div className="card-premium p-8 text-center">
           <Ticket className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <p className="text-muted-foreground">Tickets not yet available</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {ticketTypes.map((ticket) => {
-            const available = isTicketAvailable(ticket);
+          {availableTickets.map((ticket) => {
             const remaining =
               ticket.quantity_available !== null
                 ? ticket.quantity_available - ticket.quantity_sold
@@ -80,18 +82,19 @@ export function EventTicketsSection({ eventId, eventSlug }: EventTicketsSectionP
                     )}
                   </div>
                 </div>
-                {!available && (
-                  <Badge variant="outline" className="w-full justify-center py-2">
-                    {remaining === 0 ? 'Sold Out' : 'Not Available'}
-                  </Badge>
+                {ticket.sales_end_at && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Available until {format(new Date(ticket.sales_end_at), 'MMM d, yyyy')}</span>
+                  </div>
                 )}
               </div>
             );
           })}
-          
-          <Button 
-            className="w-full btn-gold-glow py-6 text-lg h-auto mt-6" 
-            size="lg" 
+
+          <Button
+            className="w-full btn-gold-glow py-6 text-lg h-auto mt-6"
+            size="lg"
             asChild
           >
             <Link to={`/events/${eventSlug}/checkout`}>

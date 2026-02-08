@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useTicketTypes } from '@/hooks/useTicketTypes';
+import { useTicketTypes, TicketType } from '@/hooks/useTicketTypes';
 
 interface FloatingTicketBarProps {
   eventId: string;
@@ -17,9 +17,19 @@ const formatPrice = (cents: number) => {
   }).format(cents / 100);
 };
 
+const isTicketAvailable = (ticket: TicketType) => {
+  const now = new Date();
+  if (ticket.sales_start_at && new Date(ticket.sales_start_at) > now) return false;
+  if (ticket.sales_end_at && new Date(ticket.sales_end_at) < now) return false;
+  if (ticket.quantity_available !== null && ticket.quantity_sold >= ticket.quantity_available) return false;
+  return true;
+};
+
 export function FloatingTicketBar({ eventId, eventSlug }: FloatingTicketBarProps) {
   const [isVisible, setIsVisible] = useState(false);
   const { ticketTypes } = useTicketTypes(eventId);
+
+  const availableTickets = ticketTypes.filter(isTicketAvailable);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -32,9 +42,12 @@ export function FloatingTicketBar({ eventId, eventSlug }: FloatingTicketBarProps
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Get the lowest price
-  const lowestPrice = ticketTypes.length > 0
-    ? Math.min(...ticketTypes.map(t => t.price_cents))
+  // Hide bar if no tickets are available
+  if (availableTickets.length === 0) return null;
+
+  // Get the lowest price from available tickets only
+  const lowestPrice = availableTickets.length > 0
+    ? Math.min(...availableTickets.map(t => t.price_cents))
     : null;
 
   // Don't render on desktop

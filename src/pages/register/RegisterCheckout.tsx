@@ -84,8 +84,7 @@ export default function RegisterCheckout() {
   const canSubmit =
     selectedTicketId && quantity > 0 && buyerName.trim() && buyerEmail.trim() && organization.trim();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setError(null);
 
     if (!canSubmit || !event || !selectedTicket) return;
@@ -188,7 +187,7 @@ export default function RegisterCheckout() {
           {event.title}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-6">
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -299,7 +298,6 @@ export default function RegisterCheckout() {
                   value={buyerName}
                   onChange={(e) => setBuyerName(e.target.value)}
                   placeholder="Jane Smith"
-                  required
                   disabled={createCheckout.isPending}
                   className="bg-white"
                 />
@@ -314,7 +312,6 @@ export default function RegisterCheckout() {
                   value={buyerEmail}
                   onChange={(e) => setBuyerEmail(e.target.value)}
                   placeholder="jane@university.edu"
-                  required
                   disabled={createCheckout.isPending}
                   className="bg-white"
                 />
@@ -331,7 +328,6 @@ export default function RegisterCheckout() {
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
                   placeholder="University of Georgia"
-                  required
                   disabled={createCheckout.isPending}
                   className="bg-white"
                 />
@@ -419,7 +415,8 @@ export default function RegisterCheckout() {
               </div>
 
               <Button
-                type="submit"
+                type="button"
+                onClick={handleSubmit}
                 className="w-full mt-4 py-6 text-base font-semibold rounded-xl"
                 size="lg"
                 disabled={!canSubmit || createCheckout.isPending}
@@ -443,7 +440,7 @@ export default function RegisterCheckout() {
               </p>
             </CardContent>
           </Card>
-        </form>
+        </div>
       </div>
     </RegistrationLayout>
   );
