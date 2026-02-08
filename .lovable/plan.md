@@ -1,57 +1,63 @@
 
-# Fix Bottom Safe Area Padding in Natively Wrapper
+# Hide Feed View for Non-Natively Environments
 
-## Problem
-The bottom navigation and other bottom-anchored elements are being overlapped by the iOS home indicator bar when the app runs inside the Natively native wrapper. This happens because the CSS `env(safe-area-inset-bottom)` variable isn't properly reported inside the WebView—it returns 0 instead of the actual safe area value.
+## Summary
+The Feed feature will be exclusive to users accessing the app through the Natively mobile wrapper. Users on mobile browsers or PWA installs will not see the Feed tab or be able to access the Feed route.
 
-## Solution
-Create a hook that fetches the actual native safe area insets from the Natively SDK using `window.natively.getInsets()` and applies them as CSS custom properties on the document root. This allows all components to use these values as a fallback when `env()` doesn't work.
+## How It Works
+
+When the app loads, it checks whether it's running inside the Natively wrapper using the existing `isNativeApp()` utility. Based on this:
+
+| Environment | Feed Tab Visible | Feed Route Accessible |
+|-------------|-----------------|----------------------|
+| Natively iOS/Android | Yes | Yes |
+| Mobile Safari/Chrome | No | Redirects to Home |
+| PWA (installed) | No | Redirects to Home |
+| Desktop browser | No | Redirects to Home |
 
 ## Implementation
 
-### 1. Create new hook: `src/hooks/useNativelySafeArea.ts`
-This hook will:
-- Check if running inside the Natively wrapper
-- Call `getInsets()` to fetch native safe area values
-- Set CSS custom properties (`--natively-safe-area-bottom`, etc.) on `document.documentElement`
-- Provide fallback values for non-native environments
+### 1. Create a reusable hook for Natively detection
+**New file: `src/hooks/useIsNativeApp.ts`**
+
+A simple hook that wraps the existing `isNativeApp()` utility function. This provides a React-friendly way to check the environment and can be used across multiple components.
+
+### 2. Update Bottom Navigation
+**File: `src/components/attendee/BottomNavigation.tsx`**
+
+Filter out the Feed tab from the navigation items when not running in Natively. The navigation will show:
+- **In Natively**: Home, Feed, Agenda, Messages (4 tabs)
+- **Elsewhere**: Home, Agenda, Messages (3 tabs)
+
+### 3. Protect the Feed Route
+**File: `src/pages/attendee/Dashboard.tsx`**
+
+Add a redirect check: if a user somehow navigates to `/attendee/app/feed` (e.g., via direct URL or bookmark) while not in Natively, automatically redirect them to `/attendee/app/home`.
+
+### 4. Skip Feed preloading when not needed
+**File: `src/pages/attendee/Dashboard.tsx`**
+
+Conditionally skip preloading the Feed page component when not in Natively to save bandwidth and improve load times.
+
+---
+
+## Technical Details
+
+The detection uses the existing `NativelyInfo` class from the `natively` SDK:
 
 ```typescript
-// Callback returns: { top, left, right, bottom }
-// Sets: --natively-safe-area-top, --natively-safe-area-bottom, etc.
+import { NativelyInfo } from 'natively';
+
+const info = new NativelyInfo();
+const isNative = info.browserInfo().isNativeApp;
 ```
 
-### 2. Initialize the hook in the Attendee Dashboard
-Add the hook to `src/pages/attendee/Dashboard.tsx` so safe area values are available app-wide when the attendee app loads.
+This is already wrapped safely in `src/utils/nativelyCache.ts` with try-catch error handling, so it won't break in environments where the SDK isn't available.
 
-### 3. Update bottom-anchored components to use the Natively insets
-Components that need updating:
-
-| Component | Current | After |
-|-----------|---------|-------|
-| `BottomNavigation.tsx` | `env(safe-area-inset-bottom)` | `max(env(safe-area-inset-bottom), var(--natively-safe-area-bottom, 0px))` |
-| `AttendeeLayout.tsx` (main content) | `64px + env(...)` | `calc(64px + max(env(...), var(--natively-safe-area-bottom, 0px)))` |
-| `ConferenceFeed.tsx` (FAB) | `env(...) + 80px` | `calc(max(env(...), var(..., 0px)) + 80px)` |
-
-### 4. Pattern for the CSS fallback
-```css
-/* Uses native CSS env() if available, falls back to Natively value */
-padding-bottom: max(env(safe-area-inset-bottom), var(--natively-safe-area-bottom, 0px));
-```
-
-This ensures:
-- Standard browsers continue to work with `env()`
-- Natively wrapper gets proper insets from the SDK
-- Non-native environments gracefully fall back to 0px
+---
 
 ## Files to Change
-1. **Create** `src/hooks/useNativelySafeArea.ts` — new hook to fetch and apply insets
-2. **Modify** `src/pages/attendee/Dashboard.tsx` — initialize the hook
-3. **Modify** `src/components/attendee/BottomNavigation.tsx` — use the safe fallback
-4. **Modify** `src/components/attendee/AttendeeLayout.tsx` — update main content padding
-5. **Modify** `src/components/attendee/feed/ConferenceFeed.tsx` — update FAB positioning
 
-## Technical Notes
-- The hook wraps all Natively SDK calls in try-catch blocks per existing project conventions
-- CSS custom properties are set on `:root` so they're available globally
-- The `max()` CSS function ensures the larger value wins (handles edge cases)
+1. **Create** `src/hooks/useIsNativeApp.ts` — new hook for React components
+2. **Modify** `src/components/attendee/BottomNavigation.tsx` — conditionally show Feed tab
+3. **Modify** `src/pages/attendee/Dashboard.tsx` — redirect non-Natively users away from Feed, skip preloading
