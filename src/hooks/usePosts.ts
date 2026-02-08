@@ -59,7 +59,7 @@ export function usePosts(filter: FilterType = 'all') {
     queryFn: async (): Promise<Post[]> => {
       if (!user) return [];
 
-      // Build the base query - using new 'posts' table name (not lms_posts)
+      // Build the base query
       let query = supabase
         .from('posts')
         .select(`
