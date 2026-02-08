@@ -10,7 +10,7 @@ export function AnnouncementCard({ announcement, onAcknowledge }: AnnouncementCa
   const isImportant = announcement.priority === 'important';
 
   return (
-    <div className="relative h-full w-full bg-[#09090b] overflow-hidden flex items-center justify-center px-6">
+    <div className="relative h-full w-full bg-[#09090b] overflow-hidden flex items-center justify-center">
       {/* Background Effects */}
       <div 
         className="absolute inset-0"
@@ -27,7 +27,7 @@ export function AnnouncementCard({ announcement, onAcknowledge }: AnnouncementCa
       />
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-[340px] text-center animate-slide-up">
+      <div className="relative z-10 w-full max-w-[340px] px-6 text-center animate-slide-up">
         {/* Icon */}
         <div 
           className="w-[72px] h-[72px] rounded-[20px] flex items-center justify-center mx-auto mb-6"
