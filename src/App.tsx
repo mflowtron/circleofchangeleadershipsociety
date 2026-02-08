@@ -67,6 +67,7 @@ const AttendeeMessages = lazy(() => import("@/pages/attendee/Messages"));
 const AttendeeConversation = lazy(() => import("@/pages/attendee/Conversation"));
 const AttendeeNetworking = lazy(() => import("@/pages/attendee/Networking"));
 const AttendeeProfilePage = lazy(() => import("@/pages/attendee/AttendeeProfile"));
+const AttendeeFeed = lazy(() => import("@/pages/attendee/Feed"));
 const AttendeeAgendaDetail = lazy(() => import("@/pages/attendee/AgendaDetail"));
 
 const queryClient = new QueryClient({
@@ -329,6 +330,7 @@ function AppRoutes() {
       }>
         <Route index element={<Navigate to="/attendee/app/home" replace />} />
         <Route path="home" element={<AttendeeHome />} />
+        <Route path="feed" element={<AttendeeFeed />} />
         <Route path="agenda" element={<AttendeeAgenda />} />
         <Route path="agenda/:itemId" element={<AttendeeAgendaDetail />} />
         <Route path="messages" element={<AttendeeMessages />} />
