@@ -63,9 +63,12 @@ serve(async (req: Request) => {
       .from('attendees')
       .select(`
         id,
-        order_id,
-        orders!inner (
-          event_id
+        order_item_id,
+        order_items!inner (
+          order_id,
+          orders!inner (
+            event_id
+          )
         )
       `)
       .eq('id', attendee_id)
@@ -80,7 +83,7 @@ serve(async (req: Request) => {
     }
 
     // Verify agenda item belongs to the same event
-    const eventId = (attendee as any).orders?.event_id;
+    const eventId = (attendee as any).order_items?.orders?.event_id;
     const { data: agendaItem, error: agendaError } = await supabaseAdmin
       .from('agenda_items')
       .select('id, event_id')
