@@ -65,7 +65,7 @@ export function MessageInput({
   return (
     <div 
       className="border-t border-border bg-background"
-      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {/* Attachment preview */}
       {attachment && (

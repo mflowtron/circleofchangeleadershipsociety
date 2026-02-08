@@ -46,7 +46,7 @@ export function FloatingTicketBar({ eventId, eventSlug }: FloatingTicketBarProps
     >
       <div 
         className="glass border-t border-border/50 p-4"
-        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-center justify-between gap-4 max-w-lg mx-auto">
           <div className="flex items-center gap-3">
