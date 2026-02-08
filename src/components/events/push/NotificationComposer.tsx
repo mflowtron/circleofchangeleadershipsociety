@@ -4,7 +4,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, AlertTriangle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AudienceSelector } from './AudienceSelector';
 import { type AudienceType, type AudienceFilter, useAudienceCounts } from '@/hooks/usePushNotifications';
 
@@ -29,14 +39,17 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
   const [redirectUrl, setRedirectUrl] = useState('');
   const [audienceType, setAudienceType] = useState<AudienceType>('all');
   const [audienceFilter, setAudienceFilter] = useState<AudienceFilter>({});
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const { data: audienceCounts } = useAudienceCounts(eventId);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!title.trim() || !message.trim()) return;
+    setShowConfirmDialog(true);
+  };
 
+  const handleConfirm = async () => {
     await onSend({
       title: title.trim(),
       message: message.trim(),
@@ -45,12 +58,24 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
       audience_filter: Object.keys(audienceFilter).length > 0 ? audienceFilter : undefined,
     });
 
-    // Reset form
+    // Reset form and close dialog
+    setShowConfirmDialog(false);
     setTitle('');
     setMessage('');
     setRedirectUrl('');
     setAudienceType('all');
     setAudienceFilter({});
+  };
+
+  const getAudienceLabel = () => {
+    switch (audienceType) {
+      case 'all': return 'All Attendees';
+      case 'in_person': return 'In-Person Only';
+      case 'virtual': return 'Virtual Only';
+      case 'ticket_type': return 'By Ticket Type';
+      case 'individual': return 'Individual Attendees';
+      default: return audienceType;
+    }
   };
 
   const getRecipientCount = () => {
@@ -162,6 +187,58 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
           )}
         </Button>
       </div>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Send Push Notification?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  You are about to send a notification to{' '}
+                  <span className="font-medium">{getRecipientCount()}</span> attendees.
+                </p>
+                
+                <div className="rounded-md border bg-muted/50 p-3 space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium">Title:</span> {title}
+                  </div>
+                  <div>
+                    <span className="font-medium">Message:</span>{' '}
+                    {message.length > 100 ? `${message.slice(0, 100)}...` : message}
+                  </div>
+                  <div>
+                    <span className="font-medium">Audience:</span> {getAudienceLabel()}
+                  </div>
+                </div>
+                
+                <p className="text-xs text-muted-foreground">
+                  This action cannot be undone. Notifications will be sent immediately to all targeted devices.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirm} disabled={isSending}>
+              {isSending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Notification
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }
