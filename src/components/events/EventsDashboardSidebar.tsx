@@ -13,6 +13,7 @@ import {
   CalendarDays,
   ScanLine,
   Building2,
+  Megaphone,
   Bell
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ const eventNavItems = [
   { path: '/events/manage/speakers', label: 'Speakers', icon: UserCircle },
   { path: '/events/manage/agenda', label: 'Agenda', icon: CalendarDays },
   { path: '/events/manage/hotels', label: 'Hotels', icon: Building2 },
+  { path: '/events/manage/announcements', label: 'Announcements', icon: Megaphone },
   { path: '/events/manage/push', label: 'Push Notifications', icon: Bell },
 ];
 
