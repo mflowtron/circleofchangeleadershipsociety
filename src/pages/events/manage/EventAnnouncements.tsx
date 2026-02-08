@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Megaphone, Send, Bell, BellOff, Loader2, Trash2, AlertCircle, Eye, XCircle } from 'lucide-react';
+import { Megaphone, Send, Bell, BellOff, Loader2, Trash2, AlertCircle, Eye, XCircle, Pencil } from 'lucide-react';
+import EditEventAnnouncementDialog from '@/components/events/announcements/EditEventAnnouncementDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AudienceSelector } from '@/components/events/push/AudienceSelector';
 import { useAudienceCounts, type AudienceType, type AudienceFilter } from '@/hooks/usePushNotifications';
@@ -218,6 +219,36 @@ export default function EventAnnouncements() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-announcements', selectedEventId] });
+    },
+  });
+
+  // Edit announcement state and mutation
+  const [editingAnnouncement, setEditingAnnouncement] = useState<EventAnnouncementRecord | null>(null);
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { 
+      id: string; 
+      data: { 
+        title: string; 
+        content: string; 
+        priority: string; 
+        is_active: boolean;
+        expires_at: string | null; 
+      } 
+    }) => {
+      const { error } = await supabase
+        .from('announcements')
+        .update(data)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['event-announcements', selectedEventId] });
+      toast.success('Announcement updated');
+      setEditingAnnouncement(null);
+    },
+    onError: () => {
+      toast.error('Failed to update announcement');
     },
   });
 
@@ -480,6 +511,13 @@ export default function EventAnnouncements() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingAnnouncement(ann)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             <Switch
                               checked={ann.is_active}
                               onCheckedChange={(checked) =>
@@ -522,6 +560,16 @@ export default function EventAnnouncements() {
           </Card>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <EditEventAnnouncementDialog
+        announcement={editingAnnouncement}
+        onClose={() => setEditingAnnouncement(null)}
+        onSave={async (id, data) => {
+          await updateMutation.mutateAsync({ id, data });
+        }}
+        isSubmitting={updateMutation.isPending}
+      />
     </div>
   );
 }
