@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 import { PostCard as PostCardType } from '@/types/conferenceFeed';
-import { Heart, MessageCircle, Share, Camera, Pin, Volume2, VolumeX } from 'lucide-react';
+import { Heart, MessageCircle, Share, Camera, Pin, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { HeartBurstAnimation } from '../HeartBurstAnimation';
 
 interface PostCardProps {
@@ -17,6 +17,7 @@ export function PostCard({ post, isActive, isMuted, onLike, onToggleMute, onOpen
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [showMuteIndicator, setShowMuteIndicator] = useState(false);
   const [lastTap, setLastTap] = useState(0);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const singleTapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const muxPlayerRef = useRef<any>(null);
 
@@ -83,16 +84,35 @@ export function PostCard({ post, isActive, isMuted, onLike, onToggleMute, onOpen
       {/* Media Layer */}
       <div className="absolute inset-0">
         {post.type === 'video' || post.type === 'recap' ? (
-          <MuxPlayer
-            ref={muxPlayerRef}
-            playbackId={post.playbackId}
-            streamType="on-demand"
-            autoPlay={false}
-            muted={isMuted}
-            loop
-            playsInline
-            className="w-full h-full [--controls:none] [--media-object-fit:cover]"
-          />
+          <>
+            {/* Thumbnail placeholder while video loads */}
+            {!isVideoReady && (
+              <div className="absolute inset-0 z-10">
+                <img
+                  src={`https://image.mux.com/${post.playbackId}/thumbnail.jpg?time=0&width=720`}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+                {/* Loading spinner overlay */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                  <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  </div>
+                </div>
+              </div>
+            )}
+            <MuxPlayer
+              ref={muxPlayerRef}
+              playbackId={post.playbackId}
+              streamType="on-demand"
+              autoPlay={false}
+              muted={isMuted}
+              loop
+              playsInline
+              onCanPlay={() => setIsVideoReady(true)}
+              className={`w-full h-full [--controls:none] [--media-object-fit:cover] ${!isVideoReady ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+            />
+          </>
         ) : (
           <img
             src={post.imageUrl}
