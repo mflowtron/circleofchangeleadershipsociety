@@ -59,9 +59,8 @@ export function AttendeesTable({
       attendee.order?.order_number.toLowerCase().includes(searchLower) ||
       attendee.order?.full_name.toLowerCase().includes(searchLower);
 
-    // Ticket type filter - get ticket_type_id through order_item
-    const ticketTypeId = attendee.order_item_id;
-    const matchesTicket = ticketFilter === 'all' || attendee.ticket_type?.name === ticketTypes.find(t => t.id === ticketFilter)?.name;
+    // Ticket type filter - match by name directly
+    const matchesTicket = ticketFilter === 'all' || attendee.ticket_type?.name === ticketFilter;
 
     // Status filter
     const isComplete = attendee.attendee_name && attendee.attendee_email;
