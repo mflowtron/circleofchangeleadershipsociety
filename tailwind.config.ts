@@ -140,6 +140,10 @@ export default {
           "80%": { transform: "scale(0.95)" },
           "100%": { transform: "scale(1)", opacity: "1" },
         },
+        "slide-up": {
+          "0%": { opacity: "0", transform: "translateY(12px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -154,6 +158,7 @@ export default {
         "slide-in-from-left": "slide-in-from-left 0.25s ease-out forwards",
         "slide-out-to-right": "slide-out-to-right 0.25s ease-out forwards",
         "fab-pop-in": "fab-pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards",
+        "slide-up": "slide-up 0.4s ease-out forwards",
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
