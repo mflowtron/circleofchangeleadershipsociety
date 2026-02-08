@@ -54,11 +54,9 @@ const OrderAttendees = lazy(() => import("@/pages/events/OrderAttendees"));
 const EventsDashboardLayout = lazy(() => import("@/layouts/EventsDashboardLayout"));
 
 // Order Portal pages - lazy loaded
-const OrderPortalIndex = lazy(() => import("@/pages/orders/Index"));
 const OrderPortalDashboard = lazy(() => import("@/pages/orders/Dashboard"));
 
 // Attendee App pages - lazy loaded
-const AttendeeLogin = lazy(() => import("@/pages/attendee/Index"));
 const AttendeeDashboard = lazy(() => import("@/pages/attendee/Dashboard"));
 const AttendeeHome = lazy(() => import("@/pages/attendee/EventHome"));
 const AttendeeAgenda = lazy(() => import("@/pages/attendee/Agenda"));
@@ -314,23 +312,15 @@ function AppRoutes() {
       } />
       
       {/* Order Portal Routes (Public) */}
-      <Route path="/my-orders" element={
-        <SuspenseWithErrorBoundary>
-          <OrderPortalIndex />
-        </SuspenseWithErrorBoundary>
-      } />
+      <Route path="/my-orders" element={<Navigate to="/my-orders/dashboard" replace />} />
       <Route path="/my-orders/dashboard" element={
         <SuspenseWithErrorBoundary>
           <OrderPortalDashboard />
         </SuspenseWithErrorBoundary>
       } />
       
-      {/* Attendee App Routes (Public - uses session token auth) */}
-      <Route path="/attendee" element={
-        <SuspenseWithErrorBoundary>
-          <AttendeeLogin />
-        </SuspenseWithErrorBoundary>
-      } />
+      {/* Attendee App Routes (redirects to app or auth) */}
+      <Route path="/attendee" element={<Navigate to="/attendee/app/home" replace />} />
       <Route path="/attendee/app" element={
         <SuspenseWithErrorBoundary>
           <AttendeeDashboard />

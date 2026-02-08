@@ -28,7 +28,6 @@ export function useAttendee() {
     email: auth.email,
     loading: auth.loading || bookmarks.loading,
     error: auth.error,
-    sendMagicLink: auth.sendMagicLink,
     logout: auth.logout,
     orders: auth.orders,
 

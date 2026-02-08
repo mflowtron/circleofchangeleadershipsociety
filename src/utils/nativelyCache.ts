@@ -27,7 +27,6 @@ export async function warmNativeCache(): Promise<void> {
   
   const criticalRoutes = [
     '/',
-    '/attendee',
   ];
   
   try {
