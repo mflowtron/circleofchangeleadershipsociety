@@ -1,163 +1,82 @@
 
-# Add Scroll Indicators and Top Scrollbar to ResponsiveTable
+# Fix Duplicate Ticket Types in Attendees Filter
 
-## Overview
-Enhance the `ResponsiveTable` component with visual scroll indicators (shadows) that appear when there's more content to scroll, and add a synchronized horizontal scrollbar at the top of the table for easier mouse navigation.
+## Problem
+The ticket type filter dropdown shows many duplicate entries (e.g., "In-Person Early Bird" appears multiple times). This happens because the deduplication logic uses `order_item_id` as the unique key, but each attendee has a unique `order_item_id` even when they share the same ticket type.
+
+## Root Cause
+In `Attendees.tsx`, the ticket types are being extracted like this:
+
+```typescript
+const ticketTypes = Array.from(
+  new Map(
+    attendees
+      .filter((a) => a.ticket_type)
+      .map((a) => [a.order_item_id || '', { id: a.order_item_id || '', name: a.ticket_type?.name || '' }])
+  ).values()
+);
+```
+
+The Map key is `order_item_id`, which is unique per attendee—not per ticket type. So every attendee creates a new entry even if they have the same ticket type.
+
+## Solution
+Change the deduplication to use the **ticket type name** as the key. Since ticket types should be unique by name (within an event), this will correctly consolidate duplicates.
 
 ---
 
 ## Changes
 
-### Update ResponsiveTable Component
-**File:** `src/components/ui/responsive-table.tsx`
+### File: `src/pages/events/manage/Attendees.tsx`
 
-Add the following features:
-
-1. **State tracking for scroll position** - Track whether the user can scroll left, right, or both directions
-
-2. **Scroll indicator shadows** - Show subtle gradient shadows on the left/right edges when there's more content in that direction
-
-3. **Top scrollbar** - Add a hidden div at the top that contains a scrollbar, synchronized with the main content scroll
-
----
-
-## Technical Implementation
-
-### Component Structure
-```text
-┌─────────────────────────────────────────┐
-│  Top Scrollbar (thin, synced)           │
-├─────────────────────────────────────────┤
-│ ░│                              │░      │
-│ ░│      Table Content           │░      │
-│ ░│                              │░      │
-│  │  ← Shadow when scrollable →  │       │
-└─────────────────────────────────────────┘
+**Before:**
+```typescript
+const ticketTypes = Array.from(
+  new Map(
+    attendees
+      .filter((a) => a.ticket_type)
+      .map((a) => [a.order_item_id || '', { id: a.order_item_id || '', name: a.ticket_type?.name || '' }])
+  ).values()
+);
 ```
 
-### Key Implementation Details
+**After:**
+```typescript
+const ticketTypes = Array.from(
+  new Map(
+    attendees
+      .filter((a) => a.ticket_type?.name)
+      .map((a) => [a.ticket_type!.name, { id: a.ticket_type!.name, name: a.ticket_type!.name }])
+  ).values()
+);
+```
 
-1. **Refs for synchronized scrolling**
-   - `topScrollbarRef` - Reference to the top scrollbar container
-   - `contentRef` - Reference to the main content container
-   - `innerRef` - Reference to the inner content to measure actual width
+### File: `src/components/events/AttendeesTable.tsx`
 
-2. **Scroll state tracking**
-   - `canScrollLeft` - Boolean indicating content exists to the left
-   - `canScrollRight` - Boolean indicating content exists to the right
-   - Updated on scroll and resize events
+Update the filter logic to match by ticket type name directly instead of looking up by ID:
 
-3. **Synchronized scroll handler**
-   - When top scrollbar scrolls, update content scrollLeft
-   - When content scrolls, update top scrollbar scrollLeft
-   - Use a flag to prevent infinite scroll loops
+**Before (line 64):**
+```typescript
+const matchesTicket = ticketFilter === 'all' || attendee.ticket_type?.name === ticketTypes.find(t => t.id === ticketFilter)?.name;
+```
 
-4. **Shadow indicators**
-   - Left shadow: `bg-gradient-to-r from-black/10 to-transparent` (visible when `canScrollLeft`)
-   - Right shadow: `bg-gradient-to-l from-black/10 to-transparent` (visible when `canScrollRight`)
-   - Positioned absolutely over the edges
-
-5. **Top scrollbar styling**
-   - Height of approximately 12-16px
-   - Contains an inner div that matches the content width
-   - Standard browser scrollbar appearance
-
-6. **ResizeObserver**
-   - Monitor content width changes to update scroll state
-   - Ensure top scrollbar width stays in sync with content
-
-### Pseudo-code
-```tsx
-export function ResponsiveTable({ children, className, ...props }) {
-  const topScrollbarRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [contentWidth, setContentWidth] = useState(0);
-  
-  // Check scroll position and update state
-  const updateScrollState = useCallback(() => {
-    if (!contentRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = contentRef.current;
-    setCanScrollLeft(scrollLeft > 0);
-    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 1);
-  }, []);
-  
-  // Sync scroll between top bar and content
-  const handleTopScroll = () => {
-    if (contentRef.current && topScrollbarRef.current) {
-      contentRef.current.scrollLeft = topScrollbarRef.current.scrollLeft;
-    }
-  };
-  
-  const handleContentScroll = () => {
-    if (contentRef.current && topScrollbarRef.current) {
-      topScrollbarRef.current.scrollLeft = contentRef.current.scrollLeft;
-    }
-    updateScrollState();
-  };
-  
-  // ResizeObserver for content width changes
-  useEffect(() => {
-    // Set up ResizeObserver on innerRef
-    // Update contentWidth state when size changes
-  }, []);
-  
-  return (
-    <div className="relative">
-      {/* Top scrollbar */}
-      <div 
-        ref={topScrollbarRef}
-        className="overflow-x-auto overflow-y-hidden h-3"
-        onScroll={handleTopScroll}
-      >
-        <div style={{ width: contentWidth, height: 1 }} />
-      </div>
-      
-      {/* Main content with shadows */}
-      <div className="relative">
-        {/* Left shadow */}
-        {canScrollLeft && (
-          <div className="absolute left-0 top-0 bottom-0 w-4 
-            bg-gradient-to-r from-black/10 to-transparent 
-            pointer-events-none z-10" />
-        )}
-        
-        {/* Scrollable content */}
-        <div
-          ref={contentRef}
-          className="overflow-x-auto"
-          onScroll={handleContentScroll}
-        >
-          <div ref={innerRef} className="min-w-max">
-            {children}
-          </div>
-        </div>
-        
-        {/* Right shadow */}
-        {canScrollRight && (
-          <div className="absolute right-0 top-0 bottom-0 w-4 
-            bg-gradient-to-l from-black/10 to-transparent 
-            pointer-events-none z-10" />
-        )}
-      </div>
-    </div>
-  );
-}
+**After:**
+```typescript
+const matchesTicket = ticketFilter === 'all' || attendee.ticket_type?.name === ticketFilter;
 ```
 
 ---
 
-## Visual Behavior
+## Visual Result
 
-| State | Left Shadow | Right Shadow | Top Scrollbar |
-|-------|-------------|--------------|---------------|
-| At start (scrollLeft = 0) | Hidden | Visible | Synced |
-| In middle | Visible | Visible | Synced |
-| At end | Visible | Hidden | Synced |
-| No overflow (fits viewport) | Hidden | Hidden | Hidden |
+| Before | After |
+|--------|-------|
+| In-Person Early Bird | In-Person Early Bird |
+| In-Person Early Bird | Virtual Early Bird |
+| In-Person Early Bird | |
+| Virtual Early Bird | |
+| In-Person Early Bird | |
+| Virtual Early Bird | |
+| ... (many more duplicates) | |
 
 ---
 
@@ -165,12 +84,6 @@ export function ResponsiveTable({ children, className, ...props }) {
 
 | File | Changes |
 |------|---------|
-| `src/components/ui/responsive-table.tsx` | Complete rewrite with scroll sync, shadows, and top scrollbar |
+| `src/pages/events/manage/Attendees.tsx` | Use ticket type name as the Map key for deduplication |
+| `src/components/events/AttendeesTable.tsx` | Simplify filter matching to compare names directly |
 
----
-
-## Outcome
-- Users see subtle shadow indicators when there's more content to scroll horizontally
-- Mouse users can use the top scrollbar for convenient scrolling without reaching the bottom
-- Touch users continue to scroll naturally within the content area
-- Top scrollbar automatically hides when content fits without overflow
