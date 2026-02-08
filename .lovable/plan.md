@@ -1,84 +1,189 @@
 
-# Fix Excessive Safe Area Padding
 
-## Problem Analysis
+# Add Comments/Replies Feature to Conference Feed
 
-Based on the screenshots and code review, the app has excessive bottom padding in several areas. The issue stems from **overly aggressive safe area fallbacks** that add extra space even when devices correctly report `0` for safe area insets.
-
-### Current Issues Identified
-
-| Location | Current Implementation | Problem |
-|----------|----------------------|---------|
-| `MessageInput.tsx` | `max(1rem, env(safe-area-inset-bottom))` | Adds 16px even when device reports 0 |
-| `BottomNavigation.tsx` | `env(safe-area-inset-bottom)` | Correct usage ✓ |
-| `AttendeeLayout.tsx` | `calc(64px + env(safe-area-inset-bottom))` | Correct usage ✓ |
-| `FloatingTicketBar.tsx` | `max(1rem, env(safe-area-inset-bottom))` | Adds 16px even when device reports 0 |
-
-The screenshots show:
-1. **Conversation view**: The MessageInput has too much bottom padding because of the `max(1rem, ...)` fallback
-2. **Feed view**: The BottomNavigation appears correct, but other areas may have similar issues
-
-### Root Cause
-
-The `max(Xrem, env(safe-area-inset-bottom))` pattern was intended as a fallback for browsers that don't support `env()`. However, modern browsers that DO support `env()` will return `0` for non-notched devices, and `max(1rem, 0)` = `1rem`, creating unnecessary padding.
-
-### Solution
-
-Replace `max(Xrem, env(safe-area-inset-bottom))` with just `env(safe-area-inset-bottom)` for bottom insets. The `env()` function is well-supported (all modern browsers) and gracefully falls back to `0` on browsers/devices without safe areas.
-
-For **top insets** (headers), keeping `max(0.75rem, env(safe-area-inset-top))` is still appropriate because:
-- Headers need minimum padding for visual balance
-- Top safe areas are less common than bottom ones
+## Overview
+Add functionality for attendees to tap the comment button on feed posts to view and add comments. The feature will use a bottom sheet overlay that slides up from the bottom, providing a mobile-native experience matching the TikTok-style feed.
 
 ---
 
-## Implementation Plan
+## Database Design
 
-### Files to Modify
+### New Table: `feed_post_comments`
 
-**1. `src/components/attendee/MessageInput.tsx`**
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| id | uuid | No | gen_random_uuid() | Primary key |
+| feed_post_id | text | No | - | ID matching post in feed (e.g., "1", "3") |
+| event_id | uuid | No | - | Event context for the feed |
+| attendee_id | uuid | No | - | Comment author (references attendees) |
+| content | text | No | - | Comment text |
+| created_at | timestamptz | No | now() | Creation timestamp |
+
+**RLS Policies:**
+- SELECT: Attendees can view comments for posts in events they're registered for
+- INSERT: Attendees can add comments (authenticated via attendee_id verification)
+- DELETE: Attendees can delete their own comments
+
+---
+
+## Implementation Approach
+
+### 1. Database Migration
+Create the `feed_post_comments` table with proper indexes and RLS policies.
+
+### 2. Edge Function: `manage-feed-comments`
+Handles:
+- Fetching comments for a post (GET)
+- Adding a new comment (POST)
+- Deleting a comment (DELETE)
+
+Authentication is via JWT verification to identify the attendee.
+
+### 3. New Hook: `useFeedComments`
 ```typescript
-// Before (line 68)
-style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+interface FeedComment {
+  id: string;
+  content: string;
+  created_at: string;
+  attendee: {
+    id: string;
+    name: string;
+    avatar_initials: string;
+    avatar_bg: string;
+  };
+}
 
-// After
-style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+function useFeedComments(postId: string, eventId: string) {
+  return {
+    comments: FeedComment[],
+    loading: boolean,
+    addComment: (content: string) => Promise<void>,
+    deleteComment: (commentId: string) => Promise<void>,
+    refetch: () => void
+  }
+}
 ```
 
-Also need to ensure the input has proper internal padding (`p-4` or `pb-4`) so it doesn't collapse to 0 on non-notched devices.
+### 4. New Component: `FeedCommentsSheet`
+A bottom sheet component that:
+- Slides up from the bottom (60% height)
+- Shows a draggable handle for closing
+- Displays comments in a scrollable list
+- Has a pinned input at the bottom for adding comments
+- Shows loading skeleton while fetching
+- Shows empty state when no comments
 
-**2. `src/components/events/FloatingTicketBar.tsx`**
-```typescript
-// Before (line 49)
-style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
-
-// After  
-style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+```text
+┌────────────────────────────────────┐
+│         ── (drag handle)           │
+│                                    │
+│  32 Comments                       │
+│                                    │
+│  ┌─────────────────────────────┐  │
+│  │ DM  Destiny Morgan   2h ago │  │
+│  │     This is amazing! 🔥      │  │
+│  └─────────────────────────────┘  │
+│                                    │
+│  ┌─────────────────────────────┐  │
+│  │ MT  Marcus Thompson  1h ago │  │
+│  │     Love this vibe!          │  │
+│  └─────────────────────────────┘  │
+│                                    │
+│  [... more comments scroll ...]    │
+│                                    │
+├────────────────────────────────────┤
+│  [Avatar] [Input............] [➤] │
+│           ↑ Safe area padding      │
+└────────────────────────────────────┘
 ```
 
-The existing `p-4` class already provides 16px padding, so safe area is additive only.
+### 5. Update PostCard
+- Add `onOpenComments` prop
+- Wire the comment button to trigger the sheet
+- Update `ConferenceFeed` to manage comments sheet state
 
 ---
 
-## Technical Details
+## Component Architecture
 
-### CSS `env()` Support
-- Supported in Chrome 69+, Safari 11.1+, Firefox 65+, Edge 79+
-- Falls back to `0` if the environment variable doesn't exist
-- Returns the actual safe area value on notched devices
-
-### Testing Considerations
-- **Non-notched devices**: Should have minimal/no extra bottom padding
-- **Notched devices (iPhone X+)**: Should have proper safe area padding
-- **Desktop browsers**: Should have no extra bottom padding
+```text
+ConferenceFeed
+├── FeedCommentsSheet (portal overlay)
+│   ├── Header (count + close handle)
+│   ├── Comments List (scrollable)
+│   └── Comment Input (fixed bottom)
+└── PostCard
+    └── Comment Button (triggers sheet)
+```
 
 ---
 
-## Summary
+## Files to Create
 
-| File | Change |
-|------|--------|
-| `src/components/attendee/MessageInput.tsx` | Remove `max()` wrapper, use `env(safe-area-inset-bottom)` directly, ensure base padding exists |
-| `src/components/events/FloatingTicketBar.tsx` | Remove `max()` wrapper, use `env(safe-area-inset-bottom)` directly |
+| File | Purpose |
+|------|---------|
+| `supabase/functions/manage-feed-comments/index.ts` | Edge function for CRUD operations |
+| `src/hooks/useFeedComments.ts` | Data fetching hook |
+| `src/components/attendee/feed/FeedCommentsSheet.tsx` | Bottom sheet UI |
 
-This is a minimal, targeted fix that addresses the exact issue shown in the screenshots while maintaining proper safe area handling on devices that need it.
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/components/attendee/feed/cards/PostCard.tsx` | Add `onOpenComments` prop, wire button |
+| `src/components/attendee/feed/ConferenceFeed.tsx` | Add comments sheet state, pass handlers |
+| `src/types/conferenceFeed.ts` | Add FeedAction for comment count updates |
+| Database | Migration for `feed_post_comments` table |
+
+---
+
+## UI/UX Details
+
+### Sheet Behavior
+- Opens with slide-up animation (300ms ease-out)
+- 60% of screen height (max 70vh)
+- Dark translucent overlay backdrop
+- Draggable handle at top for swipe-to-close
+- Tap outside to close
+
+### Comment Display
+- Attendee avatar (initials with color)
+- Name + timestamp
+- Comment content
+- Delete button (only for own comments)
+
+### Input Area
+- Avatar of current attendee
+- Text input with placeholder "Add a comment..."
+- Send button (disabled when empty)
+- Respects safe area inset at bottom
+
+### Dark Theme Styling
+- Background: `bg-[#1a1a1b]` or similar dark color
+- Text: white/gray hierarchy
+- Input: dark background with light border
+- Consistent with the immersive feed aesthetic
+
+---
+
+## Security Considerations
+
+1. **Authentication**: Edge function verifies JWT and matches attendee to event
+2. **Authorization**: Attendees can only comment on events they're registered for
+3. **Content Validation**: Max 500 characters, trimmed whitespace
+4. **Rate Limiting**: Consider future rate limiting for spam prevention
+5. **RLS Policies**: Enforce row-level security on database
+
+---
+
+## Implementation Order
+
+1. Create database migration with `feed_post_comments` table
+2. Create edge function `manage-feed-comments`
+3. Create `useFeedComments` hook
+4. Create `FeedCommentsSheet` component
+5. Update `PostCard` with `onOpenComments` prop
+6. Update `ConferenceFeed` to manage sheet state and pass handlers
+7. Test the complete flow
+
