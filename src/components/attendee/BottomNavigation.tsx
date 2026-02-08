@@ -1,32 +1,21 @@
-import { Home, Calendar, QrCode, MessageCircle, Newspaper, Plus } from 'lucide-react';
+import { Home, Calendar, MessageCircle, Newspaper } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useConversations } from '@/hooks/useConversations';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 
-const baseNavItems = [
+const navItems = [
   { path: '/attendee/app/home', label: 'Home', icon: Home },
   { path: '/attendee/app/feed', label: 'Feed', icon: Newspaper },
-];
-
-const agendaItem = { path: '/attendee/app/agenda', label: 'Agenda', icon: Calendar };
-
-const endNavItems = [
+  { path: '/attendee/app/agenda', label: 'Agenda', icon: Calendar },
   { path: '/attendee/app/messages', label: 'Messages', icon: MessageCircle },
-  { path: '/attendee/app/qr', label: 'QR', icon: QrCode },
 ];
 
 export function BottomNavigation() {
   const location = useLocation();
   const { totalUnread } = useConversations();
-  const isFeedRoute = location.pathname.includes('/attendee/app/feed');
 
-  const handleCreatePost = () => {
-    toast.info('Create post coming soon!');
-  };
-
-  const renderNavItem = ({ path, label, icon: Icon }: typeof baseNavItems[0]) => {
+  const renderNavItem = ({ path, label, icon: Icon }: typeof navItems[0]) => {
     const isActive = location.pathname.startsWith(path);
     const showBadge = path === '/attendee/app/messages' && totalUnread > 0;
     
@@ -69,23 +58,7 @@ export function BottomNavigation() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-center justify-around h-16">
-        {baseNavItems.map(renderNavItem)}
-        
-        {/* Center item: Create button on feed, Agenda elsewhere */}
-        {isFeedRoute ? (
-          <button 
-            onClick={handleCreatePost}
-            className="flex flex-col items-center justify-center flex-1 h-full gap-1 touch-manipulation active:scale-95"
-          >
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg animate-scale-in">
-              <Plus className="h-5 w-5 text-primary-foreground" />
-            </div>
-          </button>
-        ) : (
-          renderNavItem(agendaItem)
-        )}
-        
-        {endNavItems.map(renderNavItem)}
+        {navItems.map(renderNavItem)}
       </div>
     </nav>
   );
