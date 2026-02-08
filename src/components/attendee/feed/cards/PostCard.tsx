@@ -10,9 +10,10 @@ interface PostCardProps {
   isMuted: boolean;
   onLike: () => void;
   onToggleMute: () => void;
+  onOpenComments: () => void;
 }
 
-export function PostCard({ post, isActive, isMuted, onLike, onToggleMute }: PostCardProps) {
+export function PostCard({ post, isActive, isMuted, onLike, onToggleMute, onOpenComments }: PostCardProps) {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [showMuteIndicator, setShowMuteIndicator] = useState(false);
   const [lastTap, setLastTap] = useState(0);
@@ -186,7 +187,13 @@ export function PostCard({ post, isActive, isMuted, onLike, onToggleMute }: Post
         </button>
 
         {/* Comment */}
-        <button className="flex flex-col items-center gap-1">
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenComments();
+          }}
+          className="flex flex-col items-center gap-1"
+        >
           <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
             <MessageCircle className="w-5 h-5 text-white" />
           </div>
