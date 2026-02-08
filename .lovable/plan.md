@@ -1,56 +1,50 @@
 
-# Add Entrance Animation to Floating Action Button
+# Fix Announcement Card Off-Screen Issue
 
-## Overview
-Add a subtle, playful entrance animation to the FAB that appears when the user navigates to the Feed. The animation will make the button feel alive and draw attention to the create post action.
+## Root Cause
+The AnnouncementCard component has an inline `<style>` tag at the **end of the JSX** that defines the `animate-slide-up` animation. This causes a rendering timing issue where:
 
-## Approach
-I'll create a custom "pop-in" animation that scales from 0 with a slight overshoot bounce effect, similar to native iOS/Android FAB animations. This will be paired with a short delay so the animation plays after the page content is visible.
+1. The browser renders the content with `animate-slide-up` class applied
+2. The inline styles haven't been parsed yet
+3. The flex centering calculates layout based on the unanimated/undefined state
+4. Once styles load, the animation plays but the container layout has already been calculated incorrectly
+
+This explains why clicking "acknowledge" fixes it - the React re-render forces a fresh layout calculation after styles are properly loaded.
+
+## Solution
+Move the `slide-up` animation from inline CSS to Tailwind configuration, matching the pattern used for the FAB animation. This ensures the animation styles are available before the component renders.
 
 ## Changes
 
-### 1. Add new keyframe and animation to Tailwind config
-
+### 1. Add slide-up keyframe and animation to Tailwind config
 **File: `tailwind.config.ts`**
 
-Add a new `fab-pop-in` keyframe with a bounce overshoot effect:
-```text
-keyframes: {
-  ...
-  "fab-pop-in": {
-    "0%": { transform: "scale(0)", opacity: "0" },
-    "60%": { transform: "scale(1.15)" },
-    "80%": { transform: "scale(0.95)" },
-    "100%": { transform: "scale(1)", opacity: "1" },
-  },
-}
-
-animation: {
-  ...
-  "fab-pop-in": "fab-pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards",
-}
+Add to keyframes:
+```typescript
+"slide-up": {
+  "0%": { opacity: "0", transform: "translateY(12px)" },
+  "100%": { opacity: "1", transform: "translateY(0)" },
+},
 ```
 
-The timing uses:
-- **0.4s duration** - quick but noticeable
-- **cubic-bezier(0.34, 1.56, 0.64, 1)** - spring-like easing with overshoot
-- **0.3s delay** - waits for page to settle before animating in
-- **forwards** - maintains the final state
-
-### 2. Apply animation to the FAB
-
-**File: `src/components/attendee/feed/ConferenceFeed.tsx`**
-
-Update the button's className to include the new animation and start with `opacity-0` so it's hidden before the animation plays:
-
-```tsx
-<button
-  onClick={handleCreatePost}
-  className="fixed right-4 z-40 w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center touch-manipulation active:scale-95 transition-transform opacity-0 animate-fab-pop-in"
-  style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
-  aria-label="Create post"
->
+Add to animation:
+```typescript
+"slide-up": "slide-up 0.4s ease-out forwards",
 ```
 
-## Result
-The FAB will pop in with a satisfying bounce effect 0.3 seconds after the Feed loads, drawing the user's eye to the action button without being distracting.
+### 2. Remove inline style tag from AnnouncementCard
+**File: `src/components/attendee/feed/cards/AnnouncementCard.tsx`**
+
+- Delete the inline `<style>` block (lines 100-115)
+- Keep the `animate-slide-up` class on the content container - it will now use the Tailwind animation
+
+## Technical Rationale
+
+| Approach | Before | After |
+|----------|--------|-------|
+| Animation definition | Inline `<style>` in JSX | Tailwind config |
+| Style availability | After render | Before render (in stylesheet) |
+| Consistency | Unique to this component | Matches `fab-pop-in` pattern |
+| Layout timing | Calculated before styles ready | Styles ready at first paint |
+
+This ensures the browser knows about the animation keyframes before rendering the component, eliminating the layout timing issue.
