@@ -1,5 +1,12 @@
 import { FeedItem } from '@/types/conferenceFeed';
 
+// Import local feed images
+import networkingSessionImg from '@/assets/feed/networking-session.jpg';
+import delegationGroupImg from '@/assets/feed/delegation-group.jpg';
+import headshotBoothImg from '@/assets/feed/headshot-booth.jpg';
+import lunchMeetupImg from '@/assets/feed/lunch-meetup.jpg';
+import standingOvationImg from '@/assets/feed/standing-ovation.jpg';
+
 export const initialFeedData: FeedItem[] = [
   // 1. AI Recap (pinned)
   {
@@ -96,7 +103,7 @@ export const initialFeedData: FeedItem[] = [
     caption: "Caught up with the Howard University crew at the networking session. Three years of building together 💪",
     tag: "📍 Terrace · Networking Hour",
     tagColor: "#10b981",
-    imageUrl: "https://picsum.photos/seed/howard/390/760",
+    imageUrl: networkingSessionImg,
     likes: 143,
     comments: 18,
     shares: 5,
@@ -169,10 +176,10 @@ export const initialFeedData: FeedItem[] = [
     time: "7:55 PM",
     timeAgo: "15h ago",
     date: "Day 1 · Feb 6",
-    caption: "Advisor Dr. Jean-Baptiste pulled the whole Morehouse delegation together for a group shot. 12 of us representing! 🐯",
+    caption: "Our whole delegation pulled together for a group shot. So proud to be here representing! 🐯",
     tag: "📍 Main Lobby",
     tagColor: "#f59e0b",
-    imageUrl: "https://picsum.photos/seed/morehouse/390/760",
+    imageUrl: delegationGroupImg,
     likes: 312,
     comments: 42,
     shares: 23,
@@ -234,6 +241,69 @@ export const initialFeedData: FeedItem[] = [
     likes: 524,
     comments: 89,
     shares: 112,
+    liked: false,
+  },
+  // 13. Headshot Booth Photo
+  {
+    id: "13",
+    cardType: "post",
+    type: "photo",
+    user: "Jasmine Williams",
+    handle: "@jasminew",
+    avatar: "JW",
+    avatarBg: "#ec4899",
+    time: "5:30 PM",
+    timeAgo: "17h ago",
+    date: "Day 1 · Feb 6",
+    caption: "Finally got my professional headshot at the conference photo booth! 📸 LinkedIn is about to look SO much better!",
+    tag: "📍 Photo Booth · Registration",
+    tagColor: "#10b981",
+    imageUrl: headshotBoothImg,
+    likes: 267,
+    comments: 31,
+    shares: 8,
+    liked: false,
+  },
+  // 14. Lunch Meetup Photo
+  {
+    id: "14",
+    cardType: "post",
+    type: "photo",
+    user: "Carlos Rivera",
+    handle: "@carlosr",
+    avatar: "CR",
+    avatarBg: "#f59e0b",
+    time: "1:15 PM",
+    timeAgo: "21h ago",
+    date: "Day 1 · Feb 6",
+    caption: "Met so many amazing people at lunch today! Already making connections that'll last way beyond this conference 🤝",
+    tag: "📍 Dining Hall · Lunch Break",
+    tagColor: "#3b82f6",
+    imageUrl: lunchMeetupImg,
+    likes: 189,
+    comments: 24,
+    shares: 11,
+    liked: false,
+  },
+  // 15. Standing Ovation Photo
+  {
+    id: "15",
+    cardType: "post",
+    type: "photo",
+    user: "Maya Johnson",
+    handle: "@mayaj",
+    avatar: "MJ",
+    avatarBg: "#8b5cf6",
+    time: "4:45 PM",
+    timeAgo: "18h ago",
+    date: "Day 1 · Feb 6",
+    caption: "When the keynote hits different... 🔥 Everyone on their feet for that closing message. This is why we're here!",
+    tag: "📍 Main Auditorium · Keynote",
+    tagColor: "#ef4444",
+    imageUrl: standingOvationImg,
+    likes: 456,
+    comments: 67,
+    shares: 42,
     liked: false,
   },
 ];
