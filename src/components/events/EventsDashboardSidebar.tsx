@@ -12,7 +12,8 @@ import {
   UserCircle,
   CalendarDays,
   ScanLine,
-  Building2
+  Building2,
+  Bell
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EventSelector } from './EventSelector';
@@ -33,6 +34,7 @@ const eventNavItems = [
   { path: '/events/manage/speakers', label: 'Speakers', icon: UserCircle },
   { path: '/events/manage/agenda', label: 'Agenda', icon: CalendarDays },
   { path: '/events/manage/hotels', label: 'Hotels', icon: Building2 },
+  { path: '/events/manage/push', label: 'Push Notifications', icon: Bell },
 ];
 
 export function EventsDashboardSidebar({ 

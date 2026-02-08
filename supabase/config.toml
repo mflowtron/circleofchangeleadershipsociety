@@ -65,3 +65,9 @@ verify_jwt = false
 
 [functions.toggle-message-reaction]
 verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.register-push-token]
+verify_jwt = false
