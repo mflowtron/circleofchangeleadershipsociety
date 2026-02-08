@@ -2,7 +2,7 @@ import { useAnnouncements } from '@/hooks/useAnnouncements';
 import AnnouncementCard from './AnnouncementCard';
 
 export default function AnnouncementBanner() {
-  const { announcements, loading } = useAnnouncements();
+  const { announcements, loading, dismissAnnouncement } = useAnnouncements();
 
   if (loading || announcements.length === 0) {
     return null;
@@ -14,6 +14,7 @@ export default function AnnouncementBanner() {
         <AnnouncementCard
           key={announcement.id}
           announcement={announcement}
+          onDismiss={dismissAnnouncement}
         />
       ))}
     </div>
