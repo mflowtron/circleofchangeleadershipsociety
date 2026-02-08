@@ -1,151 +1,82 @@
 
+# Add Dashboard Switch Button to Attendee App
 
-# Fix Broken Images with Error Handling and Generate Replacement
+## Overview
+When users with access to the LMS or Events dashboards are viewing the Attendee App, show a button that allows them to navigate back to the dashboard selection screen (`/select-dashboard`). This helps organizers and administrators easily switch contexts without logging out and back in.
 
-## Problem
-Event cover images are broken throughout the app because the external URL stored in the database (`https://www.firstgencareerconference.com/wp-content/uploads/2024/11/FINAL-23-scaled.jpg`) returns a 404 error. The current components conditionally render images only when the URL exists, but don't handle the case where the URL exists but the image fails to load.
+## Current State
+- The `AttendeeLayout` component has a header with a logout button
+- The `AuthContext` (wrapping the entire app) provides `hasLMSAccess` and `hasEMAccess` flags
+- Both the main auth and attendee auth share the same Supabase session
+- The dashboard selector is located at `/select-dashboard`
 
-## Solution Overview
-1. Create a reusable `EventCoverImage` component with built-in error handling
-2. Update all components that display event cover images to use this new component
-3. Generate a professional event cover image using AI to replace the broken one
-4. Update the database with the new image URL
+## Solution
+Add a conditional "Switch Dashboard" button to the `AttendeeLayout` header that:
+1. Uses `useAuth()` from the main `AuthContext` to check if user has LMS or Events access
+2. Only shows the button if the user has access to either LMS or Events (since that means they have multiple dashboards to choose from)
+3. Links to `/select-dashboard` to let them choose a different area
 
 ---
 
-## Technical Details
+## Technical Implementation
 
-### 1. Create EventCoverImage Component
+### File to Modify
+`src/components/attendee/AttendeeLayout.tsx`
 
-Create a new reusable component at `src/components/events/EventCoverImage.tsx` that:
-- Accepts `src`, `alt`, `className`, and `aspectRatio` props
-- Tracks image loading state with `useState`
-- Uses `onError` handler to detect failed image loads
-- Falls back to a gradient placeholder with calendar icon when image fails
-- Supports both `<img>` tag and CSS background-image patterns
+### Changes
+
+1. **Import `useAuth`** from the main AuthContext
+2. **Import `LayoutDashboard`** icon from lucide-react  
+3. **Check access** using `hasLMSAccess` or `hasEMAccess` from the auth context
+4. **Add button** in the header, positioned before the logout button
+
+### Updated Header Structure
 
 ```text
-┌─────────────────────────────────────────┐
-│         EventCoverImage Component       │
-├─────────────────────────────────────────┤
-│  Props:                                 │
-│  - src: string | null                   │
-│  - alt: string                          │
-│  - className?: string                   │
-│  - variant: 'img' | 'background'        │
-│  - aspectRatio?: '16/9' | 'video'       │
-│                                         │
-│  State:                                 │
-│  - hasError: boolean (default false)    │
-│  - isLoading: boolean (default true)    │
-│                                         │
-│  Behavior:                              │
-│  - If src is null/undefined OR hasError │
-│    → Show gradient fallback with icon   │
-│  - On img onError → setHasError(true)   │
-│  - On img onLoad → setIsLoading(false)  │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Header                                                     │
+├─────────────────────────────────────────────────────────────┤
+│  [Title] [EventSelector]           [Dashboard] [Logout]     │
+│                                         ↑                   │
+│                                  Only visible               │
+│                                  if hasLMSAccess            │
+│                                  or hasEMAccess             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Update EventHome.tsx
-
-Replace the direct `<img>` tag with the new `EventCoverImage` component:
+### Code Changes
 
 ```tsx
-// Before (lines 60-68)
-{selectedEvent.cover_image_url && (
-  <div className="aspect-video w-full overflow-hidden">
-    <img src={selectedEvent.cover_image_url} ... />
-  </div>
+// Add to imports
+import { useAuth } from '@/contexts/AuthContext';
+import { Link } from 'react-router-dom';
+import { LogOut, LayoutDashboard } from 'lucide-react';
+
+// Inside AttendeeLayout component
+const { hasLMSAccess, hasEMAccess } = useAuth();
+const showDashboardSwitch = hasLMSAccess || hasEMAccess;
+
+// In header, before logout button
+{showDashboardSwitch && (
+  <Button
+    variant="ghost"
+    size="icon"
+    asChild
+    aria-label="Switch dashboard"
+  >
+    <Link to="/select-dashboard">
+      <LayoutDashboard className="h-5 w-5" />
+    </Link>
+  </Button>
 )}
-
-// After
-<EventCoverImage
-  src={selectedEvent.cover_image_url}
-  alt={selectedEvent.title}
-  className="aspect-video w-full"
-/>
 ```
 
-### 3. Update EventCard.tsx
-
-Replace the conditional image rendering with the new component:
-
-```tsx
-// Before (lines 16-27)
-<AspectRatio ratio={16 / 9}>
-  {event.cover_image_url ? (
-    <img src={event.cover_image_url} ... />
-  ) : (
-    <div className="w-full h-full bg-muted ...">
-      <Calendar ... />
-    </div>
-  )}
-</AspectRatio>
-
-// After
-<AspectRatio ratio={16 / 9}>
-  <EventCoverImage
-    src={event.cover_image_url}
-    alt={event.title}
-    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-  />
-</AspectRatio>
-```
-
-### 4. Update EventHero.tsx
-
-Update the background image pattern to handle errors:
-
-```tsx
-// Before (lines 24-31)
-{event.cover_image_url ? (
-  <div style={{ backgroundImage: `url(${event.cover_image_url})` }} />
-) : (
-  <div className="bg-gradient-to-br from-secondary to-secondary/80" />
-)}
-
-// After - Use EventCoverImage with variant="background"
-<EventCoverImage
-  src={event.cover_image_url}
-  alt={event.title}
-  variant="background"
-  className="absolute inset-0"
-/>
-```
-
-### 5. Generate Replacement Event Cover Image
-
-Use AI image generation to create a professional event cover image for the "2026 First Generation Student Career Leadership Experience" event:
-
-**Prompt**: "Professional conference event banner, diverse group of young professionals and students networking at a career leadership event, modern corporate venue, warm lighting, professional photography style, 16:9 aspect ratio, high quality"
-
-The generated image will be:
-1. Saved to a Supabase storage bucket
-2. Database updated with the new storage URL
-
-### 6. Upload Generated Image to Storage
-
-After generating the image:
-- Upload to `event-images` storage bucket
-- Update the event's `cover_image_url` in the database
-
----
-
-## Files to Create/Modify
-
+## Files Modified
 | File | Action |
 |------|--------|
-| `src/components/events/EventCoverImage.tsx` | CREATE - New reusable component |
-| `src/pages/attendee/EventHome.tsx` | MODIFY - Use EventCoverImage |
-| `src/components/events/EventCard.tsx` | MODIFY - Use EventCoverImage |
-| `src/components/events/EventHero.tsx` | MODIFY - Use EventCoverImage |
+| `src/components/attendee/AttendeeLayout.tsx` | Add dashboard switch button |
 
-## Database Update
-After image generation, update the events table:
-```sql
-UPDATE events 
-SET cover_image_url = '[new_storage_url]' 
-WHERE id = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
-```
-
+## Edge Cases Handled
+- Users without LMS/Events access won't see the button (attendee-only users)
+- The button uses a link component for proper navigation
+- Uses an icon-only button to keep the header clean and consistent with the existing logout button
