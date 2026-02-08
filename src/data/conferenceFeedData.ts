@@ -221,9 +221,28 @@ export const initialFeedData: FeedItem[] = [
     shares: 45,
     liked: false,
   },
-  // 12. Keynote Quote
+  // 12. Networking Topic Poll
   {
     id: "12",
+    cardType: "poll",
+    question: "What topic do you want to discuss at tomorrow's roundtable?",
+    options: [
+      { id: "a", text: "Career Pivots & Transitions", emoji: "🔄", votes: 89 },
+      { id: "b", text: "Work-Life Balance as a Leader", emoji: "⚖️", votes: 72 },
+      { id: "c", text: "Building Remote Communities", emoji: "🌐", votes: 58 },
+      { id: "d", text: "Mentorship Best Practices", emoji: "🧭", votes: 45 },
+    ],
+    totalVotes: 264,
+    accentColor: "#10b981",
+    from: "Event Organizers",
+    time: "5:00 PM",
+    date: "Day 1 · Feb 6",
+    answered: false,
+    selectedOption: null,
+  },
+  // 13. Keynote Quote
+  {
+    id: "13",
     cardType: "post",
     type: "video",
     user: "Taylor Nguyen",
@@ -243,9 +262,23 @@ export const initialFeedData: FeedItem[] = [
     shares: 112,
     liked: false,
   },
-  // 13. Headshot Booth Photo
+  // 14. WiFi Issue Announcement
   {
-    id: "13",
+    id: "14",
+    cardType: "announcement",
+    title: "WiFi Update",
+    body: "We're aware of connectivity issues in the East Wing. Our tech team is working on it. In the meantime, use network 'COCLC-Backup' with password 'Lead2026!'",
+    emoji: "📶",
+    accentColor: "#f59e0b",
+    from: "Tech Support",
+    time: "4:15 PM",
+    date: "Day 1 · Feb 6",
+    priority: "info",
+    acknowledged: false,
+  },
+  // 15. Headshot Booth Photo
+  {
+    id: "15",
     cardType: "post",
     type: "photo",
     user: "Jasmine Williams",
@@ -264,9 +297,23 @@ export const initialFeedData: FeedItem[] = [
     shares: 8,
     liked: false,
   },
-  // 14. Lunch Meetup Photo
+  // 16. Leadership Vision VideoAsk
   {
-    id: "14",
+    id: "16",
+    cardType: "videoask",
+    prompt: "Describe your leadership vision in 30 seconds",
+    subtitle: "What kind of leader do you aspire to be? Share your vision and inspire others at the conference!",
+    emoji: "🌟",
+    accentColor: "#8b5cf6",
+    from: "Leadership Lab",
+    time: "3:30 PM",
+    date: "Day 1 · Feb 6",
+    responded: false,
+    skippable: true,
+  },
+  // 17. Lunch Meetup Photo
+  {
+    id: "17",
     cardType: "post",
     type: "photo",
     user: "Carlos Rivera",
@@ -285,9 +332,28 @@ export const initialFeedData: FeedItem[] = [
     shares: 11,
     liked: false,
   },
-  // 15. Standing Ovation Photo
+  // 18. Food Options Poll
   {
-    id: "15",
+    id: "18",
+    cardType: "poll",
+    question: "What should we add to the coffee bar tomorrow?",
+    options: [
+      { id: "a", text: "Oat Milk Options", emoji: "🥛", votes: 112 },
+      { id: "b", text: "Cold Brew Station", emoji: "🧊", votes: 98 },
+      { id: "c", text: "Matcha Lattes", emoji: "🍵", votes: 67 },
+      { id: "d", text: "Energy Drinks", emoji: "⚡", votes: 43 },
+    ],
+    totalVotes: 320,
+    accentColor: "#ec4899",
+    from: "Catering Team",
+    time: "12:00 PM",
+    date: "Day 1 · Feb 6",
+    answered: false,
+    selectedOption: null,
+  },
+  // 19. Standing Ovation Photo
+  {
+    id: "19",
     cardType: "post",
     type: "photo",
     user: "Maya Johnson",
@@ -305,5 +371,80 @@ export const initialFeedData: FeedItem[] = [
     comments: 67,
     shares: 42,
     liked: false,
+  },
+  // 20. Sponsor Announcement
+  {
+    id: "20",
+    cardType: "announcement",
+    title: "Free Swag Alert! 🎁",
+    body: "Stop by the Google booth in the Innovation Hall to pick up exclusive merch! First 100 attendees get a limited edition tote bag. Show your badge at the booth.",
+    emoji: "🎁",
+    accentColor: "#ef4444",
+    from: "Sponsor Relations",
+    time: "11:00 AM",
+    date: "Day 1 · Feb 6",
+    priority: "info",
+    acknowledged: false,
+  },
+  // 21. Mentor Match VideoAsk
+  {
+    id: "21",
+    cardType: "videoask",
+    prompt: "What advice would you give to first-time attendees?",
+    subtitle: "Share your wisdom with newcomers! Best responses will be featured in the mentorship program.",
+    emoji: "💡",
+    accentColor: "#3b82f6",
+    from: "Mentorship Program",
+    time: "10:00 AM",
+    date: "Day 1 · Feb 6",
+    responded: false,
+    skippable: true,
+  },
+  // 22. Venue Navigation Poll
+  {
+    id: "22",
+    cardType: "poll",
+    question: "How easy was it to find your sessions today?",
+    options: [
+      { id: "a", text: "Super easy!", emoji: "😎", votes: 145 },
+      { id: "b", text: "A few wrong turns", emoji: "🤔", votes: 89 },
+      { id: "c", text: "Got lost twice", emoji: "😅", votes: 52 },
+      { id: "d", text: "Send a map please", emoji: "🗺️", votes: 34 },
+    ],
+    totalVotes: 320,
+    accentColor: "#3b82f6",
+    from: "Venue Team",
+    time: "9:30 AM",
+    date: "Day 1 · Feb 6",
+    answered: false,
+    selectedOption: null,
+  },
+  // 23. Safety Reminder Announcement
+  {
+    id: "23",
+    cardType: "announcement",
+    title: "Stay Hydrated! 💧",
+    body: "It's going to be a long and exciting day! Remember to drink water and take breaks. Hydration stations are located near every elevator. Your wellbeing matters!",
+    emoji: "💧",
+    accentColor: "#06b6d4",
+    from: "Wellness Team",
+    time: "8:00 AM",
+    date: "Day 1 · Feb 6",
+    priority: "info",
+    acknowledged: false,
+  },
+  // 24. Impact Story VideoAsk
+  {
+    id: "24",
+    cardType: "videoask",
+    prompt: "Share a moment when leadership changed your life",
+    subtitle: "Tell us about a defining leadership moment. These stories will be compiled into an inspiration reel!",
+    emoji: "✨",
+    accentColor: "#f59e0b",
+    from: "Story Collectors",
+    time: "7:30 AM",
+    date: "Day 1 · Feb 6",
+    responded: false,
+    skippable: true,
   },
 ];
