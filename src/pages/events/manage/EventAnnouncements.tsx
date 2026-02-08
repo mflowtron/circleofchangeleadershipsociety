@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Megaphone, Send, Bell, BellOff, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { Megaphone, Send, Bell, BellOff, Loader2, Trash2, AlertCircle, Eye, XCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AudienceSelector } from '@/components/events/push/AudienceSelector';
 import { useAudienceCounts, type AudienceType, type AudienceFilter } from '@/hooks/usePushNotifications';
@@ -366,9 +366,17 @@ export default function EventAnnouncements() {
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground line-clamp-2">{ann.content}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {format(new Date(ann.created_at), 'MMM d, yyyy h:mm a')}
-                            </p>
+                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                              <span>{format(new Date(ann.created_at), 'MMM d, yyyy h:mm a')}</span>
+                              <span className="flex items-center gap-1">
+                                <Eye className="h-3 w-3" />
+                                {(ann as any).view_count || 0} views
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <XCircle className="h-3 w-3" />
+                                {(ann as any).dismiss_count || 0} dismissed
+                              </span>
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <Switch

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { format, formatDistanceToNow, isAfter, isBefore, isToday } from 'date-fns';
 import { Calendar, MapPin, Clock, Bookmark, QrCode, Megaphone, ChevronRight, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -13,7 +14,14 @@ import { cn } from '@/lib/utils';
 export default function EventHome() {
   const { selectedEvent, selectedAttendee, bookmarks } = useAttendee();
   const { agendaItems, isLoading: agendaLoading } = useAgendaItems(selectedEvent?.id);
-  const { announcements, dismissAnnouncement } = useEventAnnouncements();
+  const { announcements, dismissAnnouncement, trackView } = useEventAnnouncements();
+
+  // Track views when announcements are displayed
+  useEffect(() => {
+    announcements.forEach(announcement => {
+      trackView(announcement.id);
+    });
+  }, [announcements, trackView]);
 
   if (!selectedEvent) {
     return (
