@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { Calendar, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { EventCoverImage } from '@/components/events/EventCoverImage';
 
 interface Event {
   id: string;
@@ -21,14 +22,12 @@ export function EventHero({ event }: EventHeroProps) {
   return (
     <section className="relative w-full min-h-[70vh] lg:min-h-[80vh] flex items-end overflow-hidden">
       {/* Background Image */}
-      {event.cover_image_url ? (
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${event.cover_image_url})` }}
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-secondary to-secondary/80" />
-      )}
+      <EventCoverImage
+        src={event.cover_image_url}
+        alt={event.title}
+        variant="background"
+        className="absolute inset-0"
+      />
       
       {/* Gradient Overlay */}
       <div 

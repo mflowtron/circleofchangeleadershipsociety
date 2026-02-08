@@ -6,6 +6,7 @@ import { useAgendaItems } from '@/hooks/useAgendaItems';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EventCoverImage } from '@/components/events/EventCoverImage';
 
 export default function EventHome() {
   const { selectedEvent, selectedAttendee, bookmarks } = useAttendee();
@@ -57,15 +58,11 @@ export default function EventHome() {
   return (
     <div className="pb-4">
       {/* Event Cover Image */}
-      {selectedEvent.cover_image_url && (
-        <div className="aspect-video w-full overflow-hidden">
-          <img
-            src={selectedEvent.cover_image_url}
-            alt={selectedEvent.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
+      <EventCoverImage
+        src={selectedEvent.cover_image_url}
+        alt={selectedEvent.title}
+        className="aspect-video w-full object-cover"
+      />
 
       <div className="p-4 space-y-4">
         {/* Event Info */}
