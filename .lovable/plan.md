@@ -1,189 +1,135 @@
 
 
-# Add Comments/Replies Feature to Conference Feed
+# Simplify Feed View Header & Add Create Post Button
 
 ## Overview
-Add functionality for attendees to tap the comment button on feed posts to view and add comments. The feature will use a bottom sheet overlay that slides up from the bottom, providing a mobile-native experience matching the TikTok-style feed.
+Remove the header elements (title and camera icon) from the Feed view and add a context-aware "create post" button to the bottom navigation that only appears when on the Feed screen.
 
 ---
 
-## Database Design
+## Changes Summary
 
-### New Table: `feed_post_comments`
+### 1. Remove FeedHeader Component
+The `FeedHeader` component currently shows a camera button and "Feed" title. Since we're removing both, we can either:
+- Delete the component entirely, OR
+- Simplify it to just handle safe area inset at top (for status bar)
 
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| id | uuid | No | gen_random_uuid() | Primary key |
-| feed_post_id | text | No | - | ID matching post in feed (e.g., "1", "3") |
-| event_id | uuid | No | - | Event context for the feed |
-| attendee_id | uuid | No | - | Comment author (references attendees) |
-| content | text | No | - | Comment text |
-| created_at | timestamptz | No | now() | Creation timestamp |
+Since the feed is full-screen and immersive, we'll keep a minimal version that just provides the top safe area gradient overlay to ensure content doesn't clash with the status bar.
 
-**RLS Policies:**
-- SELECT: Attendees can view comments for posts in events they're registered for
-- INSERT: Attendees can add comments (authenticated via attendee_id verification)
-- DELETE: Attendees can delete their own comments
+### 2. Add Create Post Button to Bottom Navigation
+Add a "+" or "create" button to the center of the bottom navigation that:
+- Only appears when on the `/attendee/app/feed` route
+- Has a distinct style (e.g., larger, highlighted)
+- Triggers a create post action (placeholder for now)
 
 ---
 
-## Implementation Approach
+## Visual Changes
 
-### 1. Database Migration
-Create the `feed_post_comments` table with proper indexes and RLS policies.
-
-### 2. Edge Function: `manage-feed-comments`
-Handles:
-- Fetching comments for a post (GET)
-- Adding a new comment (POST)
-- Deleting a comment (DELETE)
-
-Authentication is via JWT verification to identify the attendee.
-
-### 3. New Hook: `useFeedComments`
-```typescript
-interface FeedComment {
-  id: string;
-  content: string;
-  created_at: string;
-  attendee: {
-    id: string;
-    name: string;
-    avatar_initials: string;
-    avatar_bg: string;
-  };
-}
-
-function useFeedComments(postId: string, eventId: string) {
-  return {
-    comments: FeedComment[],
-    loading: boolean,
-    addComment: (content: string) => Promise<void>,
-    deleteComment: (commentId: string) => Promise<void>,
-    refetch: () => void
-  }
-}
-```
-
-### 4. New Component: `FeedCommentsSheet`
-A bottom sheet component that:
-- Slides up from the bottom (60% height)
-- Shows a draggable handle for closing
-- Displays comments in a scrollable list
-- Has a pinned input at the bottom for adding comments
-- Shows loading skeleton while fetching
-- Shows empty state when no comments
-
+### Before (Current Header)
 ```text
-┌────────────────────────────────────┐
-│         ── (drag handle)           │
-│                                    │
-│  32 Comments                       │
-│                                    │
-│  ┌─────────────────────────────┐  │
-│  │ DM  Destiny Morgan   2h ago │  │
-│  │     This is amazing! 🔥      │  │
-│  └─────────────────────────────┘  │
-│                                    │
-│  ┌─────────────────────────────┐  │
-│  │ MT  Marcus Thompson  1h ago │  │
-│  │     Love this vibe!          │  │
-│  └─────────────────────────────┘  │
-│                                    │
-│  [... more comments scroll ...]    │
-│                                    │
-├────────────────────────────────────┤
-│  [Avatar] [Input............] [➤] │
-│           ↑ Safe area padding      │
-└────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│ [📷]           Feed                 │  ← Camera + Title
+│                                     │
+│           [VIDEO CONTENT]           │
+│                                     │
+├─────────────────────────────────────┤
+│  🏠     📰     📅     💬     📱    │
+│  Home  Feed  Agenda Messages  QR    │
+└─────────────────────────────────────┘
 ```
 
-### 5. Update PostCard
-- Add `onOpenComments` prop
-- Wire the comment button to trigger the sheet
-- Update `ConferenceFeed` to manage comments sheet state
-
----
-
-## Component Architecture
-
+### After (Clean Header + Create Button)
 ```text
-ConferenceFeed
-├── FeedCommentsSheet (portal overlay)
-│   ├── Header (count + close handle)
-│   ├── Comments List (scrollable)
-│   └── Comment Input (fixed bottom)
-└── PostCard
-    └── Comment Button (triggers sheet)
+┌─────────────────────────────────────┐
+│      (gradient fade for status bar) │  ← Minimal safe area only
+│                                     │
+│           [VIDEO CONTENT]           │
+│                                     │
+├─────────────────────────────────────┤
+│  🏠   📰   [➕]   💬     📱        │  ← Create button in center
+│  Home Feed  +   Messages  QR        │
+└─────────────────────────────────────┘
 ```
 
 ---
-
-## Files to Create
-
-| File | Purpose |
-|------|---------|
-| `supabase/functions/manage-feed-comments/index.ts` | Edge function for CRUD operations |
-| `src/hooks/useFeedComments.ts` | Data fetching hook |
-| `src/components/attendee/feed/FeedCommentsSheet.tsx` | Bottom sheet UI |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/attendee/feed/cards/PostCard.tsx` | Add `onOpenComments` prop, wire button |
-| `src/components/attendee/feed/ConferenceFeed.tsx` | Add comments sheet state, pass handlers |
-| `src/types/conferenceFeed.ts` | Add FeedAction for comment count updates |
-| Database | Migration for `feed_post_comments` table |
+| `src/components/attendee/feed/FeedHeader.tsx` | Remove camera button and title, keep only minimal gradient overlay for safe area |
+| `src/components/attendee/BottomNavigation.tsx` | Add conditional "Create Post" button when on feed route |
+| `src/components/attendee/feed/ConferenceFeed.tsx` | Pass create post handler to navigation (or use callback) |
 
 ---
 
-## UI/UX Details
+## Technical Details
 
-### Sheet Behavior
-- Opens with slide-up animation (300ms ease-out)
-- 60% of screen height (max 70vh)
-- Dark translucent overlay backdrop
-- Draggable handle at top for swipe-to-close
-- Tap outside to close
+### FeedHeader Simplification
+```tsx
+// Before: Camera + Title + Balance space
+// After: Just the gradient overlay for status bar safety
 
-### Comment Display
-- Attendee avatar (initials with color)
-- Name + timestamp
-- Comment content
-- Delete button (only for own comments)
+export function FeedHeader() {
+  return (
+    <div 
+      className="fixed top-0 left-0 right-0 z-30 pointer-events-none"
+      style={{
+        background: 'linear-gradient(to bottom, rgba(9,9,11,0.8) 0%, rgba(9,9,11,0.4) 50%, transparent 100%)',
+        height: 'calc(env(safe-area-inset-top) + 20px)',
+        paddingTop: 'env(safe-area-inset-top)',
+      }}
+    />
+  );
+}
+```
 
-### Input Area
-- Avatar of current attendee
-- Text input with placeholder "Add a comment..."
-- Send button (disabled when empty)
-- Respects safe area inset at bottom
+### BottomNavigation with Create Button
+The navigation will detect when on the feed route and render a special center button:
 
-### Dark Theme Styling
-- Background: `bg-[#1a1a1b]` or similar dark color
-- Text: white/gray hierarchy
-- Input: dark background with light border
-- Consistent with the immersive feed aesthetic
+```tsx
+const location = useLocation();
+const isFeedRoute = location.pathname.includes('/attendee/app/feed');
+
+// In the nav items rendering:
+{isFeedRoute && (
+  <button 
+    onClick={onCreatePost}
+    className="flex flex-col items-center justify-center flex-1 h-full gap-1"
+  >
+    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+      <Plus className="h-5 w-5 text-primary-foreground" />
+    </div>
+  </button>
+)}
+```
+
+### Navigation Items Adjustment
+When on the feed route, we'll show 5 items with the create button in the middle:
+- Home, Feed, **[+]**, Messages, QR
+
+When not on feed route, standard 5 items:
+- Home, Feed, Agenda, Messages, QR
+
+This keeps the navigation consistent width but swaps the middle item contextually.
 
 ---
 
-## Security Considerations
+## Create Post Handler
 
-1. **Authentication**: Edge function verifies JWT and matches attendee to event
-2. **Authorization**: Attendees can only comment on events they're registered for
-3. **Content Validation**: Max 500 characters, trimmed whitespace
-4. **Rate Limiting**: Consider future rate limiting for spam prevention
-5. **RLS Policies**: Enforce row-level security on database
+For now, the create button will be a placeholder. Options for future implementation:
+1. Open a create post dialog/sheet
+2. Navigate to a create post screen
+3. Open camera for photo/video capture
+
+The button click will initially just log or show a toast indicating "Create post coming soon" or similar placeholder behavior.
 
 ---
 
 ## Implementation Order
 
-1. Create database migration with `feed_post_comments` table
-2. Create edge function `manage-feed-comments`
-3. Create `useFeedComments` hook
-4. Create `FeedCommentsSheet` component
-5. Update `PostCard` with `onOpenComments` prop
-6. Update `ConferenceFeed` to manage sheet state and pass handlers
-7. Test the complete flow
+1. Simplify `FeedHeader.tsx` - Remove camera and title, keep minimal gradient
+2. Update `BottomNavigation.tsx` - Add conditional create button for feed route
+3. Update `ConferenceFeed.tsx` if needed - Pass any handlers to navigation
 
