@@ -112,8 +112,8 @@ export function ResponsiveTable({
         {/* Left shadow indicator */}
         <div 
           className={cn(
-            'absolute left-0 top-0 bottom-0 w-6 pointer-events-none z-10 transition-opacity duration-200',
-            'bg-gradient-to-r from-background/80 to-transparent',
+            'absolute left-0 top-0 bottom-0 w-8 pointer-events-none z-10 transition-opacity duration-200',
+            'bg-gradient-to-r from-foreground/20 via-foreground/10 to-transparent',
             canScrollLeft ? 'opacity-100' : 'opacity-0'
           )} 
         />
@@ -133,8 +133,8 @@ export function ResponsiveTable({
         {/* Right shadow indicator */}
         <div 
           className={cn(
-            'absolute right-0 top-0 bottom-0 w-6 pointer-events-none z-10 transition-opacity duration-200',
-            'bg-gradient-to-l from-background/80 to-transparent',
+            'absolute right-0 top-0 bottom-0 w-8 pointer-events-none z-10 transition-opacity duration-200',
+            'bg-gradient-to-l from-foreground/20 via-foreground/10 to-transparent',
             canScrollRight ? 'opacity-100' : 'opacity-0'
           )} 
         />
