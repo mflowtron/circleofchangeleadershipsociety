@@ -871,6 +871,8 @@ export type Database = {
           message: string
           recipient_count: number
           redirect_url: string | null
+          scheduled_for: string | null
+          sent_at: string | null
           status: string
           title: string
         }
@@ -885,6 +887,8 @@ export type Database = {
           message: string
           recipient_count?: number
           redirect_url?: string | null
+          scheduled_for?: string | null
+          sent_at?: string | null
           status?: string
           title: string
         }
@@ -899,6 +903,8 @@ export type Database = {
           message?: string
           recipient_count?: number
           redirect_url?: string | null
+          scheduled_for?: string | null
+          sent_at?: string | null
           status?: string
           title?: string
         }
