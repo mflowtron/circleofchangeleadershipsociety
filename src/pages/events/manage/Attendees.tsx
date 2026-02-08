@@ -22,12 +22,12 @@ export default function Attendees() {
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   const selectedEventName = selectedEvent?.title || null;
 
-  // Get unique ticket types from attendees
+  // Get unique ticket types from attendees (deduplicated by name)
   const ticketTypes = Array.from(
     new Map(
       attendees
-        .filter((a) => a.ticket_type)
-        .map((a) => [a.order_item_id || '', { id: a.order_item_id || '', name: a.ticket_type?.name || '' }])
+        .filter((a) => a.ticket_type?.name)
+        .map((a) => [a.ticket_type!.name, { id: a.ticket_type!.name, name: a.ticket_type!.name }])
     ).values()
   );
 
