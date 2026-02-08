@@ -73,8 +73,13 @@ export function ConferenceFeed() {
   const [feedItems, dispatch] = useReducer(feedReducer, initialFeedData);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const handleToggleMute = useCallback(() => {
+    setIsMuted(prev => !prev);
+  }, []);
 
   // Calculate if current card is blocked
   useEffect(() => {
@@ -192,8 +197,10 @@ export function ConferenceFeed() {
           key={item.id}
           post={item}
           isActive={isActive}
+          isMuted={isMuted}
           onLike={() => handleLike(item.id)}
           onBookmark={() => handleBookmark(item.id)}
+          onToggleMute={handleToggleMute}
         />
       );
     }
