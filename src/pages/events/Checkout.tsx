@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { EventsLayout } from '@/layouts/EventsLayout';
 import { TicketSelector } from '@/components/events/TicketSelector';
 import { useEvent } from '@/hooks/useEvents';
-import { useTicketTypes } from '@/hooks/useTicketTypes';
+import { useTicketTypes, TicketType } from '@/hooks/useTicketTypes';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,6 +24,15 @@ export default function Checkout() {
   const { data: event, isLoading: isLoadingEvent } = useEvent(slug || '');
   const { ticketTypes, isLoading: isLoadingTickets } = useTicketTypes(event?.id || '');
 
+  const isTicketAvailable = (ticket: TicketType) => {
+    const now = new Date();
+    if (ticket.sales_start_at && new Date(ticket.sales_start_at) > now) return false;
+    if (ticket.sales_end_at && new Date(ticket.sales_end_at) < now) return false;
+    if (ticket.quantity_available !== null && ticket.quantity_sold >= ticket.quantity_available) return false;
+    return true;
+  };
+
+  const availableTickets = ticketTypes.filter(isTicketAvailable);
   const [selectedTickets, setSelectedTickets] = useState<Record<string, number>>({});
   const [buyerName, setBuyerName] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
@@ -182,13 +191,13 @@ export default function Checkout() {
               <CardTitle>Select Tickets</CardTitle>
             </CardHeader>
             <CardContent>
-              {ticketTypes.length === 0 ? (
+              {availableTickets.length === 0 ? (
                 <p className="text-muted-foreground text-center py-4">
                   No tickets available
                 </p>
               ) : (
                 <TicketSelector
-                  ticketTypes={ticketTypes}
+                  ticketTypes={availableTickets}
                   selectedTickets={selectedTickets}
                   onSelectionChange={setSelectedTickets}
                 />
