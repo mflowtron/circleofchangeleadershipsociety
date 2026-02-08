@@ -1,80 +1,127 @@
 
 
-# Add 3 Users to Attendee App
+# Fix iOS Vertical Stretching on Square Elements
 
-## Summary
+## Problem
+Checkbox, RadioGroupItem, and similar square UI elements appear stretched vertically (taller than they are wide) on iOS devices, when they should maintain a 1:1 aspect ratio.
 
-Create attendee records for all 3 existing users (Michael Flotron, Leanna Mouton, and Joshua Fredenburg) by adding them to orders for the First Gen Career Conference 2026 event.
+## Root Cause
+In `src/index.css`, there's a CSS rule for touch-friendly tap targets that applies a `min-height: 44px` to all buttons on touch devices:
 
----
-
-## Users to Add
-
-| User | Email | User ID |
-|------|-------|---------|
-| Michael Flotron | mflotron91@gmail.com | 6d8fab70-f16c-4092-917c-0da9af673f9a |
-| Leanna Mouton | leanna@coclc.org | 18628588-8533-4472-8ab5-3704f4fc5414 |
-| Joshua Fredenburg | circleofchangeleadconference@gmail.com | f3387031-a52b-43f8-bf8c-f58abb023cde |
-
----
-
-## Event Details
-
-| Field | Value |
-|-------|-------|
-| Event | 2026 First Generation Student Career Leadership Experience |
-| Event ID | f47ac10b-58cc-4372-a567-0e02b2c3d479 |
-| Ticket Type | In-Person Early Bird ($325) |
-
----
-
-## Database Operations
-
-### 1. Create 3 Orders (one per user)
-
-Each order will:
-- Be linked to the user's `user_id`
-- Use the user's email as the order email
-- Have status = 'completed'
-- Include 1 In-Person Early Bird ticket
-
-### 2. Create 3 Order Items
-
-Link each order to the In-Person Early Bird ticket type with quantity 1.
-
-### 3. Create 3 Attendees
-
-Create attendee records with:
-- `attendee_name` = user's full name
-- `attendee_email` = user's email
-- `user_id` = linked to their auth user
-- `order_item_id` = linked to their order item
-
----
-
-## SQL Migration
-
-```sql
--- Order 1: Michael Flotron
-INSERT INTO orders (id, event_id, user_id, order_number, email, full_name, status, subtotal_cents, total_cents, completed_at)
-VALUES ('ord-michael-001', 'f47ac10b-...', '6d8fab70-...', 'ORD-STAFF-0001', 'mflotron91@gmail.com', 'Michael Flotron', 'completed', 32500, 32500, now());
-
-INSERT INTO order_items (id, order_id, ticket_type_id, quantity, unit_price_cents)
-VALUES ('oi-michael-001', 'ord-michael-001', 'a1b2c3d4-e5f6-4789-abcd-111111111111', 1, 32500);
-
-INSERT INTO attendees (order_item_id, attendee_name, attendee_email, user_id)
-VALUES ('oi-michael-001', 'Michael Flotron', 'mflotron91@gmail.com', '6d8fab70-...');
-
--- (Repeat for Leanna and Joshua)
+```css
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  a {
+    min-height: 44px;
+  }
+}
 ```
 
+Since Radix UI's `Checkbox` and `RadioGroupItem` components render as `<button>` elements, this rule forces them to be at least 44px tall. However, these components are styled with `h-4 w-4` (16x16px), so the `min-height: 44px` overrides the height while leaving the width at 16px, resulting in a stretched, non-square appearance.
+
+The `Switch` component already solved this problem by using rigid inline styles with explicit `min-height`, `max-height`, `min-width`, and `max-width` values that override the global CSS rule.
+
+## Affected Components
+1. **Checkbox** (`src/components/ui/checkbox.tsx`) - Uses `h-4 w-4` (16x16px)
+2. **RadioGroupItem** (`src/components/ui/radio-group.tsx`) - Uses `aspect-square h-4 w-4` (16x16px)
+3. **Avatar** (`src/components/ui/avatar.tsx`) - Uses `h-10 w-10` (40x40px) - may also be affected
+
+## Solution
+Apply the same fix pattern used by the Switch component: add rigid inline styles that enforce exact dimensions and prevent flex stretching.
+
 ---
 
-## Result
+## Technical Details
 
-After implementation:
-- All 3 users will have completed orders for the First Gen Career Conference
-- Each user will have an attendee record linked to their auth account
-- They will be able to access the Attendee app at `/attendee` using their email
-- Their attendee profiles will be pre-populated with their names and emails
+### 1. Fix Checkbox Component
+
+Add inline styles to enforce fixed 16x16px dimensions:
+
+```tsx
+// src/components/ui/checkbox.tsx
+<CheckboxPrimitive.Root
+  ref={ref}
+  className={cn(
+    "peer h-4 w-4 shrink-0 rounded-sm border border-primary ...",
+    className,
+  )}
+  style={{
+    width: '16px',
+    minWidth: '16px',
+    maxWidth: '16px',
+    height: '16px',
+    minHeight: '16px',
+    maxHeight: '16px',
+    flexShrink: 0,
+  }}
+  {...props}
+>
+```
+
+### 2. Fix RadioGroupItem Component
+
+Add inline styles to enforce fixed 16x16px dimensions:
+
+```tsx
+// src/components/ui/radio-group.tsx
+<RadioGroupPrimitive.Item
+  ref={ref}
+  className={cn(
+    "aspect-square h-4 w-4 rounded-full border border-primary ...",
+    className,
+  )}
+  style={{
+    width: '16px',
+    minWidth: '16px',
+    maxWidth: '16px',
+    height: '16px',
+    minHeight: '16px',
+    maxHeight: '16px',
+    flexShrink: 0,
+  }}
+  {...props}
+>
+```
+
+### 3. Fix Avatar Component
+
+Add inline styles to enforce fixed 40x40px dimensions (default size):
+
+```tsx
+// src/components/ui/avatar.tsx
+<AvatarPrimitive.Root
+  ref={ref}
+  className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full", className)}
+  style={{
+    width: '40px',
+    minWidth: '40px',
+    maxWidth: '40px',
+    height: '40px',
+    minHeight: '40px',
+    maxHeight: '40px',
+    flexShrink: 0,
+  }}
+  {...props}
+/>
+```
+
+> **Note on Avatar**: Since Avatar accepts custom `className` overrides for different sizes (e.g., `h-8 w-8`), the inline styles may conflict. We'll need to conditionally extract size from className or use a different approach. A simpler solution is to just add `flexShrink: 0` and rely on `aspect-square` with a fixed width:
+
+```tsx
+// Alternative for Avatar - simpler approach
+<AvatarPrimitive.Root
+  ref={ref}
+  className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full aspect-square", className)}
+  style={{ flexShrink: 0, flexGrow: 0 }}
+  {...props}
+/>
+```
+
+### Files to Modify
+1. `src/components/ui/checkbox.tsx` - Add inline styles
+2. `src/components/ui/radio-group.tsx` - Add inline styles to RadioGroupItem
+3. `src/components/ui/avatar.tsx` - Add flex constraints and aspect-square
 
