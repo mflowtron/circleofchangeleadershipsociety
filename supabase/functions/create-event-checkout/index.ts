@@ -277,7 +277,93 @@ serve(async (req) => {
       logStep("Free order completed");
 
       const origin = req.headers.get("origin") || "";
-      return new Response(JSON.stringify({ 
+
+      // Send order confirmation email for free orders
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      if (resendApiKey) {
+        try {
+          // Fetch the order with edit_token
+          const { data: completedOrder } = await supabaseAdmin
+            .from('orders')
+            .select('edit_token')
+            .eq('id', order.id)
+            .single();
+
+          const formatPrice = (cents: number) => {
+            if (cents === 0) return 'Free';
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+          };
+
+          const ticketRows = orderItems.map((item) =>
+            `<tr>
+              <td style="padding: 8px 0; color: #333;">${item.name} &times; ${item.quantity}</td>
+              <td style="padding: 8px 0; text-align: right; color: #333;">${formatPrice(item.unit_price_cents * item.quantity)}</td>
+            </tr>`
+          ).join('');
+
+          const editToken = completedOrder?.edit_token;
+          const attendeeUrl = editToken
+            ? `${origin}/events/${event.slug}/order/${order.id}/attendees?token=${editToken}`
+            : '';
+
+          const attendeeCta = attendeeUrl
+            ? `<p style="color: #333;">Purchased tickets for others? Add their names and emails so they can receive event updates.</p>
+               <div style="text-align: center; margin: 24px 0;">
+                 <a href="${attendeeUrl}" style="background: #DFA51F; color: #2D0A18; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
+                   Add Attendee Details
+                 </a>
+               </div>`
+            : '';
+
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "Circle of Change <noreply@circleofchange.org>",
+              to: [buyer_email],
+              subject: `Order Confirmed - ${event.title}`,
+              html: `
+                <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 32px;">
+                  <h2 style="color: #6B1D3A; margin-bottom: 8px;">Order Confirmed!</h2>
+                  <p style="color: #333;">Hi ${buyer_name},</p>
+                  <p style="color: #333;">Thank you for registering. Your tickets are confirmed.</p>
+
+                  <div style="background: #FFF8F0; border: 1px solid #DFA51F; border-radius: 12px; padding: 24px; margin: 24px 0;">
+                    <p style="margin: 0 0 4px; font-weight: bold; color: #2D0A18;">Order #${orderNumber}</p>
+                    <p style="margin: 0 0 16px; color: #666; font-size: 14px;">${event.title}</p>
+                    <table style="width: 100%; border-collapse: collapse;">
+                      ${ticketRows}
+                      <tr>
+                        <td colspan="2" style="padding: 12px 0 0;"><hr style="border: none; border-top: 1px solid #EDD9B4;" /></td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-weight: bold; color: #2D0A18;">Total</td>
+                        <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #2D0A18;">Free</td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  ${attendeeCta}
+
+                  <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+                  <p style="color: #999; font-size: 12px;">Circle of Change Leadership Society</p>
+                </div>
+              `,
+            }),
+          });
+          logStep("Confirmation email sent for free order", { to: buyer_email });
+        } catch (emailError) {
+          logStep("Confirmation email failed for free order", { error: String(emailError) });
+          // Don't fail the request if email fails
+        }
+      } else {
+        logStep("Confirmation email skipped — RESEND_API_KEY not configured");
+      }
+
+      return new Response(JSON.stringify({
         success: true,
         order_id: order.id,
         order_number: orderNumber,
