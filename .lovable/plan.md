@@ -1,104 +1,151 @@
 
-# Remove Event Checkin Login Page and Consolidate Authentication
 
-## Overview
-This plan removes the separate "Event Check-In" login page (`/attendee`) and the "Order Portal" login page (`/my-orders`), consolidating all authentication through the main `/auth` page. Both the Attendee App and Order Portal currently use magic link (OTP) authentication through Supabase, which is the same underlying system as the main auth.
+# Fix Broken Images with Error Handling and Generate Replacement
 
-## Current State Analysis
+## Problem
+Event cover images are broken throughout the app because the external URL stored in the database (`https://www.firstgencareerconference.com/wp-content/uploads/2024/11/FINAL-23-scaled.jpg`) returns a 404 error. The current components conditionally render images only when the URL exists, but don't handle the case where the URL exists but the image fails to load.
 
-### Separate Login Pages to Remove
-1. **Attendee Login** (`/attendee` → `src/pages/attendee/Index.tsx`)
-   - Title: "Event Check-In"
-   - Uses magic link via `useOrderPortal` hook
-   - Redirects to `/attendee/app/home` after login
-
-2. **Order Portal Login** (`/my-orders` → `src/pages/orders/Index.tsx`)
-   - Title: "Manage Your Orders"  
-   - Uses magic link via `useOrderPortal` hook
-   - Redirects to `/my-orders/dashboard` after login
-
-### Authentication System
-- Both pages use `useOrderPortal` hook for magic link auth
-- The magic link redirects to `/my-orders/dashboard`
-- Both share the same Supabase auth session as the main `/auth` page
-
-## Solution
-
-Since all authentication now goes through the main `/auth` page (which uses standard email/password), we need to:
-
-1. **Remove the separate login pages** - Delete the magic link login pages
-2. **Update route redirects** - Unauthenticated users go to `/auth` instead of separate login pages
-3. **Remove magic link functionality** - The `sendMagicLink` function in `useOrderPortal` is no longer needed
-4. **Clean up related context/hooks** - Remove `AttendeeAuthContext` wrapper that exposes `sendMagicLink`
-5. **Update dashboard pages** - Redirect to `/auth` instead of their respective login pages
+## Solution Overview
+1. Create a reusable `EventCoverImage` component with built-in error handling
+2. Update all components that display event cover images to use this new component
+3. Generate a professional event cover image using AI to replace the broken one
+4. Update the database with the new image URL
 
 ---
 
-## Technical Changes
+## Technical Details
 
-### 1. Delete Files (2 files)
-- `src/pages/attendee/Index.tsx` - Attendee magic link login page
-- `src/pages/orders/Index.tsx` - Order portal magic link login page
+### 1. Create EventCoverImage Component
 
-### 2. Update Routes in `src/App.tsx`
-Remove the following routes:
-- `/attendee` route (line 329-333)
-- `/my-orders` route (line 317-321)
+Create a new reusable component at `src/components/events/EventCoverImage.tsx` that:
+- Accepts `src`, `alt`, `className`, and `aspectRatio` props
+- Tracks image loading state with `useState`
+- Uses `onError` handler to detect failed image loads
+- Falls back to a gradient placeholder with calendar icon when image fails
+- Supports both `<img>` tag and CSS background-image patterns
 
-Remove the lazy imports:
-- `OrderPortalIndex` (line 57)
-- `AttendeeLogin` (line 61)
-
-### 3. Update `src/hooks/useOrderPortal.ts`
-Remove the `sendMagicLink` function - it's no longer needed since authentication happens through the main auth page.
-
-### 4. Update `src/contexts/AttendeeAuthContext.tsx`
-Remove the `sendMagicLink` property from the context interface and value since it's no longer used.
-
-### 5. Update `src/contexts/AttendeeContext.tsx`
-Remove the `sendMagicLink` export from the compatibility layer.
-
-### 6. Update `src/pages/attendee/Dashboard.tsx`
-Change the redirect for unauthenticated users from `/attendee` to `/auth`:
-```tsx
-// Line 41: Change redirect destination
-return <Navigate to="/auth" state={{ from: location }} replace />;
+```text
+┌─────────────────────────────────────────┐
+│         EventCoverImage Component       │
+├─────────────────────────────────────────┤
+│  Props:                                 │
+│  - src: string | null                   │
+│  - alt: string                          │
+│  - className?: string                   │
+│  - variant: 'img' | 'background'        │
+│  - aspectRatio?: '16/9' | 'video'       │
+│                                         │
+│  State:                                 │
+│  - hasError: boolean (default false)    │
+│  - isLoading: boolean (default true)    │
+│                                         │
+│  Behavior:                              │
+│  - If src is null/undefined OR hasError │
+│    → Show gradient fallback with icon   │
+│  - On img onError → setHasError(true)   │
+│  - On img onLoad → setIsLoading(false)  │
+└─────────────────────────────────────────┘
 ```
 
-### 7. Update `src/pages/orders/Dashboard.tsx`
-- Change redirect for unauthenticated users from `/my-orders` to `/auth` (line 16)
-- Remove the link to `/attendee` since that route no longer exists (line 39-44)
-- Update logout to redirect to `/auth` instead of `/my-orders` (line 22)
+### 2. Update EventHome.tsx
 
-### 8. Update `src/components/orders/OrderCard.tsx`
-Remove or update the "Open Event App" link that points to `/attendee` (lines 100-109). Should link to `/attendee/app/home` directly instead.
+Replace the direct `<img>` tag with the new `EventCoverImage` component:
 
-### 9. Update `src/utils/nativelyCache.ts`
-Remove `/attendee` from the critical routes list (line 30).
+```tsx
+// Before (lines 60-68)
+{selectedEvent.cover_image_url && (
+  <div className="aspect-video w-full overflow-hidden">
+    <img src={selectedEvent.cover_image_url} ... />
+  </div>
+)}
 
-### 10. Cleanup Check - Verify No Other References
-Search for any remaining references to:
-- `/attendee"` (should only be `/attendee/app/*` routes)
-- `/my-orders"` (should only be `/my-orders/dashboard`)
-- `sendMagicLink`
+// After
+<EventCoverImage
+  src={selectedEvent.cover_image_url}
+  alt={selectedEvent.title}
+  className="aspect-video w-full"
+/>
+```
 
-## Files Modified Summary
+### 3. Update EventCard.tsx
+
+Replace the conditional image rendering with the new component:
+
+```tsx
+// Before (lines 16-27)
+<AspectRatio ratio={16 / 9}>
+  {event.cover_image_url ? (
+    <img src={event.cover_image_url} ... />
+  ) : (
+    <div className="w-full h-full bg-muted ...">
+      <Calendar ... />
+    </div>
+  )}
+</AspectRatio>
+
+// After
+<AspectRatio ratio={16 / 9}>
+  <EventCoverImage
+    src={event.cover_image_url}
+    alt={event.title}
+    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+  />
+</AspectRatio>
+```
+
+### 4. Update EventHero.tsx
+
+Update the background image pattern to handle errors:
+
+```tsx
+// Before (lines 24-31)
+{event.cover_image_url ? (
+  <div style={{ backgroundImage: `url(${event.cover_image_url})` }} />
+) : (
+  <div className="bg-gradient-to-br from-secondary to-secondary/80" />
+)}
+
+// After - Use EventCoverImage with variant="background"
+<EventCoverImage
+  src={event.cover_image_url}
+  alt={event.title}
+  variant="background"
+  className="absolute inset-0"
+/>
+```
+
+### 5. Generate Replacement Event Cover Image
+
+Use AI image generation to create a professional event cover image for the "2026 First Generation Student Career Leadership Experience" event:
+
+**Prompt**: "Professional conference event banner, diverse group of young professionals and students networking at a career leadership event, modern corporate venue, warm lighting, professional photography style, 16:9 aspect ratio, high quality"
+
+The generated image will be:
+1. Saved to a Supabase storage bucket
+2. Database updated with the new storage URL
+
+### 6. Upload Generated Image to Storage
+
+After generating the image:
+- Upload to `event-images` storage bucket
+- Update the event's `cover_image_url` in the database
+
+---
+
+## Files to Create/Modify
+
 | File | Action |
 |------|--------|
-| `src/pages/attendee/Index.tsx` | DELETE |
-| `src/pages/orders/Index.tsx` | DELETE |
-| `src/App.tsx` | Remove routes and imports |
-| `src/hooks/useOrderPortal.ts` | Remove `sendMagicLink` function |
-| `src/contexts/AttendeeAuthContext.tsx` | Remove `sendMagicLink` from interface |
-| `src/contexts/AttendeeContext.tsx` | Remove `sendMagicLink` export |
-| `src/pages/attendee/Dashboard.tsx` | Redirect to `/auth` |
-| `src/pages/orders/Dashboard.tsx` | Redirect to `/auth`, remove Event App link |
-| `src/components/orders/OrderCard.tsx` | Update Event App link |
-| `src/utils/nativelyCache.ts` | Remove `/attendee` from cache list |
+| `src/components/events/EventCoverImage.tsx` | CREATE - New reusable component |
+| `src/pages/attendee/EventHome.tsx` | MODIFY - Use EventCoverImage |
+| `src/components/events/EventCard.tsx` | MODIFY - Use EventCoverImage |
+| `src/components/events/EventHero.tsx` | MODIFY - Use EventCoverImage |
 
-## Post-Implementation Verification
-1. Verify `/attendee/app/*` routes still work for authenticated users
-2. Verify `/my-orders/dashboard` still works for authenticated users
-3. Verify unauthenticated users are redirected to `/auth`
-4. Confirm no TypeScript errors after removing `sendMagicLink`
-5. Test that logout redirects to `/auth`
+## Database Update
+After image generation, update the events table:
+```sql
+UPDATE events 
+SET cover_image_url = '[new_storage_url]' 
+WHERE id = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+```
+
