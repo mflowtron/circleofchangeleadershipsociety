@@ -6,10 +6,10 @@ import { AnnouncementCard } from './cards/AnnouncementCard';
 import { PollCard } from './cards/PollCard';
 import { VideoAskCard } from './cards/VideoAskCard';
 import { FeedHeader } from './FeedHeader';
-import { FeedBottomNav } from './FeedBottomNav';
 import { ScrollDots } from './ScrollDots';
 import { ScrollLockIndicator } from './ScrollLockIndicator';
 import { EndOfFeedCard } from './EndOfFeedCard';
+import { BottomNavigation } from '../BottomNavigation';
 
 function feedReducer(state: FeedItem[], action: FeedAction): FeedItem[] {
   return state.map((item) => {
@@ -49,16 +49,6 @@ function feedReducer(state: FeedItem[], action: FeedAction): FeedItem[] {
             ...item,
             liked: !item.liked,
             likes: item.liked ? item.likes - 1 : item.likes + 1,
-          };
-        }
-        return item;
-
-      case "TOGGLE_BOOKMARK":
-        if (isPostCard(item)) {
-          return {
-            ...item,
-            bookmarked: !item.bookmarked,
-            bookmarks: item.bookmarked ? item.bookmarks - 1 : item.bookmarks + 1,
           };
         }
         return item;
@@ -184,10 +174,6 @@ export function ConferenceFeed() {
     dispatch({ type: "TOGGLE_LIKE", id });
   };
 
-  const handleBookmark = (id: string) => {
-    dispatch({ type: "TOGGLE_BOOKMARK", id });
-  };
-
   const renderCard = (item: FeedItem, index: number) => {
     const isActive = index === activeIndex;
 
@@ -199,7 +185,6 @@ export function ConferenceFeed() {
           isActive={isActive}
           isMuted={isMuted}
           onLike={() => handleLike(item.id)}
-          onBookmark={() => handleBookmark(item.id)}
           onToggleMute={handleToggleMute}
         />
       );
@@ -282,7 +267,9 @@ export function ConferenceFeed() {
       <ScrollLockIndicator isVisible={isBlocked} />
 
       {/* Bottom Navigation */}
-      <FeedBottomNav />
+      <div className="feed-dark">
+        <BottomNavigation />
+      </div>
 
       {/* Hide scrollbar styles */}
       <style>{`
