@@ -4,13 +4,20 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Home, Monitor, Tag, User } from 'lucide-react';
 import { type AudienceType, type AudienceFilter } from '@/hooks/usePushNotifications';
+import { AttendeeSearchSelector } from './AttendeeSearchSelector';
 
 interface AudienceCounts {
   total: number;
   inPerson: number;
   virtual: number;
   ticketTypes: Array<{ id: string; name: string; count: number }>;
-  attendees: Array<{ id: string; user_id: string | null }>;
+  attendees: Array<{
+    id: string;
+    user_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  }>;
 }
 
 interface AudienceSelectorProps {
@@ -38,6 +45,13 @@ export function AudienceSelector({
     onAudienceFilterChange({
       ...audienceFilter,
       ticket_type_ids: newIds,
+    });
+  };
+
+  const handleAttendeeSelectionChange = (attendeeIds: string[]) => {
+    onAudienceFilterChange({
+      ...audienceFilter,
+      attendee_ids: attendeeIds,
     });
   };
 
@@ -122,13 +136,29 @@ export function AudienceSelector({
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 opacity-50">
-            <RadioGroupItem value="individual" id="individual" disabled />
-            <Label htmlFor="individual" className="flex items-center gap-2 cursor-not-allowed">
-              <User className="h-4 w-4 text-muted-foreground" />
-              Individual Attendee(s)
-              <span className="text-xs text-muted-foreground">(Coming soon)</span>
-            </Label>
+          <div className="flex items-start space-x-3">
+            <RadioGroupItem value="individual" id="individual" className="mt-1" />
+            <div className="flex-1">
+              <Label htmlFor="individual" className="flex items-center gap-2 cursor-pointer">
+                <User className="h-4 w-4 text-muted-foreground" />
+                Individual Attendee(s)
+                {audienceType === 'individual' && audienceFilter.attendee_ids?.length ? (
+                  <span className="text-muted-foreground">
+                    ({audienceFilter.attendee_ids.length} selected)
+                  </span>
+                ) : null}
+              </Label>
+              
+              {audienceType === 'individual' && (
+                <div className="mt-3 ml-6">
+                  <AttendeeSearchSelector
+                    attendees={audienceCounts?.attendees || []}
+                    selectedIds={audienceFilter.attendee_ids || []}
+                    onSelectionChange={handleAttendeeSelectionChange}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </RadioGroup>
       </CardContent>
