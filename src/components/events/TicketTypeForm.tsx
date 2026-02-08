@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export function TicketTypeForm({
   const [maxPerOrder, setMaxPerOrder] = useState('10');
   const [salesStartAt, setSalesStartAt] = useState('');
   const [salesEndAt, setSalesEndAt] = useState('');
+  const [isVirtual, setIsVirtual] = useState(false);
 
   useEffect(() => {
     if (ticketType) {
@@ -55,6 +57,7 @@ export function TicketTypeForm({
           ? format(new Date(ticketType.sales_end_at), "yyyy-MM-dd'T'HH:mm")
           : ''
       );
+      setIsVirtual(ticketType.is_virtual);
     } else {
       setName('');
       setDescription('');
@@ -63,6 +66,7 @@ export function TicketTypeForm({
       setMaxPerOrder('10');
       setSalesStartAt('');
       setSalesEndAt('');
+      setIsVirtual(false);
     }
   }, [ticketType, open]);
 
@@ -81,6 +85,7 @@ export function TicketTypeForm({
       max_per_order: parseInt(maxPerOrder) || 10,
       sales_start_at: salesStartAt ? new Date(salesStartAt).toISOString() : undefined,
       sales_end_at: salesEndAt ? new Date(salesEndAt).toISOString() : undefined,
+      is_virtual: isVirtual,
     };
 
     await onSubmit(data);
@@ -147,16 +152,32 @@ export function TicketTypeForm({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="maxPerOrder">Max Per Order</Label>
-            <Input
-              id="maxPerOrder"
-              type="number"
-              min="1"
-              value={maxPerOrder}
-              onChange={(e) => setMaxPerOrder(e.target.value)}
-              placeholder="10"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="maxPerOrder">Max Per Order</Label>
+              <Input
+                id="maxPerOrder"
+                type="number"
+                min="1"
+                value={maxPerOrder}
+                onChange={(e) => setMaxPerOrder(e.target.value)}
+                placeholder="10"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Attendance Type</Label>
+              <div className="flex items-center justify-between rounded-md border p-3 h-10">
+                <span className="text-sm text-muted-foreground">
+                  {isVirtual ? '💻 Virtual' : '🏠 In-Person'}
+                </span>
+                <Switch
+                  checked={isVirtual}
+                  onCheckedChange={setIsVirtual}
+                  aria-label="Virtual attendance"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

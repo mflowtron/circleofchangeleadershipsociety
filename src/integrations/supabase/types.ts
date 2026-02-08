@@ -1002,6 +1002,7 @@ export type Database = {
           description: string | null
           event_id: string
           id: string
+          is_virtual: boolean
           max_per_order: number
           name: string
           price_cents: number
@@ -1017,6 +1018,7 @@ export type Database = {
           description?: string | null
           event_id: string
           id?: string
+          is_virtual?: boolean
           max_per_order?: number
           name: string
           price_cents?: number
@@ -1032,6 +1034,7 @@ export type Database = {
           description?: string | null
           event_id?: string
           id?: string
+          is_virtual?: boolean
           max_per_order?: number
           name?: string
           price_cents?: number

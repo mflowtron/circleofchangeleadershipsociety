@@ -132,6 +132,7 @@ export default function ManageTickets() {
             <TableHeader>
               <TableRow>
                 <TableHead className="whitespace-nowrap min-w-[150px]">Name</TableHead>
+                <TableHead className="whitespace-nowrap">Type</TableHead>
                 <TableHead className="whitespace-nowrap">Price</TableHead>
                 <TableHead className="whitespace-nowrap">Sold / Available</TableHead>
                 <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
@@ -147,6 +148,11 @@ export default function ManageTickets() {
                         {ticket.description}
                       </div>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={ticket.is_virtual ? 'secondary' : 'default'}>
+                      {ticket.is_virtual ? '💻 Virtual' : '🏠 In-Person'}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {ticket.price_cents === 0 ? (
