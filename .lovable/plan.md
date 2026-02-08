@@ -1,9 +1,10 @@
 
-# Event Announcements Feature
+
+# Announcement Analytics
 
 ## Overview
 
-This feature enables event organizers to create announcements that display prominently on the attendee app home screen, with optional push notification integration. It extends the existing announcements table to support event-scoped announcements while keeping the LMS society-wide announcements working separately.
+This feature adds analytics tracking for announcement views and dismissals, enabling organizers to measure engagement with their announcements. The system will record when attendees view announcements, when they dismiss them, and aggregate this data for display in the organizer dashboard.
 
 ## What Changes
 
@@ -11,149 +12,212 @@ This feature enables event organizers to create announcements that display promi
 
 | User | Before | After |
 |------|--------|-------|
-| Attendee | No event-specific announcements | See urgent updates on home screen with dismiss option |
-| Attendee | - | Can view all announcements history on a dedicated page |
-| Organizer | Can only send push notifications | Can create in-app announcements with optional push notification |
-| Organizer | Separate systems for announcements vs push | Unified interface to reach attendees via both channels |
+| Organizer | No visibility into announcement engagement | See view counts and dismiss rates per announcement |
+| Organizer | Cannot measure announcement effectiveness | Dashboard shows total views, unique viewers, dismissals |
+| Attendee | No change | Interactions are recorded silently in the background |
 
 ## Database Changes
 
-### Alter `announcements` Table
+### New Table: `announcement_analytics`
 
-Add new columns to support event-scoping and push integration:
+Track individual view and dismissal events for detailed analytics:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID (PK) | Primary key |
+| `announcement_id` | UUID (FK) | Reference to announcements table |
+| `attendee_id` | UUID (FK, nullable) | Reference to attendees table (nullable for anonymous tracking) |
+| `event_type` | TEXT | 'view' or 'dismiss' |
+| `created_at` | TIMESTAMPTZ | When the event occurred |
+
+**Unique constraint**: One view event per attendee-announcement pair, but allows both view and dismiss.
+
+### Aggregate Columns on `announcements` Table
+
+Add denormalized counters for quick dashboard display:
 
 | Column | Type | Default | Description |
 |--------|------|---------|-------------|
-| `event_id` | UUID (nullable) | NULL | NULL = society-wide, non-null = event-scoped |
-| `push_notification_id` | UUID (nullable) | NULL | Links to push record if a push was sent |
-| `priority` | TEXT | 'normal' | Values: 'normal', 'urgent' |
-| `audience_type` | TEXT | 'all' | Targeting: 'all', 'in_person', 'virtual', 'ticket_type', 'individual' |
-| `audience_filter` | JSONB (nullable) | NULL | Stores `{ ticket_type_ids?: string[], attendee_ids?: string[] }` |
+| `view_count` | INTEGER | 0 | Total number of unique views |
+| `dismiss_count` | INTEGER | 0 | Total number of dismissals |
 
 ### RLS Policies
 
-Add new policies for event-scoped access:
-- **Attendees can view event announcements**: Attendees with completed orders for an event can SELECT announcements where `event_id` matches their event
-- **Organizers manage event announcements**: Users with admin or organizer role can INSERT/UPDATE/DELETE event announcements
+- **Attendees can INSERT their own analytics**: Attendees can record view/dismiss events for announcements in their event
+- **Organizers can SELECT all analytics**: Users with admin/organizer role can view analytics for their events
+- **No UPDATE/DELETE for attendees**: Analytics are append-only
 
 ## Implementation Steps
 
 ### Step 1: Database Migration
 
-Create migration to alter the `announcements` table:
-- Add the 5 new columns
-- Add foreign key constraints with ON DELETE CASCADE
-- Add check constraint for priority values
-- Create new RLS policies for event-scoped access
+Create the `announcement_analytics` table and add aggregate columns to `announcements`:
 
-### Step 2: Create `useEventAnnouncements` Hook
+```text
++----------------------------+
+| announcement_analytics     |
++----------------------------+
+| id (UUID PK)              |
+| announcement_id (UUID FK)  |
+| attendee_id (UUID FK)      |
+| event_type (TEXT)          |
+| created_at (TIMESTAMPTZ)   |
++----------------------------+
+        |
+        v
++----------------------------+
+| announcements              |
++----------------------------+
+| ... existing columns ...   |
+| view_count (INTEGER)       |  <- NEW
+| dismiss_count (INTEGER)    |  <- NEW
++----------------------------+
+```
 
-**New file: `src/hooks/useEventAnnouncements.ts`**
+Create a database trigger to automatically update the aggregate counts when analytics events are inserted.
 
-A specialized hook for fetching event-scoped announcements in the attendee app:
-- Fetches announcements filtered by `event_id` matching the selected event
-- Only returns active, non-expired announcements
-- Tracks dismissed announcements in localStorage (separate key from LMS)
-- Returns both filtered (non-dismissed) and all announcements for different views
+### Step 2: Create Analytics Tracking Functions
 
-### Step 3: Update Attendee Home Screen
+**Modify: `src/hooks/useEventAnnouncements.ts`**
+
+Add functions to record analytics events:
+
+- `trackView(announcementId)` - Called when an announcement becomes visible
+- `trackDismiss(announcementId)` - Called when user dismisses an announcement
+
+Both functions will:
+1. Check if the attendee exists (from context)
+2. Insert a record into `announcement_analytics` via upsert (ignore duplicates)
+3. The database trigger handles updating aggregate counts
+
+### Step 3: Implement View Tracking in EventHome
 
 **Modify: `src/pages/attendee/EventHome.tsx`**
 
-Add announcements section between event info and quick actions:
-- Display up to 2 announcements prominently
-- Urgent announcements get red-tinted styling with pulsing indicator
-- Normal announcements use existing gold gradient border
-- Dismiss button to hide from home screen
-- "View All" link when there are more than 2 announcements
-- Link to `/attendee/app/announcements` for full history
+Track views when announcements are displayed:
+- Use `useEffect` to track views when announcements appear on screen
+- Only track once per session using a local Set to prevent duplicate API calls
+- Track automatically when the component mounts with announcements
 
-### Step 4: Create Attendee Announcements Page
+### Step 4: Implement Dismiss Tracking
 
-**New file: `src/pages/attendee/Announcements.tsx`**
+**Modify: `src/pages/attendee/EventHome.tsx`**
 
-History page showing all active announcements for the event:
-- Shows all announcements (including dismissed ones from home screen)
-- Sorted by creation date, newest first
-- Full content display with timestamps
-- Empty state when no announcements exist
+Update the dismiss handler to also record the analytics event:
+- When `dismissAnnouncement(id)` is called, also call `trackDismiss(id)`
+- The dismissal is already persisted locally; analytics adds server-side tracking
 
-### Step 5: Create Organizer Event Announcements Page
+### Step 5: Implement View Tracking in Announcements History
 
-**New file: `src/pages/events/manage/EventAnnouncements.tsx`**
+**Modify: `src/pages/attendee/Announcements.tsx`**
 
-Unified management page combining announcement creation with optional push:
+Track views when the full announcements list is displayed:
+- Track views for all visible announcements on the page
+- Use IntersectionObserver or mount effect to track visibility
 
-**Form Section:**
-- Title and content inputs
-- Priority selector (normal/urgent)
-- Expiration date picker (optional)
-- Toggle to also send push notification
-- Audience selector (reuses existing `AudienceSelector` component from push system)
+### Step 6: Display Analytics in Organizer Dashboard
 
-**History Section:**
-- List of all announcements for the event
-- Active/inactive toggle per announcement
-- Delete with confirmation dialog
-- Badges showing: status, priority, whether push was sent
+**Modify: `src/pages/events/manage/EventAnnouncements.tsx`**
 
-### Step 6: Update Existing LMS Announcements Hook
+Add analytics display to each announcement card in the history:
+- Show view count with eye icon
+- Show dismiss count with X icon
+- Show engagement rate (views / audience size if available)
 
-**Modify: `src/hooks/useAnnouncements.ts`**
+```text
+┌─────────────────────────────────────────────────────┐
+│ WiFi Network Updated                    [active]    │
+│ The conference WiFi password has changed...        │
+│                                                     │
+│ 📅 Feb 8, 2026 3:45 PM                             │
+│ 👁️ 156 views  ·  ❌ 23 dismissed  ·  📊 85% seen   │
+└─────────────────────────────────────────────────────┘
+```
 
-Filter to only fetch announcements where `event_id IS NULL` to prevent collision with event-scoped announcements:
-- Add `.is('event_id', null)` to both the allData and activeData queries
-- No other changes needed - LMS announcements continue working as before
+### Step 7: Create Analytics Hook for Organizers
 
-### Step 7: Add Routes and Navigation
+**New file: `src/hooks/useAnnouncementAnalytics.ts`**
 
-**Modify: `src/App.tsx`**
-
-Add lazy imports and routes:
-- `AttendeeAnnouncements` route at `/attendee/app/announcements`
-- `ManageEventAnnouncements` route at `/events/manage/announcements`
-
-**Modify: `src/components/events/EventsDashboardSidebar.tsx`**
-
-Add Announcements to the sidebar navigation:
-- Add `Megaphone` icon import from lucide-react
-- Add nav item before "Push Notifications" in the eventNavItems array
+A hook for fetching detailed analytics:
+- Get view/dismiss counts per announcement
+- Get time-series data for engagement over time (optional)
+- Calculate engagement rates
 
 ## File Changes Summary
 
 | Action | File |
 |--------|------|
-| Create | Database migration for `announcements` table alterations |
-| Create | `src/hooks/useEventAnnouncements.ts` |
-| Create | `src/pages/attendee/Announcements.tsx` |
-| Create | `src/pages/events/manage/EventAnnouncements.tsx` |
+| Create | Database migration for `announcement_analytics` table and aggregate columns |
+| Create | `src/hooks/useAnnouncementAnalytics.ts` |
+| Modify | `src/hooks/useEventAnnouncements.ts` |
 | Modify | `src/pages/attendee/EventHome.tsx` |
-| Modify | `src/hooks/useAnnouncements.ts` |
-| Modify | `src/App.tsx` |
-| Modify | `src/components/events/EventsDashboardSidebar.tsx` |
+| Modify | `src/pages/attendee/Announcements.tsx` |
+| Modify | `src/pages/events/manage/EventAnnouncements.tsx` |
 
 ## Technical Details
 
-### Push Notification Integration
+### Database Trigger for Aggregate Counts
 
-When "Also Send Push Notification" is enabled:
-1. Create the announcement record first
-2. Call the existing `send-push-notification` edge function with the same title/content
-3. If push succeeds, optionally update the announcement with the `push_notification_id`
-4. Show appropriate success/warning toast based on outcome
+```sql
+CREATE OR REPLACE FUNCTION update_announcement_analytics_counts()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.event_type = 'view' THEN
+    UPDATE announcements 
+    SET view_count = view_count + 1 
+    WHERE id = NEW.announcement_id;
+  ELSIF NEW.event_type = 'dismiss' THEN
+    UPDATE announcements 
+    SET dismiss_count = dismiss_count + 1 
+    WHERE id = NEW.announcement_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
 
-### Audience Targeting
+### Preventing Duplicate Tracking
 
-Reuses the existing push notification audience system:
-- `AudienceSelector` component from `src/components/events/push/`
-- `useAudienceCounts` hook from `src/hooks/usePushNotifications.ts`
-- Same targeting options: All, In-Person, Virtual, By Ticket Type, Individual
+1. **Database level**: Unique constraint on (announcement_id, attendee_id, event_type)
+2. **Client level**: Session-based Set to track which announcements have been recorded
 
-### Announcement Card Styling
+### View Tracking Logic
 
-- **Normal priority**: Gold gradient border (existing `AnnouncementCard` styling)
-- **Urgent priority**: Red-tinted border with `bg-destructive/10`, red pulsing dot indicator
+```typescript
+// In useEventAnnouncements hook
+const trackedViews = useRef(new Set<string>());
 
-### Local Dismissal Storage
+const trackView = useCallback(async (announcementId: string) => {
+  if (trackedViews.current.has(announcementId)) return;
+  if (!selectedAttendee?.id) return;
+  
+  trackedViews.current.add(announcementId);
+  
+  await supabase.from('announcement_analytics').upsert({
+    announcement_id: announcementId,
+    attendee_id: selectedAttendee.id,
+    event_type: 'view',
+  }, { 
+    onConflict: 'announcement_id,attendee_id,event_type',
+    ignoreDuplicates: true 
+  });
+}, [selectedAttendee?.id]);
+```
 
-Uses a separate localStorage key `dismissed_event_announcements` to avoid collision with LMS announcements dismissals.
+### Analytics Display Component
+
+For the organizer dashboard, a simple inline display:
+
+```tsx
+<div className="flex items-center gap-3 text-xs text-muted-foreground">
+  <span className="flex items-center gap-1">
+    <Eye className="h-3 w-3" />
+    {ann.view_count} views
+  </span>
+  <span className="flex items-center gap-1">
+    <X className="h-3 w-3" />
+    {ann.dismiss_count} dismissed
+  </span>
+</div>
+```
+
