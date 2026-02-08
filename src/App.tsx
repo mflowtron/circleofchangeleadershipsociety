@@ -49,6 +49,7 @@ const ManageAgenda = lazy(() => import("@/pages/events/manage/Agenda"));
 const ManageCheckIn = lazy(() => import("@/pages/events/manage/CheckIn"));
 const ManageHotels = lazy(() => import("@/pages/events/manage/Hotels"));
 const ManagePushNotifications = lazy(() => import("@/pages/events/manage/PushNotifications"));
+const ManageEventAnnouncements = lazy(() => import("@/pages/events/manage/EventAnnouncements"));
 const Checkout = lazy(() => import("@/pages/events/Checkout"));
 const CheckoutSuccess = lazy(() => import("@/pages/events/CheckoutSuccess"));
 const OrderAttendees = lazy(() => import("@/pages/events/OrderAttendees"));
@@ -69,6 +70,7 @@ const AttendeeNetworking = lazy(() => import("@/pages/attendee/Networking"));
 const AttendeeProfilePage = lazy(() => import("@/pages/attendee/AttendeeProfile"));
 const AttendeeFeed = lazy(() => import("@/pages/attendee/Feed"));
 const AttendeeAgendaDetail = lazy(() => import("@/pages/attendee/AgendaDetail"));
+const AttendeeAnnouncements = lazy(() => import("@/pages/attendee/Announcements"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -339,6 +341,7 @@ function AppRoutes() {
         <Route path="profile" element={<AttendeeProfilePage />} />
         <Route path="bookmarks" element={<AttendeeBookmarks />} />
         <Route path="qr" element={<AttendeeQRCode />} />
+        <Route path="announcements" element={<AttendeeAnnouncements />} />
       </Route>
       {/* Event Management Routes (Protected with Events Dashboard Layout) */}
       <Route element={<EventsManagementWrapper />}>
@@ -483,6 +486,16 @@ function AppRoutes() {
           } 
         />
         <Route 
+          path="/events/manage/announcements" 
+          element={
+            <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
+              <SuspenseWithErrorBoundary>
+                <ManageEventAnnouncements />
+              </SuspenseWithErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route
           path="/events/manage/profile" 
           element={
             <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>

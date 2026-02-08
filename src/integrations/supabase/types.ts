@@ -75,36 +75,66 @@ export type Database = {
       }
       announcements: {
         Row: {
+          audience_filter: Json | null
+          audience_type: string
           content: string
           created_at: string
           created_by: string
+          event_id: string | null
           expires_at: string | null
           id: string
           is_active: boolean
+          priority: string
+          push_notification_id: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          audience_filter?: Json | null
+          audience_type?: string
           content: string
           created_at?: string
           created_by: string
+          event_id?: string | null
           expires_at?: string | null
           id?: string
           is_active?: boolean
+          priority?: string
+          push_notification_id?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          audience_filter?: Json | null
+          audience_type?: string
           content?: string
           created_at?: string
           created_by?: string
+          event_id?: string | null
           expires_at?: string | null
           id?: string
           is_active?: boolean
+          priority?: string
+          push_notification_id?: string | null
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "announcements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_push_notification_id_fkey"
+            columns: ["push_notification_id"]
+            isOneToOne: false
+            referencedRelation: "push_notifications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       attendee_bookmarks: {
         Row: {

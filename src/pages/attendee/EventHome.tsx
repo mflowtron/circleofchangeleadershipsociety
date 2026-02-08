@@ -1,16 +1,19 @@
 import { format, formatDistanceToNow, isAfter, isBefore, isToday } from 'date-fns';
-import { Calendar, MapPin, Clock, Bookmark, QrCode } from 'lucide-react';
+import { Calendar, MapPin, Clock, Bookmark, QrCode, Megaphone, ChevronRight, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAttendee } from '@/contexts/AttendeeContext';
 import { useAgendaItems } from '@/hooks/useAgendaItems';
+import { useEventAnnouncements } from '@/hooks/useEventAnnouncements';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EventCoverImage } from '@/components/events/EventCoverImage';
+import { cn } from '@/lib/utils';
 
 export default function EventHome() {
   const { selectedEvent, selectedAttendee, bookmarks } = useAttendee();
   const { agendaItems, isLoading: agendaLoading } = useAgendaItems(selectedEvent?.id);
+  const { announcements, dismissAnnouncement } = useEventAnnouncements();
 
   if (!selectedEvent) {
     return (
@@ -85,8 +88,80 @@ export default function EventHome() {
               <MapPin className="h-4 w-4" />
               <span>{selectedEvent.venue_name}</span>
             </div>
-          )}
+        )}
         </div>
+
+        {/* Announcements Section */}
+        {announcements.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Megaphone className="h-4 w-4 text-primary" />
+                Announcements
+              </div>
+              <Link 
+                to="/attendee/app/announcements" 
+                className="text-xs text-primary flex items-center gap-0.5 hover:underline"
+              >
+                View All <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+            {announcements.slice(0, 2).map(announcement => (
+              <Card
+                key={announcement.id}
+                className={cn(
+                  "relative overflow-hidden",
+                  announcement.priority === 'urgent'
+                    ? "border-destructive/50 bg-destructive/5"
+                    : "border-primary/30 bg-primary/5"
+                )}
+              >
+                <button
+                  onClick={() => dismissAnnouncement(announcement.id)}
+                  className="absolute top-2 right-2 p-1 rounded-full hover:bg-background/50 transition-colors"
+                  aria-label="Dismiss announcement"
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+                <CardContent className="p-3 pr-8">
+                  <div className="flex gap-3">
+                    <div className={cn(
+                      "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center relative",
+                      announcement.priority === 'urgent' 
+                        ? "bg-destructive/10" 
+                        : "bg-primary/10"
+                    )}>
+                      <Megaphone className={cn(
+                        "h-4 w-4",
+                        announcement.priority === 'urgent' ? "text-destructive" : "text-primary"
+                      )} />
+                      {announcement.priority === 'urgent' && (
+                        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm">{announcement.title}</h4>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                        {announcement.content}
+                      </p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">
+                        {formatDistanceToNow(new Date(announcement.created_at), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {announcements.length > 2 && (
+              <Link 
+                to="/attendee/app/announcements"
+                className="block text-center text-sm text-primary hover:underline py-1"
+              >
+                View {announcements.length - 2} More Announcements
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-3">
