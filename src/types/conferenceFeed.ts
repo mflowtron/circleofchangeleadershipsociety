@@ -112,4 +112,5 @@ export type FeedAction =
   | { type: "VOTE_POLL"; id: string; optionId: string }
   | { type: "RESPOND_VIDEOASK"; id: string }
   | { type: "SKIP_VIDEOASK"; id: string }
-  | { type: "TOGGLE_LIKE"; id: string };
+  | { type: "TOGGLE_LIKE"; id: string }
+  | { type: "UPDATE_COMMENT_COUNT"; id: string; delta: number };

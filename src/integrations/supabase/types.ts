@@ -475,6 +475,48 @@ export type Database = {
         }
         Relationships: []
       }
+      feed_post_comments: {
+        Row: {
+          attendee_id: string
+          content: string
+          created_at: string
+          event_id: string
+          feed_post_id: string
+          id: string
+        }
+        Insert: {
+          attendee_id: string
+          content: string
+          created_at?: string
+          event_id: string
+          feed_post_id: string
+          id?: string
+        }
+        Update: {
+          attendee_id?: string
+          content?: string
+          created_at?: string
+          event_id?: string
+          feed_post_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_post_comments_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feed_post_comments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           attachment_name: string | null

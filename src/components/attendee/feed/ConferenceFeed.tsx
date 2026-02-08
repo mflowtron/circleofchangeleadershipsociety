@@ -10,6 +10,8 @@ import { ScrollDots } from './ScrollDots';
 import { ScrollLockIndicator } from './ScrollLockIndicator';
 import { EndOfFeedCard } from './EndOfFeedCard';
 import { BottomNavigation } from '../BottomNavigation';
+import { FeedCommentsSheet } from './FeedCommentsSheet';
+import { useAttendeeEvent } from '@/contexts/AttendeeEventContext';
 
 function feedReducer(state: FeedItem[], action: FeedAction): FeedItem[] {
   return state.map((item) => {
@@ -53,6 +55,15 @@ function feedReducer(state: FeedItem[], action: FeedAction): FeedItem[] {
         }
         return item;
 
+      case "UPDATE_COMMENT_COUNT":
+        if (isPostCard(item) && 'delta' in action) {
+          return {
+            ...item,
+            comments: Math.max(0, item.comments + (action as any).delta),
+          };
+        }
+        return item;
+
       default:
         return item;
     }
@@ -64,11 +75,35 @@ export function ConferenceFeed() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // Get event context for comments - may not be available
+  let eventId: string | null = null;
+  let attendeeId: string | null = null;
+  try {
+    const eventContext = useAttendeeEvent();
+    eventId = eventContext?.selectedEvent?.id || null;
+    attendeeId = eventContext?.selectedAttendee?.id || null;
+  } catch {
+    // Context not available, comments will be disabled
+  }
+
   const handleToggleMute = useCallback(() => {
     setIsMuted(prev => !prev);
+  }, []);
+
+  const handleOpenComments = useCallback((postId: string) => {
+    setCommentsPostId(postId);
+  }, []);
+
+  const handleCloseComments = useCallback(() => {
+    setCommentsPostId(null);
+  }, []);
+
+  const handleCommentCountChange = useCallback((postId: string, delta: number) => {
+    dispatch({ type: "UPDATE_COMMENT_COUNT", id: postId, delta });
   }, []);
 
   // Calculate if current card is blocked
@@ -186,6 +221,7 @@ export function ConferenceFeed() {
           isMuted={isMuted}
           onLike={() => handleLike(item.id)}
           onToggleMute={handleToggleMute}
+          onOpenComments={() => handleOpenComments(item.id)}
         />
       );
     }
@@ -281,6 +317,21 @@ export function ConferenceFeed() {
           scrollbar-width: none;
         }
       `}</style>
+
+      {/* Comments Sheet */}
+      <FeedCommentsSheet
+        isOpen={commentsPostId !== null}
+        onClose={handleCloseComments}
+        postId={commentsPostId}
+        eventId={eventId}
+        currentAttendeeId={attendeeId}
+        commentCount={
+          commentsPostId
+            ? (feedItems.find(i => i.id === commentsPostId && isPostCard(i)) as any)?.comments || 0
+            : 0
+        }
+        onCommentCountChange={handleCommentCountChange}
+      />
     </div>
   );
 }
