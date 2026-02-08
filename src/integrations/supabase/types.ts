@@ -73,6 +73,45 @@ export type Database = {
           },
         ]
       }
+      announcement_analytics: {
+        Row: {
+          announcement_id: string
+          attendee_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+        }
+        Insert: {
+          announcement_id: string
+          attendee_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+        }
+        Update: {
+          announcement_id?: string
+          attendee_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_analytics_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_analytics_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           audience_filter: Json | null
@@ -80,6 +119,7 @@ export type Database = {
           content: string
           created_at: string
           created_by: string
+          dismiss_count: number
           event_id: string | null
           expires_at: string | null
           id: string
@@ -88,6 +128,7 @@ export type Database = {
           push_notification_id: string | null
           title: string
           updated_at: string
+          view_count: number
         }
         Insert: {
           audience_filter?: Json | null
@@ -95,6 +136,7 @@ export type Database = {
           content: string
           created_at?: string
           created_by: string
+          dismiss_count?: number
           event_id?: string | null
           expires_at?: string | null
           id?: string
@@ -103,6 +145,7 @@ export type Database = {
           push_notification_id?: string | null
           title: string
           updated_at?: string
+          view_count?: number
         }
         Update: {
           audience_filter?: Json | null
@@ -110,6 +153,7 @@ export type Database = {
           content?: string
           created_at?: string
           created_by?: string
+          dismiss_count?: number
           event_id?: string | null
           expires_at?: string | null
           id?: string
@@ -118,6 +162,7 @@ export type Database = {
           push_notification_id?: string | null
           title?: string
           updated_at?: string
+          view_count?: number
         }
         Relationships: [
           {

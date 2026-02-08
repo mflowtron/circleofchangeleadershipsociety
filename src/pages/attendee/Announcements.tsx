@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useEventAnnouncements } from '@/hooks/useEventAnnouncements';
 import { Megaphone, Calendar } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -6,7 +7,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export default function AttendeeAnnouncements() {
-  const { allAnnouncements, loading } = useEventAnnouncements();
+  const { allAnnouncements, loading, trackView } = useEventAnnouncements();
+
+  // Track views when announcements are displayed on this page
+  useEffect(() => {
+    allAnnouncements.forEach(announcement => {
+      trackView(announcement.id);
+    });
+  }, [allAnnouncements, trackView]);
 
   return (
     <div className="p-4 space-y-4">
