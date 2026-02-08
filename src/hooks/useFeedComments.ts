@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 export interface FeedComment {
   id: string;
@@ -20,21 +19,17 @@ export function useFeedComments(postId: string | null, eventId: string | null) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchComments = useCallback(async () => {
-    if (!postId || !eventId) return;
+    // Skip fetch if either ID is missing - this is expected for demo feeds
+    if (!postId || !eventId) {
+      setComments([]);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase.functions.invoke('manage-feed-comments', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: null,
-      });
-
-      // We need to call it with query params, so let's use fetch directly
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-feed-comments?feed_post_id=${encodeURIComponent(postId)}&event_id=${encodeURIComponent(eventId)}`,
         {
