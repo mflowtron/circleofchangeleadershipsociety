@@ -33,7 +33,7 @@ const AREA_CONFIGS: AreaConfig[] = [
   },
   {
     id: 'events',
-    title: 'Events Dashboard',
+    title: 'Conference Management',
     subtitle: 'Event Management',
     description: 'Create and manage events, ticket types, view orders, and track attendee registrations.',
     icon: Ticket,
