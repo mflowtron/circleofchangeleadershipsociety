@@ -14,35 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      advisor_chapters: {
-        Row: {
-          chapter_id: string
-          created_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          chapter_id: string
-          created_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          chapter_id?: string
-          created_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "advisor_chapters_chapter_id_fkey"
-            columns: ["chapter_id"]
-            isOneToOne: false
-            referencedRelation: "chapters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       agenda_items: {
         Row: {
           created_at: string

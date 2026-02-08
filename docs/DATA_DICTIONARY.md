@@ -94,24 +94,6 @@ Organizational chapters/branches for grouping LMS users.
 
 ---
 
-### lms_advisor_chapters
-
-Links advisor users to the LMS chapters they manage.
-
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|---------|-------------|
-| id | uuid | No | gen_random_uuid() | Primary key |
-| user_id | uuid | No | - | Advisor's user ID |
-| chapter_id | uuid | No | - | Managed chapter |
-| created_at | timestamptz | No | now() | Creation timestamp |
-
-**RLS Policies:**
-- `Advisor chapters viewable by authenticated` (SELECT): All authenticated users can view
-- `Admins can manage advisor chapters` (ALL): Full access for admins
-
-**Foreign Keys:**
-- `chapter_id` → `lms_chapters.id`
-
 ---
 
 ## 2. Events
