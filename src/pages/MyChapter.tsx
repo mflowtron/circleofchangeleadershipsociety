@@ -31,7 +31,7 @@ export default function MyChapter() {
   const [members, setMembers] = useState<ChapterMember[]>([]);
   const [posts, setPosts] = useState<ChapterPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   useEffect(() => {
     fetchChapterData();
@@ -40,21 +40,14 @@ export default function MyChapter() {
   const fetchChapterData = async () => {
     if (!user) return;
 
+    // Get chapter_id directly from profile (no extra query needed)
+    const chapterId = profile?.chapter_id;
+    if (!chapterId) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Get advisor's assigned chapters
-      const { data: advisorChapters, error: advisorError } = await supabase
-        .from('advisor_chapters')
-        .select('chapter_id')
-        .eq('user_id', user.id);
-
-      if (advisorError) throw advisorError;
-
-      if (!advisorChapters || advisorChapters.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      const chapterId = advisorChapters[0].chapter_id;
 
       // Get chapter details
       const { data: chapterData, error: chapterError } = await supabase
