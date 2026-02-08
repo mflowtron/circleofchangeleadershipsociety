@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-// Updated interface to match new schema - no more order_id, ticket_type_id, is_purchaser columns
 export interface Attendee {
   id: string;
   order_item_id: string | null;

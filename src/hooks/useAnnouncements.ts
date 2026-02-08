@@ -20,11 +20,31 @@ interface CreateAnnouncementData {
   expires_at?: string | null;
 }
 
+const STORAGE_KEY = 'dismissed_announcements';
+
+const getDismissedIds = (): string[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveDismissedIds = (ids: string[]): void => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+};
+
 export function useAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [allAnnouncements, setAllAnnouncements] = useState<Announcement[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, isLMSAdmin } = useAuth();
+
+  useEffect(() => {
+    setDismissedIds(getDismissedIds());
+  }, []);
 
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
@@ -49,7 +69,13 @@ export function useAnnouncements() {
 
       if (activeError) throw activeError;
 
-      setAnnouncements(activeData || []);
+      // Filter out dismissed announcements
+      const currentDismissed = getDismissedIds();
+      const filteredAnnouncements = (activeData || []).filter(
+        (a) => !currentDismissed.includes(a.id)
+      );
+
+      setAnnouncements(filteredAnnouncements);
     } catch (error) {
       console.error('Error fetching announcements:', error);
     } finally {
@@ -62,6 +88,13 @@ export function useAnnouncements() {
       fetchAnnouncements();
     }
   }, [user, fetchAnnouncements]);
+
+  const dismissAnnouncement = useCallback((id: string) => {
+    const newDismissedIds = [...dismissedIds, id];
+    saveDismissedIds(newDismissedIds);
+    setDismissedIds(newDismissedIds);
+    setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+  }, [dismissedIds]);
 
   const createAnnouncement = async (data: CreateAnnouncementData) => {
     if (!user || !isLMSAdmin) return;
@@ -138,6 +171,7 @@ export function useAnnouncements() {
     createAnnouncement,
     updateAnnouncement,
     deleteAnnouncement,
+    dismissAnnouncement,
     refetch: fetchAnnouncements,
   };
 }
