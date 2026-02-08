@@ -10,7 +10,8 @@ interface EventsDashboardLayoutProps {
 }
 
 export default function EventsDashboardLayout({ children }: EventsDashboardLayoutProps) {
-  const { user, loading, hasLMSAccess } = useAuth();
+  const { user, loading, hasLMSAccess, hasAttendeeAccess } = useAuth();
+  const showSwitchOption = hasLMSAccess || hasAttendeeAccess;
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -32,7 +33,7 @@ export default function EventsDashboardLayout({ children }: EventsDashboardLayou
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)}
         onSwitchDashboard={handleSwitchDashboard}
-        showSwitchOption={hasLMSAccess}
+        showSwitchOption={showSwitchOption}
       />
       <div className="flex-1 flex flex-col md:ml-64 min-w-0">
         <EventsDashboardHeader onMenuClick={() => setSidebarOpen(true)} />
