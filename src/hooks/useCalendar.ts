@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-export interface LMSEvent {
+export interface CalendarEvent {
   id: string;
   title: string;
   description: string | null;
@@ -16,7 +16,7 @@ export interface LMSEvent {
   updated_at: string;
 }
 
-export interface CreateLMSEventInput {
+export interface CreateCalendarEventInput {
   title: string;
   description?: string | null;
   starts_at: string;
@@ -25,11 +25,11 @@ export interface CreateLMSEventInput {
   is_active?: boolean;
 }
 
-export interface UpdateLMSEventInput extends Partial<CreateLMSEventInput> {
+export interface UpdateCalendarEventInput extends Partial<CreateCalendarEventInput> {
   id: string;
 }
 
-export function useLMSEvents() {
+export function useCalendar() {
   const { user, isLMSAdmin } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = isLMSAdmin;
@@ -41,24 +41,24 @@ export function useLMSEvents() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['lms-events', isAdmin],
+    queryKey: ['calendar', isAdmin],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('lms_events')
+        .from('calendar')
         .select('*')
         .order('starts_at', { ascending: true });
 
       if (error) throw error;
-      return data as LMSEvent[];
+      return data as CalendarEvent[];
     },
     enabled: !!user,
   });
 
   // Create event (admin only)
   const createEvent = useMutation({
-    mutationFn: async (input: CreateLMSEventInput) => {
+    mutationFn: async (input: CreateCalendarEventInput) => {
       const { data, error } = await supabase
-        .from('lms_events')
+        .from('calendar')
         .insert({
           ...input,
           created_by: user?.id,
@@ -70,7 +70,7 @@ export function useLMSEvents() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lms-events'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar'] });
       toast.success('Event created successfully');
     },
     onError: (error) => {
@@ -81,9 +81,9 @@ export function useLMSEvents() {
 
   // Update event (admin only)
   const updateEvent = useMutation({
-    mutationFn: async ({ id, ...input }: UpdateLMSEventInput) => {
+    mutationFn: async ({ id, ...input }: UpdateCalendarEventInput) => {
       const { data, error } = await supabase
-        .from('lms_events')
+        .from('calendar')
         .update(input)
         .eq('id', id)
         .select()
@@ -93,7 +93,7 @@ export function useLMSEvents() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lms-events'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar'] });
       toast.success('Event updated successfully');
     },
     onError: (error) => {
@@ -106,14 +106,14 @@ export function useLMSEvents() {
   const deleteEvent = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('lms_events')
+        .from('calendar')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lms-events'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar'] });
       toast.success('Event deleted successfully');
     },
     onError: (error) => {
