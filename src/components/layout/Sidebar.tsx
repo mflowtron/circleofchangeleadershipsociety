@@ -17,8 +17,8 @@ const navItems = {
     label: 'Recordings',
     icon: Video
   }, {
-    path: '/lms/events',
-    label: 'Events',
+    path: '/lms/calendar',
+    label: 'Calendar',
     icon: CalendarDays
   }, {
     path: '/lms/profile',
@@ -34,8 +34,8 @@ const navItems = {
     label: 'Recordings',
     icon: Video
   }, {
-    path: '/lms/events',
-    label: 'Events',
+    path: '/lms/calendar',
+    label: 'Calendar',
     icon: CalendarDays
   }, {
     path: '/lms/my-chapter',
@@ -55,8 +55,8 @@ const navItems = {
     label: 'Recordings',
     icon: Video
   }, {
-    path: '/lms/events',
-    label: 'Events',
+    path: '/lms/calendar',
+    label: 'Calendar',
     icon: CalendarDays
   }, {
     path: '/lms/admin/announcements',

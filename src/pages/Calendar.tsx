@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { CalendarDays, Plus, Pencil, Trash2, ExternalLink, Calendar, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLMSEvents, type LMSEvent, type CreateLMSEventInput } from '@/hooks/useLMSEvents';
+import { useCalendar, type CalendarEvent, type CreateCalendarEventInput } from '@/hooks/useCalendar';
 import { generateICSContent, downloadICS } from '@/lib/calendarUtils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CircleLoader } from '@/components/ui/circle-loader';
 
-function EventCard({ event }: { event: LMSEvent }) {
+function EventCard({ event }: { event: CalendarEvent }) {
   const startsAt = new Date(event.starts_at);
   const endsAt = event.ends_at ? new Date(event.ends_at) : null;
 
@@ -118,7 +118,7 @@ function EventFormDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  event?: LMSEvent;
+  event?: CalendarEvent;
   onSubmit: (data: EventFormData) => void;
   isSubmitting: boolean;
 }) {
@@ -226,17 +226,17 @@ function EventFormDialog({
   );
 }
 
-export default function LMSEvents() {
+export default function CalendarPage() {
   const { isLMSAdmin } = useAuth();
   const isAdmin = isLMSAdmin;
-  const { events, upcomingEvents, isLoading, createEvent, updateEvent, deleteEvent } = useLMSEvents();
+  const { events, upcomingEvents, isLoading, createEvent, updateEvent, deleteEvent } = useCalendar();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<LMSEvent | undefined>();
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | undefined>();
   const [deleteEventId, setDeleteEventId] = useState<string | null>(null);
 
   const handleCreateOrUpdate = (data: EventFormData) => {
-    const eventInput: CreateLMSEventInput = {
+    const eventInput: CreateCalendarEventInput = {
       title: data.title,
       description: data.description || null,
       starts_at: new Date(data.starts_at).toISOString(),
@@ -264,7 +264,7 @@ export default function LMSEvents() {
     }
   };
 
-  const handleEdit = (event: LMSEvent) => {
+  const handleEdit = (event: CalendarEvent) => {
     setEditingEvent(event);
     setIsFormOpen(true);
   };
@@ -291,7 +291,7 @@ export default function LMSEvents() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <CalendarDays className="h-8 w-8 text-primary" />
-            Upcoming Events
+            Calendar
           </h1>
           <p className="text-muted-foreground mt-1">
             View and join scheduled meetings and events

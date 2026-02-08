@@ -237,6 +237,45 @@ export type Database = {
           },
         ]
       }
+      calendar: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          ends_at: string | null
+          id: string
+          is_active: boolean
+          meeting_link: string | null
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          meeting_link?: string | null
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean
+          meeting_link?: string | null
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chapters: {
         Row: {
           created_at: string
@@ -433,45 +472,6 @@ export type Database = {
           updated_at?: string
           venue_address?: string | null
           venue_name?: string | null
-        }
-        Relationships: []
-      }
-      lms_events: {
-        Row: {
-          created_at: string
-          created_by: string
-          description: string | null
-          ends_at: string | null
-          id: string
-          is_active: boolean
-          meeting_link: string | null
-          starts_at: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          description?: string | null
-          ends_at?: string | null
-          id?: string
-          is_active?: boolean
-          meeting_link?: string | null
-          starts_at: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          ends_at?: string | null
-          id?: string
-          is_active?: boolean
-          meeting_link?: string | null
-          starts_at?: string
-          title?: string
-          updated_at?: string
         }
         Relationships: []
       }

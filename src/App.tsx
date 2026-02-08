@@ -28,7 +28,7 @@ const Announcements = lazy(() => import("@/pages/Announcements"));
 const AreaSelector = lazy(() => import("@/pages/AreaSelector"));
 const RootRouter = lazy(() => import("@/pages/RootRouter"));
 const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
-const LMSEvents = lazy(() => import("@/pages/LMSEvents"));
+const Calendar = lazy(() => import("@/pages/Calendar"));
 
 
 
@@ -274,11 +274,11 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/lms/events" 
+        path="/lms/calendar" 
         element={
           <ProtectedRoute>
             <SuspenseWithErrorBoundary>
-              <LMSEvents />
+              <Calendar />
             </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
