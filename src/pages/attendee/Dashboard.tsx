@@ -4,11 +4,14 @@ import { useAttendee, AttendeeProvider } from '@/contexts/AttendeeContext';
 import { AttendeeLayout } from '@/components/attendee/AttendeeLayout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNativelySafeArea } from '@/hooks/useNativelySafeArea';
+import { useIsNativeApp } from '@/hooks/useIsNativeApp';
 
-// Preload all attendee tab components for instant navigation
-const preloadAttendeePages = () => {
+// Preload attendee tab components for instant navigation
+const preloadAttendeePages = (includeNativeOnly: boolean) => {
   import('@/pages/attendee/EventHome');
-  import('@/pages/attendee/Feed');
+  if (includeNativeOnly) {
+    import('@/pages/attendee/Feed');
+  }
   import('@/pages/attendee/Agenda');
   import('@/pages/attendee/AgendaDetail');
   import('@/pages/attendee/Messages');
@@ -17,16 +20,22 @@ const preloadAttendeePages = () => {
 };
 
 function DashboardContent() {
+  const isNativeApp = useIsNativeApp();
   const { isAuthenticated, loading, selectedEvent, events, orders } = useAttendee();
   const location = useLocation();
 
   // Initialize Natively safe area insets for proper bottom padding
   useNativelySafeArea();
 
-  // Preload sibling tabs after initial render
+  // Preload sibling tabs after initial render (skip Feed if not in native app)
   useEffect(() => {
-    preloadAttendeePages();
-  }, []);
+    preloadAttendeePages(isNativeApp);
+  }, [isNativeApp]);
+
+  // Redirect non-native users away from Feed route
+  if (location.pathname.includes('/feed') && !isNativeApp) {
+    return <Navigate to="/attendee/app/home" replace />;
+  }
 
   // Show loading state while checking authentication
   if (loading && !isAuthenticated) {
