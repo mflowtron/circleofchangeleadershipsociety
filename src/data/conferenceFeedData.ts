@@ -21,12 +21,10 @@ export const initialFeedData: FeedItem[] = [
     likes: 247,
     comments: 34,
     shares: 89,
-    bookmarks: 156,
     isRecap: true,
     isPinned: true,
     isOfficial: true,
     liked: false,
-    bookmarked: false,
   },
   // 2. Schedule Change Announcement
   {
@@ -62,9 +60,7 @@ export const initialFeedData: FeedItem[] = [
     likes: 186,
     comments: 23,
     shares: 12,
-    bookmarks: 8,
     liked: false,
-    bookmarked: false,
   },
   // 4. Breakout Session Poll
   {
@@ -104,9 +100,7 @@ export const initialFeedData: FeedItem[] = [
     likes: 143,
     comments: 18,
     shares: 5,
-    bookmarks: 12,
     liked: true,
-    bookmarked: false,
   },
   // 6. VideoAsk
   {
@@ -142,9 +136,7 @@ export const initialFeedData: FeedItem[] = [
     likes: 221,
     comments: 45,
     shares: 28,
-    bookmarks: 67,
     liked: false,
-    bookmarked: false,
   },
   // 8. Feeling Poll
   {
@@ -184,9 +176,7 @@ export const initialFeedData: FeedItem[] = [
     likes: 312,
     comments: 42,
     shares: 23,
-    bookmarks: 18,
     liked: false,
-    bookmarked: false,
   },
   // 10. Photo Gallery Announcement
   {
@@ -222,9 +212,7 @@ export const initialFeedData: FeedItem[] = [
     likes: 398,
     comments: 67,
     shares: 45,
-    bookmarks: 89,
     liked: false,
-    bookmarked: false,
   },
   // 12. Keynote Quote
   {
@@ -246,8 +234,6 @@ export const initialFeedData: FeedItem[] = [
     likes: 524,
     comments: 89,
     shares: 112,
-    bookmarks: 203,
     liked: false,
-    bookmarked: false,
   },
 ];

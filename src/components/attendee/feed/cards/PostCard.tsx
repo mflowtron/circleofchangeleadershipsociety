@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 import { PostCard as PostCardType } from '@/types/conferenceFeed';
-import { Heart, MessageCircle, Share, Bookmark, Camera, Pin, Volume2, VolumeX } from 'lucide-react';
+import { Heart, MessageCircle, Share, Camera, Pin, Volume2, VolumeX } from 'lucide-react';
 import { HeartBurstAnimation } from '../HeartBurstAnimation';
 
 interface PostCardProps {
@@ -9,11 +9,10 @@ interface PostCardProps {
   isActive: boolean;
   isMuted: boolean;
   onLike: () => void;
-  onBookmark: () => void;
   onToggleMute: () => void;
 }
 
-export function PostCard({ post, isActive, isMuted, onLike, onBookmark, onToggleMute }: PostCardProps) {
+export function PostCard({ post, isActive, isMuted, onLike, onToggleMute }: PostCardProps) {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [showMuteIndicator, setShowMuteIndicator] = useState(false);
   const [lastTap, setLastTap] = useState(0);
@@ -202,21 +201,6 @@ export function PostCard({ post, isActive, isMuted, onLike, onBookmark, onToggle
           <span className="text-[10px] font-bold text-white">{formatCount(post.shares)}</span>
         </button>
 
-        {/* Bookmark */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onBookmark();
-          }}
-          className="flex flex-col items-center gap-1"
-        >
-          <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
-            <Bookmark 
-              className={`w-5 h-5 ${post.bookmarked ? 'fill-[#f59e0b] text-[#f59e0b]' : 'text-white'}`}
-            />
-          </div>
-          <span className="text-[10px] font-bold text-white">{formatCount(post.bookmarks)}</span>
-        </button>
       </div>
 
       {/* Content Overlay (Bottom) */}

@@ -24,12 +24,10 @@ export interface PostCard extends BaseCard {
   likes: number;
   comments: number;
   shares: number;
-  bookmarks: number;
   isRecap?: boolean;
   isPinned?: boolean;
   isOfficial?: boolean;
   liked: boolean;
-  bookmarked: boolean;
 }
 
 export interface AnnouncementCard extends BaseCard {
@@ -114,5 +112,4 @@ export type FeedAction =
   | { type: "VOTE_POLL"; id: string; optionId: string }
   | { type: "RESPOND_VIDEOASK"; id: string }
   | { type: "SKIP_VIDEOASK"; id: string }
-  | { type: "TOGGLE_LIKE"; id: string }
-  | { type: "TOGGLE_BOOKMARK"; id: string };
+  | { type: "TOGGLE_LIKE"; id: string };
