@@ -86,10 +86,10 @@ export default function Sidebar() {
   const {
     isLMSAdmin,
     isLMSAdvisor,
-    hasEMAccess,
-    hasAttendeeAccess
+    hasEMAccess
   } = useAuth();
-  const showSwitchOption = hasEMAccess || hasAttendeeAccess;
+  // Always show switch button since Attendee app is accessible to anyone with event tickets
+  const showSwitchOption = true;
   const {
     isOpen,
     setIsOpen
