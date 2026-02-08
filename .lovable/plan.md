@@ -1,113 +1,93 @@
 
 
-# Keep Users in Events App When Viewing Profile
+# Add In-Person/Virtual Filter to Attendees Table
 
 ## Overview
-When a user clicks "View Profile" from the Events Management dashboard, they should stay within the Events layout rather than switching to the LMS layout. This requires adding a new profile route under `/events/manage/profile` and updating the Profile component to be context-aware.
+Add a new filter dropdown to the Attendees table that allows organizers to filter attendees by their attendance type (in-person or virtual), based on the `is_virtual` property of their ticket type.
 
 ---
 
-## Current Behavior
+## Current Filters
 
-| Action | Result |
-|--------|--------|
-| Click "View Profile" in Events header | Navigates to `/lms/profile` → switches to LMS layout |
+The AttendeesTable currently has:
+- **Search**: Text search across name, email, order number
+- **Ticket Type**: Filter by specific ticket type name
+- **Status**: Filter by Complete/Incomplete registration status
 
-## Desired Behavior
+## New Filter
 
-| Action | Result |
-|--------|--------|
-| Click "View Profile" in Events header | Navigates to `/events/manage/profile` → stays in Events layout |
-| Role badge shows | "Admin", "Organizer", or "Staff" (not "Admin", "Advisor", "Student") |
+Add an **Attendance Type** filter:
+- All Types (default)
+- In-Person
+- Virtual
 
 ---
 
-## Changes Required
+## Changes
 
-### 1. Add Events Profile Route
-**File:** `src/App.tsx`
+### File: `src/components/events/AttendeesTable.tsx`
 
-Add a new route within the `EventsManagementWrapper` that renders the Profile component with the Events layout:
-
+**1. Add new state for attendance type filter:**
 ```typescript
-<Route 
-  path="/events/manage/profile" 
-  element={
-    <ProtectedRoute allowedRoles={['em_admin', 'em_manager']} useEventsLayout>
-      <SuspenseWithErrorBoundary>
-        <Profile />
-      </SuspenseWithErrorBoundary>
-    </ProtectedRoute>
-  } 
-/>
+const [attendanceFilter, setAttendanceFilter] = useState<string>('all');
 ```
 
-### 2. Update Events Dashboard Header
-**File:** `src/components/events/EventsDashboardHeader.tsx`
-
-Change the profile link from `/lms/profile` to `/events/manage/profile`:
-
+**2. Update the filtering logic:**
 ```typescript
-// Before
-<Link to="/lms/profile" ...>
+// Attendance type filter (in-person vs virtual)
+const matchesAttendance =
+  attendanceFilter === 'all' ||
+  (attendanceFilter === 'in-person' && !attendee.ticket_type?.is_virtual) ||
+  (attendanceFilter === 'virtual' && attendee.ticket_type?.is_virtual);
 
-// After  
-<Link to="/events/manage/profile" ...>
+return matchesSearch && matchesTicket && matchesStatus && matchesAttendance;
 ```
 
-### 3. Make Profile Component Context-Aware
-**File:** `src/pages/Profile.tsx`
+**3. Add filter dropdown in the filters section:**
+```tsx
+<Select value={attendanceFilter} onValueChange={setAttendanceFilter}>
+  <SelectTrigger className="flex-1 sm:flex-none sm:w-[150px]">
+    <SelectValue placeholder="Attendance" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="all">All Types</SelectItem>
+    <SelectItem value="in-person">🏠 In-Person</SelectItem>
+    <SelectItem value="virtual">💻 Virtual</SelectItem>
+  </SelectContent>
+</Select>
+```
 
-Detect the current route and show appropriate role labels:
-
+**4. Update stats to show breakdown:**
+Add in-person and virtual counts to the stats bar:
 ```typescript
-import { useLocation } from 'react-router-dom';
-
-// Inside component:
-const location = useLocation();
-const isEventsContext = location.pathname.startsWith('/events');
-
-const getRoleInfo = () => {
-  if (isEventsContext) {
-    // Events Management roles
-    if (isEMAdmin) return { label: 'Admin', color: 'bg-primary text-primary-foreground' };
-    if (isEMManager) return { label: 'Organizer', color: 'bg-secondary text-secondary-foreground' };
-    return { label: 'Staff', color: 'bg-muted text-muted-foreground' };
-  } else {
-    // LMS roles
-    if (isLMSAdmin) return { label: 'Admin', color: 'bg-primary text-primary-foreground' };
-    if (isLMSAdvisor) return { label: 'Advisor', color: 'bg-secondary text-secondary-foreground' };
-    return { label: 'Student', color: 'bg-muted text-muted-foreground' };
-  }
-};
+const inPersonCount = attendees.filter(a => !a.ticket_type?.is_virtual).length;
+const virtualCount = attendees.filter(a => a.ticket_type?.is_virtual).length;
 ```
 
 ---
 
 ## Visual Result
 
-### Events Dashboard (After)
+### Stats Bar (Updated)
 ```text
-┌─────────────────────────────────────────────────────┐
-│  Profile Page - Events Layout                       │
-│  ┌───────────────────────────────────────────────┐  │
-│  │  [Avatar]  Michael Flotron                    │  │
-│  │            michael@example.com                │  │
-│  │            [Organizer Badge] ← Events role    │  │
-│  └───────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  Total: [125]  Complete: [98]  Incomplete: [27]                     │
+│  🏠 In-Person: [85]  💻 Virtual: [40]                               │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### LMS Dashboard (Unchanged)
+### Filters Row (Updated)
 ```text
-┌─────────────────────────────────────────────────────┐
-│  Profile Page - LMS Layout                          │
-│  ┌───────────────────────────────────────────────┐  │
-│  │  [Avatar]  Michael Flotron                    │  │
-│  │            michael@example.com                │  │
-│  │            [Advisor Badge] ← LMS role         │  │
-│  └───────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  [🔍 Search attendees...                                    ]       │
+│                                                                     │
+│  [All Tickets ▼]  [All Status ▼]  [All Types ▼]  [📥 Export]       │
+│                                    ├──────────────┤                 │
+│                                    │ All Types    │                 │
+│                                    │ 🏠 In-Person │                 │
+│                                    │ 💻 Virtual   │                 │
+│                                    └──────────────┘                 │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -116,16 +96,14 @@ const getRoleInfo = () => {
 
 | File | Changes |
 |------|---------|
-| `src/App.tsx` | Add `/events/manage/profile` route with Events layout |
-| `src/components/events/EventsDashboardHeader.tsx` | Change profile link to `/events/manage/profile` |
-| `src/pages/Profile.tsx` | Add route detection and context-aware role labels |
+| `src/components/events/AttendeesTable.tsx` | Add attendance type filter state, dropdown, filtering logic, and stats display |
 
 ---
 
 ## Technical Notes
 
-- The Profile component already has access to both LMS (`isLMSAdmin`, `isLMSAdvisor`) and Events (`isEMAdmin`, `isEMManager`) role flags via `useAuth()`
-- The route is placed inside `EventsManagementWrapper` to maintain event selection context
-- Using `location.pathname.startsWith('/events')` provides a simple and reliable way to detect context
-- All profile functionality (avatar upload, name editing, etc.) remains identical in both contexts
+- The `is_virtual` property is already available on `attendee.ticket_type` from the updated hooks
+- Filter uses same pattern as existing ticket type and status filters
+- Emojis (🏠, 💻) provide visual consistency with the Manage Tickets page
+- Stats breakdown helps organizers quickly see the split between attendance types
 
