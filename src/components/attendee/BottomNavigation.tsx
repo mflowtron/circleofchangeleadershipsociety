@@ -3,15 +3,22 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useConversations } from '@/hooks/useConversations';
 import { Badge } from '@/components/ui/badge';
+import { useIsNativeApp } from '@/hooks/useIsNativeApp';
 
-const navItems = [
+const allNavItems = [
   { path: '/attendee/app/home', label: 'Home', icon: Home },
-  { path: '/attendee/app/feed', label: 'Feed', icon: Newspaper },
+  { path: '/attendee/app/feed', label: 'Feed', icon: Newspaper, nativeOnly: true },
   { path: '/attendee/app/agenda', label: 'Agenda', icon: Calendar },
   { path: '/attendee/app/messages', label: 'Messages', icon: MessageCircle },
 ];
 
 export function BottomNavigation() {
+  const isNativeApp = useIsNativeApp();
+  
+  // Filter out Feed tab when not in Natively wrapper
+  const navItems = isNativeApp 
+    ? allNavItems 
+    : allNavItems.filter(item => !item.nativeOnly);
   const location = useLocation();
   const { totalUnread } = useConversations();
 
