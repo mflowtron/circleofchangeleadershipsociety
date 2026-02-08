@@ -26,7 +26,11 @@ export function PostCard({ post, isActive, isMuted, onLike, onToggleMute, onOpen
     if (!player) return;
 
     if (isActive) {
-      player.play?.().catch(() => {});
+      // Small delay to ensure player is ready on initial mount
+      const timeoutId = setTimeout(() => {
+        player.play?.().catch(() => {});
+      }, 100);
+      return () => clearTimeout(timeoutId);
     } else {
       player.pause?.();
     }
