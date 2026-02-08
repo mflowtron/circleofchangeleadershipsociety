@@ -23,7 +23,7 @@ export function ResponsiveTable({
       style={{ WebkitOverflowScrolling: 'touch' }}
       {...props}
     >
-      <div className="min-w-full inline-block align-middle">
+      <div className="min-w-max">
         {children}
       </div>
     </div>

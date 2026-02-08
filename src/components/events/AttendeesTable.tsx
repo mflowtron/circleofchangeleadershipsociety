@@ -182,14 +182,14 @@ export function AttendeesTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Status</TableHead>
-              {showEventColumn && <TableHead className="hidden lg:table-cell">Event</TableHead>}
-              <TableHead>Attendee</TableHead>
-              <TableHead className="hidden md:table-cell">Email</TableHead>
-              <TableHead className="hidden sm:table-cell">Ticket</TableHead>
-              <TableHead className="hidden lg:table-cell">Order #</TableHead>
-              <TableHead className="hidden xl:table-cell">Purchaser</TableHead>
-              <TableHead className="hidden 2xl:table-cell">Type</TableHead>
+              <TableHead className="whitespace-nowrap">Status</TableHead>
+              {showEventColumn && <TableHead className="whitespace-nowrap min-w-[150px]">Event</TableHead>}
+              <TableHead className="whitespace-nowrap min-w-[150px]">Attendee</TableHead>
+              <TableHead className="whitespace-nowrap min-w-[180px]">Email</TableHead>
+              <TableHead className="whitespace-nowrap">Ticket</TableHead>
+              <TableHead className="whitespace-nowrap">Order #</TableHead>
+              <TableHead className="whitespace-nowrap min-w-[120px]">Purchaser</TableHead>
+              <TableHead className="whitespace-nowrap">Type</TableHead>
               <TableHead className="w-[80px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -211,20 +211,20 @@ export function AttendeesTable({
                   <TableRow key={attendee.id}>
                     <TableCell>
                       {isComplete ? (
-                        <Badge variant="default" className="bg-green-600">
-                          <Check className="h-3 w-3 sm:mr-1" />
-                          <span className="hidden sm:inline">Complete</span>
+                        <Badge variant="default" className="bg-green-600 whitespace-nowrap">
+                          <Check className="h-3 w-3 mr-1" />
+                          Complete
                         </Badge>
                       ) : (
-                        <Badge variant="destructive">
-                          <X className="h-3 w-3 sm:mr-1" />
-                          <span className="hidden sm:inline">Incomplete</span>
+                        <Badge variant="destructive" className="whitespace-nowrap">
+                          <X className="h-3 w-3 mr-1" />
+                          Incomplete
                         </Badge>
                       )}
                     </TableCell>
                     {showEventColumn && (
-                      <TableCell className="hidden lg:table-cell">
-                        <span className="text-sm truncate max-w-[200px] block">
+                      <TableCell>
+                        <span className="text-sm whitespace-nowrap">
                           {eventMap?.get(attendee.order?.event_id || '') || 'Unknown'}
                         </span>
                       </TableCell>
@@ -238,22 +238,12 @@ export function AttendeesTable({
                           className="h-8 min-w-[120px]"
                         />
                       ) : (
-                        <div>
-                          <span className={!attendee.attendee_name ? 'text-muted-foreground italic' : ''}>
-                            {attendee.attendee_name || 'Not provided'}
-                          </span>
-                          {/* Mobile-only: show email inline */}
-                          <div className="md:hidden text-sm text-muted-foreground truncate">
-                            {attendee.attendee_email || ''}
-                          </div>
-                          {/* Mobile-only: show ticket type inline */}
-                          <div className="sm:hidden text-xs text-muted-foreground">
-                            {attendee.ticket_type?.name || ''}
-                          </div>
-                        </div>
+                        <span className={`whitespace-nowrap ${!attendee.attendee_name ? 'text-muted-foreground italic' : ''}`}>
+                          {attendee.attendee_name || 'Not provided'}
+                        </span>
                       )}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell>
                       {isEditing ? (
                         <Input
                           value={editEmail}
@@ -263,29 +253,23 @@ export function AttendeesTable({
                           className="h-8 min-w-[150px]"
                         />
                       ) : (
-                        <span className={`truncate max-w-[180px] block ${!attendee.attendee_email ? 'text-muted-foreground italic' : ''}`}>
+                        <span className={`whitespace-nowrap ${!attendee.attendee_email ? 'text-muted-foreground italic' : ''}`}>
                           {attendee.attendee_email || 'Not provided'}
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">{attendee.ticket_type?.name || '-'}</TableCell>
-                    <TableCell className="hidden lg:table-cell font-mono text-sm">
-                      {attendee.order?.order_number ? (
-                        <span className="truncate block max-w-[100px]">
-                          {attendee.order.order_number}
-                        </span>
-                      ) : (
-                        '-'
-                      )}
+                    <TableCell className="whitespace-nowrap">{attendee.ticket_type?.name || '-'}</TableCell>
+                    <TableCell className="font-mono text-sm whitespace-nowrap">
+                      {attendee.order?.order_number || '-'}
                     </TableCell>
-                    <TableCell className="hidden xl:table-cell">
-                      <span className="truncate block max-w-[120px]">{attendee.order?.full_name || '-'}</span>
+                    <TableCell className="whitespace-nowrap">
+                      {attendee.order?.full_name || '-'}
                     </TableCell>
-                    <TableCell className="hidden 2xl:table-cell">
+                    <TableCell>
                       {attendee.is_speaker ? (
-                        <Badge variant="secondary" className="text-xs">Speaker</Badge>
+                        <Badge variant="secondary" className="text-xs whitespace-nowrap">Speaker</Badge>
                       ) : (
-                        <span className="text-muted-foreground">Attendee</span>
+                        <span className="text-muted-foreground whitespace-nowrap">Attendee</span>
                       )}
                     </TableCell>
                     <TableCell>
