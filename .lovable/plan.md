@@ -1,69 +1,57 @@
 
-## What’s actually causing the “Important Update” card to render off-screen
+# Fix Bottom Safe Area Padding in Natively Wrapper
 
-The Announcement card uses the class `animate-slide-up`.
+## Problem
+The bottom navigation and other bottom-anchored elements are being overlapped by the iOS home indicator bar when the app runs inside the Natively native wrapper. This happens because the CSS `env(safe-area-inset-bottom)` variable isn't properly reported inside the WebView—it returns 0 instead of the actual safe area value.
 
-Separately, **ScrollLockIndicator** also uses `animate-slide-up`, but it defines that class via an **inline `<style>` tag**:
+## Solution
+Create a hook that fetches the actual native safe area insets from the Natively SDK using `window.natively.getInsets()` and applies them as CSS custom properties on the document root. This allows all components to use these values as a fallback when `env()` doesn't work.
 
-- It injects a global CSS rule: `.animate-slide-up { animation: slide-up-indicator ... }`
-- Its `@keyframes slide-up-indicator` sets `transform: translate(-50%, …)`
-- That transform is perfect for the indicator (which is positioned with `left: 50%`), but it is disastrous for the AnnouncementCard content because it shifts the content left by 50% of its width.
+## Implementation
 
-Why it “fixes itself” after pressing **Acknowledge**:
-- Acknowledging resolves the blocking state
-- `ScrollLockIndicator` unmounts
-- Its inline `<style>` disappears
-- The AnnouncementCard’s `animate-slide-up` stops being overridden, so it centers correctly
+### 1. Create new hook: `src/hooks/useNativelySafeArea.ts`
+This hook will:
+- Check if running inside the Natively wrapper
+- Call `getInsets()` to fetch native safe area values
+- Set CSS custom properties (`--natively-safe-area-bottom`, etc.) on `document.documentElement`
+- Provide fallback values for non-native environments
 
-So this is not a Tailwind timing issue anymore; it’s a **CSS class name collision + transform override**.
+```typescript
+// Callback returns: { top, left, right, bottom }
+// Sets: --natively-safe-area-top, --natively-safe-area-bottom, etc.
+```
 
----
+### 2. Initialize the hook in the Attendee Dashboard
+Add the hook to `src/pages/attendee/Dashboard.tsx` so safe area values are available app-wide when the attendee app loads.
 
-## Implementation plan (safe + minimal)
+### 3. Update bottom-anchored components to use the Natively insets
+Components that need updating:
 
-### 1) Remove the global `.animate-slide-up` override from `ScrollLockIndicator`
-**File:** `src/components/attendee/feed/ScrollLockIndicator.tsx`
+| Component | Current | After |
+|-----------|---------|-------|
+| `BottomNavigation.tsx` | `env(safe-area-inset-bottom)` | `max(env(safe-area-inset-bottom), var(--natively-safe-area-bottom, 0px))` |
+| `AttendeeLayout.tsx` (main content) | `64px + env(...)` | `calc(64px + max(env(...), var(--natively-safe-area-bottom, 0px)))` |
+| `ConferenceFeed.tsx` (FAB) | `env(...) + 80px` | `calc(max(env(...), var(..., 0px)) + 80px)` |
 
-- Delete the inline `<style>` block entirely.
-- Stop using `animate-slide-up` on the outer “fixed” indicator wrapper.
-- Keep the outer wrapper responsible only for centering:
-  - `fixed bottom-24 left-1/2 -translate-x-1/2 ...`
-- Add a nested inner wrapper around the pill/bubble that gets the animation:
-  - Apply `animate-slide-up` (Tailwind’s version) to this inner wrapper
+### 4. Pattern for the CSS fallback
+```css
+/* Uses native CSS env() if available, falls back to Natively value */
+padding-bottom: max(env(safe-area-inset-bottom), var(--natively-safe-area-bottom, 0px));
+```
 
-This avoids any `transform` animation on the element that also needs `-translate-x-1/2`, and it prevents global CSS from clobbering other components.
+This ensures:
+- Standard browsers continue to work with `env()`
+- Natively wrapper gets proper insets from the SDK
+- Non-native environments gracefully fall back to 0px
 
-**Result:** AnnouncementCard will no longer be pushed left when the scroll lock indicator is visible.
+## Files to Change
+1. **Create** `src/hooks/useNativelySafeArea.ts` — new hook to fetch and apply insets
+2. **Modify** `src/pages/attendee/Dashboard.tsx` — initialize the hook
+3. **Modify** `src/components/attendee/BottomNavigation.tsx` — use the safe fallback
+4. **Modify** `src/components/attendee/AttendeeLayout.tsx` — update main content padding
+5. **Modify** `src/components/attendee/feed/ConferenceFeed.tsx` — update FAB positioning
 
-### 2) Confirm AnnouncementCard continues to use the Tailwind animation
-**File:** `src/components/attendee/feed/cards/AnnouncementCard.tsx`
-
-- No new layout changes required here.
-- It can keep `animate-slide-up`; after step (1) it won’t be overridden anymore.
-
----
-
-## How we’ll verify the fix (must-do checks)
-
-1. Hard refresh / cold start the app and navigate to `/attendee/app/feed`.
-2. Ensure the “Important Update” Announcement card is centered immediately (no clipping on the left).
-3. While the feed is blocked (before acknowledging), confirm the “Scroll locked — interact to continue” pill still animates in subtly and remains centered.
-4. Tap “Got it ✓” and confirm:
-   - The announcement remains centered
-   - The indicator disappears as expected
-   - Auto-advance still works
-
----
-
-## Notes / Edge cases handled
-
-- This fix targets the real trigger: **indicator visible + global `.animate-slide-up` override**.
-- It avoids introducing new Tailwind keyframes, and it removes fragile inline global CSS.
-- It prevents future regressions where another component using `animate-slide-up` could be affected by the indicator’s styling.
-
----
-
-## Files to change
-- `src/components/attendee/feed/ScrollLockIndicator.tsx` (primary fix)
-- (No functional changes required) `src/components/attendee/feed/cards/AnnouncementCard.tsx`
-
+## Technical Notes
+- The hook wraps all Natively SDK calls in try-catch blocks per existing project conventions
+- CSS custom properties are set on `:root` so they're available globally
+- The `max()` CSS function ensures the larger value wins (handles edge cases)
