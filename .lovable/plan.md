@@ -1,166 +1,46 @@
 
 
-# Add Video Sound Toggle to Feed
+# Clean Up Feed Interface
 
 ## Overview
-Add mute/unmute functionality to video posts in the TikTok-style feed. Users will be able to toggle sound via a dedicated button, and by tapping on the video itself (single tap to toggle sound, double tap for like).
+Remove unused features and integrate the standard attendee bottom navigation to maintain consistency across the app.
 
 ---
 
-## Design Approach
+## Changes Summary
 
-### Sound Toggle Button
-Add a sound button in the top-right area (below the content type badge) or in the action buttons column on the right:
+### 1. Replace Custom Bottom Nav with Standard Navigation
+Currently, `FeedBottomNav.tsx` has non-functional buttons (Discover, Create, Schedule, Profile). Replace this with the existing `BottomNavigation` component that actually navigates to real pages.
 
+**Current (FeedBottomNav)**: Static buttons with no routing
+**After (BottomNavigation)**: Real navigation to Home, Feed, Agenda, Messages, QR
+
+### 2. Simplify Feed Header
+Remove the tab switcher (Following, Latest, Trending) and the search icon since these aren't functional. Keep only the camera button as a placeholder for future use.
+
+**Current FeedHeader**:
 ```text
-┌────────────────────────────────────────┐
-│  📌 Pinned              🔴 0:24        │
-│                                        │
-│                          🔊 ← Sound    │
-│                          toggle        │
-│                                        │
-│                                        │
-│           [VIDEO]                      │
-│                                        │
-│                               ❤️ 247   │
-│                               💬 12    │
-│                               ↗️ 8     │
-│                               🔖 24    │
-│                                        │
-│  📍 Main Stage                         │
-│  👤 Circle of Change @coclc            │
-│  Day 1 Recap ✨ What an incredible...  │
-└────────────────────────────────────────┘
+[Camera]  Following | Latest | Trending  [Search]
 ```
 
-### Interaction Behavior
-| Action | Result |
-|--------|--------|
-| Single tap on video | Toggle mute/unmute |
-| Double tap on video | Like + heart animation |
-| Tap sound button | Toggle mute/unmute |
-
-### Global Mute State
-Sound state should be managed at the feed level (ConferenceFeed) so that:
-- When user unmutes one video, it stays unmuted as they scroll
-- All videos share the same mute state
-- When navigating away and back, state resets to muted
-
----
-
-## Implementation Details
-
-### 1. Add Global Mute State to ConferenceFeed
-
-```typescript
-const [isMuted, setIsMuted] = useState(true);
-
-const handleToggleMute = useCallback(() => {
-  setIsMuted(prev => !prev);
-}, []);
+**After**:
+```text
+[Camera]           Feed           (empty space)
 ```
 
-Pass `isMuted` and `onToggleMute` to PostCard components.
+The header will show just a centered "Feed" title with the camera button on the left, maintaining the dark immersive gradient style.
 
-### 2. Update PostCard Props & MuxPlayer
+### 3. Remove Bookmark Feature from PostCard
+Remove the bookmark action button from the right column of post cards. This includes:
+- Removing the bookmark button UI
+- Removing the `onBookmark` prop from PostCard
+- Removing the bookmark-related state and reducer action
 
-```typescript
-interface PostCardProps {
-  post: PostCardType;
-  isActive: boolean;
-  isMuted: boolean;           // New prop
-  onLike: () => void;
-  onBookmark: () => void;
-  onToggleMute: () => void;   // New prop
-}
-
-// MuxPlayer changes
-<MuxPlayer
-  ref={muxPlayerRef}
-  muted={isMuted}  // Dynamic instead of always true
-  // ...rest
-/>
-```
-
-### 3. Add Sound Toggle Button
-
-Add a 40×40px glass button (matching action buttons style) positioned in the action buttons column or top-right corner:
-
-```tsx
-<button
-  onClick={(e) => {
-    e.stopPropagation();
-    onToggleMute();
-  }}
-  className="flex flex-col items-center"
->
-  <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
-    {isMuted ? (
-      <VolumeX className="w-5 h-5 text-white" />
-    ) : (
-      <Volume2 className="w-5 h-5 text-white" />
-    )}
-  </div>
-</button>
-```
-
-### 4. Update Tap Behavior
-
-Modify `handleTap` to handle single-tap mute toggle for video posts:
-
-```typescript
-const handleTap = useCallback(() => {
-  const now = Date.now();
-  const timeSinceLastTap = now - lastTap;
-  
-  if (timeSinceLastTap < 300) {
-    // Double tap - trigger like
-    if (!post.liked) {
-      onLike();
-    }
-    setShowHeartBurst(true);
-    setTimeout(() => setShowHeartBurst(false), 800);
-    setLastTap(0); // Reset to prevent triple-tap issues
-  } else {
-    // Single tap - toggle mute (for video posts)
-    if (post.type === 'video' || post.type === 'recap') {
-      // Use timeout to wait and see if it's a double-tap
-      setTimeout(() => {
-        if (Date.now() - now >= 280) {
-          onToggleMute();
-        }
-      }, 300);
-    }
-  }
-  setLastTap(now);
-}, [lastTap, post.liked, post.type, onLike, onToggleMute]);
-```
-
-### 5. Optional: Mute/Unmute Visual Feedback
-
-Show a brief animated indicator when toggling sound:
-
-```tsx
-// State for animation
-const [showMuteIndicator, setShowMuteIndicator] = useState(false);
-
-// In the tap handler after toggling mute:
-setShowMuteIndicator(true);
-setTimeout(() => setShowMuteIndicator(false), 600);
-
-// Visual indicator overlay
-{showMuteIndicator && (
-  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-    <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur flex items-center justify-center animate-scale-in">
-      {isMuted ? (
-        <VolumeX className="w-8 h-8 text-white" />
-      ) : (
-        <Volume2 className="w-8 h-8 text-white" />
-      )}
-    </div>
-  </div>
-)}
-```
+### 4. Clean Up Related Code
+- Remove `TOGGLE_BOOKMARK` action from the reducer
+- Remove `bookmarked` and `bookmarks` fields from type definitions
+- Remove bookmark data from dummy feed items
+- Delete the `FeedBottomNav.tsx` file (no longer needed)
 
 ---
 
@@ -168,43 +48,114 @@ setTimeout(() => setShowMuteIndicator(false), 600);
 
 | File | Changes |
 |------|---------|
-| `src/components/attendee/feed/ConferenceFeed.tsx` | Add `isMuted` state, pass to PostCard |
-| `src/components/attendee/feed/cards/PostCard.tsx` | Add mute button, update tap behavior, add visual feedback |
+| `src/components/attendee/feed/ConferenceFeed.tsx` | Replace `FeedBottomNav` with `BottomNavigation`, remove bookmark handler |
+| `src/components/attendee/feed/FeedHeader.tsx` | Remove tabs and search, add centered "Feed" title |
+| `src/components/attendee/feed/cards/PostCard.tsx` | Remove bookmark button, remove `onBookmark` prop |
+| `src/types/conferenceFeed.ts` | Remove `bookmarked`, `bookmarks` from PostCard, remove `TOGGLE_BOOKMARK` action |
+| `src/data/conferenceFeedData.ts` | Remove `bookmarked` and `bookmarks` from all post items |
+
+## File to Delete
+
+| File | Reason |
+|------|--------|
+| `src/components/attendee/feed/FeedBottomNav.tsx` | Replaced by standard BottomNavigation |
 
 ---
 
-## Technical Notes
+## Visual Changes
 
-### Why Global Mute State?
-Users expect that if they unmute one video, the next video they scroll to will also be unmuted. This matches TikTok/Reels behavior where sound preference persists during a session.
+### Before
+```text
+┌─────────────────────────────────────────┐
+│ [📷]  Following | Latest | Trending [🔍]│  ← Tab switcher + search
+│                                         │
+│           [VIDEO CONTENT]               │
+│                                         │
+│                               🔊        │
+│                               ❤️ 247    │
+│                               💬 12     │
+│                               ↗️ 8      │
+│                               🔖 24     │  ← Bookmark button
+│                                         │
+│  📍 Main Stage                          │
+│  👤 Circle of Change                    │
+│  Day 1 Recap ✨                         │
+├─────────────────────────────────────────┤
+│  🏠     🔍     ➕     📋     👤          │  ← Non-functional nav
+│  Feed  Discover  +  Schedule Profile    │
+└─────────────────────────────────────────┘
+```
 
-### Delayed Single-Tap Detection
-To distinguish single-tap (mute toggle) from double-tap (like), we use a 300ms delay. If no second tap occurs within 300ms, we trigger the mute toggle.
-
-### Photo Posts
-Single tap does nothing on photo posts since there's no sound. Only double-tap for like is active.
-
-### MuxPlayer Volume
-MuxPlayer accepts a `muted` boolean prop. When `muted={false}`, the video plays with sound at the default volume.
+### After
+```text
+┌─────────────────────────────────────────┐
+│ [📷]           Feed                     │  ← Simplified header
+│                                         │
+│           [VIDEO CONTENT]               │
+│                                         │
+│                               🔊        │
+│                               ❤️ 247    │
+│                               💬 12     │
+│                               ↗️ 8      │  ← Bookmark removed
+│                                         │
+│  📍 Main Stage                          │
+│  👤 Circle of Change                    │
+│  Day 1 Recap ✨                         │
+├─────────────────────────────────────────┤
+│  🏠     📰     📅     💬     📱        │  ← Real app navigation
+│  Home  Feed  Agenda Messages  QR        │
+└─────────────────────────────────────────┘
+```
 
 ---
 
-## UI Polish
+## Technical Details
 
-- **Button placement**: Sound button goes in the right action column, between the bookmark button and the bottom of the column
-- **Icon states**: `VolumeX` when muted, `Volume2` when unmuted
-- **Visual feedback**: Brief center-screen icon animation on toggle
-- **Transition**: Add smooth transition on mute indicator fade
+### BottomNavigation Integration
+The standard `BottomNavigation` component needs to work within the immersive dark feed context. Since the feed uses a fixed dark background, the navigation will need a slight style adjustment to blend better with the dark theme while maintaining its functionality.
+
+The navigation styling will be applied via a wrapper or inline style override to use a dark gradient background similar to what `FeedBottomNav` had, while keeping all the routing logic intact.
+
+### PostCard Props Change
+```typescript
+// Before
+interface PostCardProps {
+  post: PostCardType;
+  isActive: boolean;
+  isMuted: boolean;
+  onLike: () => void;
+  onBookmark: () => void;  // Remove
+  onToggleMute: () => void;
+}
+
+// After
+interface PostCardProps {
+  post: PostCardType;
+  isActive: boolean;
+  isMuted: boolean;
+  onLike: () => void;
+  onToggleMute: () => void;
+}
+```
+
+### Type Changes
+```typescript
+// Remove from PostCard interface:
+bookmarks: number;
+bookmarked: boolean;
+
+// Remove from FeedAction type:
+| { type: "TOGGLE_BOOKMARK"; id: string }
+```
 
 ---
 
-## Summary
+## Implementation Order
 
-| Feature | Implementation |
-|---------|----------------|
-| Sound toggle button | Glass button in action column with Volume icons |
-| Tap to unmute | Single tap on video toggles mute state |
-| Double tap to like | Preserved existing behavior |
-| Global mute state | Managed in ConferenceFeed, passed to all PostCards |
-| Visual feedback | Animated icon overlay on toggle |
+1. Update `FeedHeader.tsx` - Remove tabs and search, add centered title
+2. Update `PostCard.tsx` - Remove bookmark button and prop
+3. Update `ConferenceFeed.tsx` - Replace FeedBottomNav with BottomNavigation, remove bookmark handler
+4. Update `src/types/conferenceFeed.ts` - Remove bookmark-related types
+5. Update `src/data/conferenceFeedData.ts` - Remove bookmark fields from data
+6. Delete `FeedBottomNav.tsx` - No longer needed
 
