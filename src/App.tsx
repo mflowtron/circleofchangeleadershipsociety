@@ -55,6 +55,14 @@ const CheckoutSuccess = lazy(() => import("@/pages/events/CheckoutSuccess"));
 const OrderAttendees = lazy(() => import("@/pages/events/OrderAttendees"));
 const EventsDashboardLayout = lazy(() => import("@/layouts/EventsDashboardLayout"));
 
+// Registration Flow pages - lazy loaded (Public, no auth)
+const RegisterEventLanding = lazy(() => import("@/pages/register/EventLanding"));
+const RegisterCheckout = lazy(() => import("@/pages/register/RegisterCheckout"));
+const RegisterProcessing = lazy(() => import("@/pages/register/RegisterProcessing"));
+const RegisterVerify = lazy(() => import("@/pages/register/RegisterVerify"));
+const RegisterCode = lazy(() => import("@/pages/register/RegisterCode"));
+const RegisterDashboard = lazy(() => import("@/pages/register/RegisterDashboard"));
+
 // Order Portal pages - lazy loaded
 const OrderPortalDashboard = lazy(() => import("@/pages/orders/Dashboard"));
 
@@ -315,6 +323,39 @@ function AppRoutes() {
         </SuspenseWithErrorBoundary>
       } />
       
+      {/* Conference Registration Flow (Public, no auth) */}
+      {/* Static paths MUST come before :slug to avoid param matching */}
+      <Route path="/register/verify" element={
+        <SuspenseWithErrorBoundary>
+          <RegisterVerify />
+        </SuspenseWithErrorBoundary>
+      } />
+      <Route path="/register/verify/code" element={
+        <SuspenseWithErrorBoundary>
+          <RegisterCode />
+        </SuspenseWithErrorBoundary>
+      } />
+      <Route path="/register/dashboard" element={
+        <SuspenseWithErrorBoundary>
+          <RegisterDashboard />
+        </SuspenseWithErrorBoundary>
+      } />
+      <Route path="/register/:slug" element={
+        <SuspenseWithErrorBoundary>
+          <RegisterEventLanding />
+        </SuspenseWithErrorBoundary>
+      } />
+      <Route path="/register/:slug/checkout" element={
+        <SuspenseWithErrorBoundary>
+          <RegisterCheckout />
+        </SuspenseWithErrorBoundary>
+      } />
+      <Route path="/register/:slug/confirmation" element={
+        <SuspenseWithErrorBoundary>
+          <RegisterProcessing />
+        </SuspenseWithErrorBoundary>
+      } />
+
       {/* Order Portal Routes (Public) */}
       <Route path="/my-orders" element={<Navigate to="/my-orders/dashboard" replace />} />
       <Route path="/my-orders/dashboard" element={
