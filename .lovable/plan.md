@@ -1,82 +1,110 @@
 
-# Fix Duplicate Ticket Types in Attendees Filter
+# Separate In-Person and Virtual Ticket Types for Check-In
 
-## Problem
-The ticket type filter dropdown shows many duplicate entries (e.g., "In-Person Early Bird" appears multiple times). This happens because the deduplication logic uses `order_item_id` as the unique key, but each attendee has a unique `order_item_id` even when they share the same ticket type.
-
-## Root Cause
-In `Attendees.tsx`, the ticket types are being extracted like this:
-
-```typescript
-const ticketTypes = Array.from(
-  new Map(
-    attendees
-      .filter((a) => a.ticket_type)
-      .map((a) => [a.order_item_id || '', { id: a.order_item_id || '', name: a.ticket_type?.name || '' }])
-  ).values()
-);
-```
-
-The Map key is `order_item_id`, which is unique per attendee—not per ticket type. So every attendee creates a new entry even if they have the same ticket type.
-
-## Solution
-Change the deduplication to use the **ticket type name** as the key. Since ticket types should be unique by name (within an event), this will correctly consolidate duplicates.
+## Overview
+Add a flag to distinguish virtual ticket types from in-person ones, so the check-in system only shows and counts attendees with in-person tickets.
 
 ---
 
-## Changes
+## Database Changes
 
-### File: `src/pages/events/manage/Attendees.tsx`
+### Add `is_virtual` Column to `ticket_types`
+Add a boolean column to the `ticket_types` table to indicate whether a ticket is for virtual attendance.
 
-**Before:**
-```typescript
-const ticketTypes = Array.from(
-  new Map(
-    attendees
-      .filter((a) => a.ticket_type)
-      .map((a) => [a.order_item_id || '', { id: a.order_item_id || '', name: a.ticket_type?.name || '' }])
-  ).values()
-);
+```sql
+ALTER TABLE ticket_types 
+ADD COLUMN is_virtual boolean NOT NULL DEFAULT false;
 ```
 
-**After:**
-```typescript
-const ticketTypes = Array.from(
-  new Map(
-    attendees
-      .filter((a) => a.ticket_type?.name)
-      .map((a) => [a.ticket_type!.name, { id: a.ticket_type!.name, name: a.ticket_type!.name }])
-  ).values()
-);
-```
+### Update Existing Data
+Set existing virtual ticket types based on their names:
 
-### File: `src/components/events/AttendeesTable.tsx`
-
-Update the filter logic to match by ticket type name directly instead of looking up by ID:
-
-**Before (line 64):**
-```typescript
-const matchesTicket = ticketFilter === 'all' || attendee.ticket_type?.name === ticketTypes.find(t => t.id === ticketFilter)?.name;
-```
-
-**After:**
-```typescript
-const matchesTicket = ticketFilter === 'all' || attendee.ticket_type?.name === ticketFilter;
+```sql
+UPDATE ticket_types 
+SET is_virtual = true 
+WHERE name ILIKE '%virtual%';
 ```
 
 ---
 
-## Visual Result
+## Code Changes
 
-| Before | After |
-|--------|-------|
-| In-Person Early Bird | In-Person Early Bird |
-| In-Person Early Bird | Virtual Early Bird |
-| In-Person Early Bird | |
-| Virtual Early Bird | |
-| In-Person Early Bird | |
-| Virtual Early Bird | |
-| ... (many more duplicates) | |
+### 1. Update TypeScript Interface
+**File:** `src/hooks/useTicketTypes.ts`
+
+Add `is_virtual` to the `TicketType` interface and form data types.
+
+### 2. Update Ticket Type Form
+**File:** `src/components/events/TicketTypeForm.tsx`
+
+Add a toggle switch to set whether the ticket type is virtual or in-person:
+
+```text
+┌─────────────────────────────────────────┐
+│  Name: [General Admission          ]   │
+│  Description: [                    ]   │
+│  Price: [$25.00]  Qty: [100]           │
+│                                         │
+│  ┌─────────────────────────────────┐   │
+│  │ 🏠 In-Person   ←→   💻 Virtual │   │
+│  │      [Toggle Switch]            │   │
+│  └─────────────────────────────────┘   │
+│                                         │
+│  Sales Start: [...]  Sales End: [...]  │
+└─────────────────────────────────────────┘
+```
+
+### 3. Update Attendee Query in useAttendees.ts
+**File:** `src/hooks/useAttendees.ts`
+
+Include `is_virtual` in the `ticket_type` selection so it's available for filtering.
+
+### 4. Filter Check-In to In-Person Only
+**File:** `src/components/events/checkin/ManualCheckIn.tsx`
+
+Filter attendees to only show those with non-virtual tickets:
+
+```typescript
+const inPersonAttendees = useMemo(() => {
+  return attendees.filter(a => !a.ticket_type?.is_virtual);
+}, [attendees]);
+```
+
+### 5. Update Check-In Stats
+**File:** `src/hooks/useCheckins.ts`
+
+Modify `useCheckInStats` to:
+- Only count attendees with in-person tickets in the totals
+- Only show in-person ticket types in the "By Ticket Type" breakdown
+
+### 6. Update Activity Feed Query
+**File:** `src/components/events/checkin/CheckInActivityFeed.tsx`
+
+Include ticket type info so the activity feed can show the ticket type name.
+
+### 7. Update Manage Tickets Table
+**File:** `src/pages/events/manage/ManageTickets.tsx`
+
+Add a badge indicator showing "Virtual" or "In-Person" next to each ticket type name.
+
+---
+
+## Visual Changes
+
+### Ticket Management Table
+| Name | Type | Price | Sold |
+|------|------|-------|------|
+| In-Person Early Bird | 🏠 In-Person | $150 | 45/100 |
+| Virtual Early Bird | 💻 Virtual | $50 | 120/∞ |
+
+### Check-In Stats
+The stats will only show in-person attendees:
+- **Total**: 145 (in-person only, excludes 120 virtual)
+- **Checked In**: 42
+- **Progress**: 29%
+
+### Manual Check-In List
+Only shows attendees with in-person tickets. Virtual attendees won't appear.
 
 ---
 
@@ -84,6 +112,18 @@ const matchesTicket = ticketFilter === 'all' || attendee.ticket_type?.name === t
 
 | File | Changes |
 |------|---------|
-| `src/pages/events/manage/Attendees.tsx` | Use ticket type name as the Map key for deduplication |
-| `src/components/events/AttendeesTable.tsx` | Simplify filter matching to compare names directly |
+| Database migration | Add `is_virtual` column to `ticket_types` |
+| `src/hooks/useTicketTypes.ts` | Add `is_virtual` to interface |
+| `src/components/events/TicketTypeForm.tsx` | Add virtual toggle |
+| `src/hooks/useAttendees.ts` | Include `is_virtual` in ticket type selection |
+| `src/components/events/checkin/ManualCheckIn.tsx` | Filter to in-person only |
+| `src/hooks/useCheckins.ts` | Filter stats to in-person only |
+| `src/pages/events/manage/ManageTickets.tsx` | Show virtual/in-person badge |
 
+---
+
+## Outcome
+- Event organizers can mark ticket types as virtual when creating/editing them
+- The check-in system only shows attendees with in-person tickets
+- Check-in stats accurately reflect in-person attendance only
+- Virtual attendees are still visible in the main Attendees table but excluded from check-in workflows
