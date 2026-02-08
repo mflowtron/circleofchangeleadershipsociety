@@ -1,9 +1,11 @@
 import { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { BottomNavigation } from './BottomNavigation';
 import { EventSelector } from './EventSelector';
 import { useAttendee } from '@/contexts/AttendeeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, LayoutDashboard } from 'lucide-react';
 
 interface AttendeeLayoutProps {
   children: ReactNode;
@@ -19,6 +21,8 @@ export function AttendeeLayout({
   showHeader = true,
 }: AttendeeLayoutProps) {
   const { logout, events } = useAttendee();
+  const { hasLMSAccess, hasEMAccess } = useAuth();
+  const showDashboardSwitch = hasLMSAccess || hasEMAccess;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -37,15 +41,28 @@ export function AttendeeLayout({
                 <EventSelector />
               )}
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={logout}
-              className="shrink-0"
-              aria-label="Log out"
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center gap-1 shrink-0">
+              {showDashboardSwitch && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  asChild
+                  aria-label="Switch dashboard"
+                >
+                  <Link to="/select-dashboard">
+                    <LayoutDashboard className="h-5 w-5" />
+                  </Link>
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                aria-label="Log out"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </header>
       )}
