@@ -1,80 +1,163 @@
 
-# Enable Horizontal Scrolling for Event Management Tables
+# Add Scroll Indicators and Top Scrollbar to ResponsiveTable
 
-## Problem
-Tables in the Event Management section (Orders, Attendees, Events, Tickets) are currently hiding columns on smaller screens using responsive breakpoint classes (`hidden sm:table-cell`, `hidden md:table-cell`, etc.). The user wants all columns to remain visible at all times, with the table scrolling horizontally on mobile instead of hiding data.
-
-## Solution
-Update all tables in the Event Management section to:
-1. Remove all responsive hiding classes from table columns
-2. Add minimum widths to cells to ensure columns don't collapse
-3. Remove any data abbreviations on mobile (like single-letter status codes)
-4. Enhance the `ResponsiveTable` component for better mobile scrolling UX
+## Overview
+Enhance the `ResponsiveTable` component with visual scroll indicators (shadows) that appear when there's more content to scroll, and add a synchronized horizontal scrollbar at the top of the table for easier mouse navigation.
 
 ---
 
-## Technical Details
+## Changes
 
-### Step 1: Update ResponsiveTable Component
-Enhance the wrapper to better handle horizontal scrolling and add a visual scroll indicator.
-
+### Update ResponsiveTable Component
 **File:** `src/components/ui/responsive-table.tsx`
 
-Changes:
-- Add a minimum width to the inner container to force horizontal scroll
-- Optionally add a subtle shadow indicator when content is scrollable
+Add the following features:
 
-### Step 2: Update Table Component
-Remove the built-in `overflow-auto` wrapper from the Table component since `ResponsiveTable` handles scrolling.
+1. **State tracking for scroll position** - Track whether the user can scroll left, right, or both directions
 
-**File:** `src/components/ui/table.tsx`
+2. **Scroll indicator shadows** - Show subtle gradient shadows on the left/right edges when there's more content in that direction
 
-Changes:
-- Remove the outer `<div className="relative w-full overflow-auto">` wrapper OR
-- Let the table just render `<table>` directly when used inside `ResponsiveTable`
+3. **Top scrollbar** - Add a hidden div at the top that contains a scrollbar, synchronized with the main content scroll
 
-### Step 3: Update OrdersTable
-Remove all responsive hiding classes and abbreviations.
+---
 
-**File:** `src/components/events/OrdersTable.tsx`
+## Technical Implementation
 
-Changes:
-- Remove `hidden sm:table-cell`, `hidden md:table-cell`, `hidden lg:table-cell` from all columns
-- Remove mobile-only inline displays (e.g., customer name shown inline under order)
-- Remove abbreviated status badge text (`sm:hidden` single letter)
-- Add `whitespace-nowrap` and `min-w-*` to prevent column collapse
-- Keep all data fully visible
+### Component Structure
+```text
+┌─────────────────────────────────────────┐
+│  Top Scrollbar (thin, synced)           │
+├─────────────────────────────────────────┤
+│ ░│                              │░      │
+│ ░│      Table Content           │░      │
+│ ░│                              │░      │
+│  │  ← Shadow when scrollable →  │       │
+└─────────────────────────────────────────┘
+```
 
-### Step 4: Update AttendeesTable
-Remove all responsive hiding classes and abbreviations.
+### Key Implementation Details
 
-**File:** `src/components/events/AttendeesTable.tsx`
+1. **Refs for synchronized scrolling**
+   - `topScrollbarRef` - Reference to the top scrollbar container
+   - `contentRef` - Reference to the main content container
+   - `innerRef` - Reference to the inner content to measure actual width
 
-Changes:
-- Remove `hidden sm:table-cell`, `hidden md:table-cell`, `hidden lg:table-cell`, `hidden xl:table-cell`, `hidden 2xl:table-cell` from all columns
-- Remove mobile-only inline displays for email and ticket type
-- Remove abbreviated badge text
-- Add `whitespace-nowrap` and minimum widths to cells
+2. **Scroll state tracking**
+   - `canScrollLeft` - Boolean indicating content exists to the left
+   - `canScrollRight` - Boolean indicating content exists to the right
+   - Updated on scroll and resize events
 
-### Step 5: Update ManageTickets Table
-Remove responsive hiding and inline mobile displays.
+3. **Synchronized scroll handler**
+   - When top scrollbar scrolls, update content scrollLeft
+   - When content scrolls, update top scrollbar scrollLeft
+   - Use a flag to prevent infinite scroll loops
 
-**File:** `src/pages/events/manage/ManageTickets.tsx`
+4. **Shadow indicators**
+   - Left shadow: `bg-gradient-to-r from-black/10 to-transparent` (visible when `canScrollLeft`)
+   - Right shadow: `bg-gradient-to-l from-black/10 to-transparent` (visible when `canScrollRight`)
+   - Positioned absolutely over the edges
 
-Changes:
-- Remove `hidden sm:table-cell` from "Sold / Available" column
-- Remove mobile-only inline sold count display
-- Add minimum widths for consistent layout
+5. **Top scrollbar styling**
+   - Height of approximately 12-16px
+   - Contains an inner div that matches the content width
+   - Standard browser scrollbar appearance
 
-### Step 6: Update Manage Events Index Table
-Remove responsive hiding and inline mobile displays.
+6. **ResizeObserver**
+   - Monitor content width changes to update scroll state
+   - Ensure top scrollbar width stays in sync with content
 
-**File:** `src/pages/events/manage/Index.tsx`
+### Pseudo-code
+```tsx
+export function ResponsiveTable({ children, className, ...props }) {
+  const topScrollbarRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [contentWidth, setContentWidth] = useState(0);
+  
+  // Check scroll position and update state
+  const updateScrollState = useCallback(() => {
+    if (!contentRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = contentRef.current;
+    setCanScrollLeft(scrollLeft > 0);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 1);
+  }, []);
+  
+  // Sync scroll between top bar and content
+  const handleTopScroll = () => {
+    if (contentRef.current && topScrollbarRef.current) {
+      contentRef.current.scrollLeft = topScrollbarRef.current.scrollLeft;
+    }
+  };
+  
+  const handleContentScroll = () => {
+    if (contentRef.current && topScrollbarRef.current) {
+      topScrollbarRef.current.scrollLeft = contentRef.current.scrollLeft;
+    }
+    updateScrollState();
+  };
+  
+  // ResizeObserver for content width changes
+  useEffect(() => {
+    // Set up ResizeObserver on innerRef
+    // Update contentWidth state when size changes
+  }, []);
+  
+  return (
+    <div className="relative">
+      {/* Top scrollbar */}
+      <div 
+        ref={topScrollbarRef}
+        className="overflow-x-auto overflow-y-hidden h-3"
+        onScroll={handleTopScroll}
+      >
+        <div style={{ width: contentWidth, height: 1 }} />
+      </div>
+      
+      {/* Main content with shadows */}
+      <div className="relative">
+        {/* Left shadow */}
+        {canScrollLeft && (
+          <div className="absolute left-0 top-0 bottom-0 w-4 
+            bg-gradient-to-r from-black/10 to-transparent 
+            pointer-events-none z-10" />
+        )}
+        
+        {/* Scrollable content */}
+        <div
+          ref={contentRef}
+          className="overflow-x-auto"
+          onScroll={handleContentScroll}
+        >
+          <div ref={innerRef} className="min-w-max">
+            {children}
+          </div>
+        </div>
+        
+        {/* Right shadow */}
+        {canScrollRight && (
+          <div className="absolute right-0 top-0 bottom-0 w-4 
+            bg-gradient-to-l from-black/10 to-transparent 
+            pointer-events-none z-10" />
+        )}
+      </div>
+    </div>
+  );
+}
+```
 
-Changes:
-- Remove `hidden sm:table-cell` from Date column
-- Remove mobile-only date display and status abbreviation
-- Add minimum widths for consistent layout
+---
+
+## Visual Behavior
+
+| State | Left Shadow | Right Shadow | Top Scrollbar |
+|-------|-------------|--------------|---------------|
+| At start (scrollLeft = 0) | Hidden | Visible | Synced |
+| In middle | Visible | Visible | Synced |
+| At end | Visible | Hidden | Synced |
+| No overflow (fits viewport) | Hidden | Hidden | Hidden |
 
 ---
 
@@ -82,46 +165,12 @@ Changes:
 
 | File | Changes |
 |------|---------|
-| `src/components/ui/responsive-table.tsx` | Enhance scroll container with min-width |
-| `src/components/ui/table.tsx` | Optionally remove inner overflow wrapper |
-| `src/components/events/OrdersTable.tsx` | Remove hidden classes, abbreviations, add min-widths |
-| `src/components/events/AttendeesTable.tsx` | Remove hidden classes, abbreviations, add min-widths |
-| `src/pages/events/manage/ManageTickets.tsx` | Remove hidden classes, inline mobile data |
-| `src/pages/events/manage/Index.tsx` | Remove hidden classes, inline mobile data |
-
----
-
-## Example Changes
-
-### Before (OrdersTable header)
-```tsx
-<TableHead className="hidden sm:table-cell">Customer</TableHead>
-<TableHead className="hidden lg:table-cell">Tickets</TableHead>
-```
-
-### After (OrdersTable header)
-```tsx
-<TableHead className="whitespace-nowrap">Customer</TableHead>
-<TableHead className="whitespace-nowrap">Tickets</TableHead>
-```
-
-### Before (Status badge)
-```tsx
-<Badge>
-  <span className="hidden sm:inline">Completed</span>
-  <span className="sm:hidden">C</span>
-</Badge>
-```
-
-### After (Status badge)
-```tsx
-<Badge>Completed</Badge>
-```
+| `src/components/ui/responsive-table.tsx` | Complete rewrite with scroll sync, shadows, and top scrollbar |
 
 ---
 
 ## Outcome
-- All table columns remain visible on all screen sizes
-- Tables scroll horizontally on mobile with smooth touch scrolling
-- No data is abbreviated or hidden based on screen size
-- Consistent data presentation across all devices
+- Users see subtle shadow indicators when there's more content to scroll horizontally
+- Mouse users can use the top scrollbar for convenient scrolling without reaching the bottom
+- Touch users continue to scroll naturally within the content area
+- Top scrollbar automatically hides when content fits without overflow
