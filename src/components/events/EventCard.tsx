@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Calendar, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { EventCoverImage } from '@/components/events/EventCoverImage';
 import type { Event } from '@/hooks/useEvents';
 
 interface EventCardProps {
@@ -14,17 +15,11 @@ export function EventCard({ event, linkTo }: EventCardProps) {
   const content = (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
       <AspectRatio ratio={16 / 9}>
-        {event.cover_image_url ? (
-          <img
-            src={event.cover_image_url}
-            alt={event.title}
-            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full bg-muted flex items-center justify-center">
-            <Calendar className="h-12 w-12 text-muted-foreground" />
-          </div>
-        )}
+        <EventCoverImage
+          src={event.cover_image_url}
+          alt={event.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
       </AspectRatio>
       <CardContent className="p-4">
         <div className="text-sm text-primary font-medium mb-1">
