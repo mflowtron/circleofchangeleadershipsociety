@@ -1,4 +1,4 @@
-import { Home, Calendar, Bookmark, QrCode, MessageCircle } from 'lucide-react';
+import { Home, Calendar, Bookmark, QrCode, MessageCircle, Newspaper } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useConversations } from '@/hooks/useConversations';
@@ -6,10 +6,10 @@ import { Badge } from '@/components/ui/badge';
 
 const navItems = [
   { path: '/attendee/app/home', label: 'Home', icon: Home },
+  { path: '/attendee/app/feed', label: 'Feed', icon: Newspaper },
   { path: '/attendee/app/agenda', label: 'Agenda', icon: Calendar },
   { path: '/attendee/app/messages', label: 'Messages', icon: MessageCircle },
-  { path: '/attendee/app/bookmarks', label: 'Bookmarks', icon: Bookmark },
-  { path: '/attendee/app/qr', label: 'QR Code', icon: QrCode },
+  { path: '/attendee/app/qr', label: 'QR', icon: QrCode },
 ];
 
 export function BottomNavigation() {

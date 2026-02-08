@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 // Preload all attendee tab components for instant navigation
 const preloadAttendeePages = () => {
   import('@/pages/attendee/EventHome');
+  import('@/pages/attendee/Feed');
   import('@/pages/attendee/Agenda');
   import('@/pages/attendee/AgendaDetail');
   import('@/pages/attendee/Messages');
@@ -73,8 +74,9 @@ function DashboardContent() {
   // Detect if we're in a full-screen view (no layout wrapper)
   const isConversationView = location.pathname.match(/\/messages\/[^/]+$/);
   const isAgendaDetailView = location.pathname.match(/\/agenda\/[^/]+$/);
+  const isFeedView = location.pathname.includes('/feed');
 
-  if (isConversationView || isAgendaDetailView) {
+  if (isConversationView || isAgendaDetailView || isFeedView) {
     // Render full-screen without layout wrapper
     return <Outlet />;
   }
