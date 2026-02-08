@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { PollCard as PollCardType } from '@/types/conferenceFeed';
-import { Lock, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { NudgeBanner } from '../NudgeBanner';
 
 interface PollCardProps {
   poll: PollCardType;
+  nudgeLevel?: number;
   onVote: (optionId: string) => void;
 }
 
-export function PollCard({ poll, onVote }: PollCardProps) {
+export function PollCard({ poll, nudgeLevel = 0, onVote }: PollCardProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(poll.answered);
 
@@ -30,6 +32,22 @@ export function PollCard({ poll, onVote }: PollCardProps) {
     return Math.round((votes / total) * 100);
   };
 
+  // Determine nudge message based on level
+  const getNudgeContent = () => {
+    if (poll.answered || selectedId) return null;
+    
+    if (nudgeLevel === 0) {
+      return { text: "📊 Quick — your voice matters!", subtle: true };
+    }
+    if (nudgeLevel === 1) {
+      return { text: `📊 You haven't voted yet — ${poll.totalVotes} others have!`, subtle: false };
+    }
+    // nudgeLevel >= 2: no nudge, clean display
+    return null;
+  };
+
+  const nudgeContent = getNudgeContent();
+
   return (
     <div className="relative h-full w-full bg-[#09090b] overflow-hidden flex items-center justify-center">
       {/* Background Effects */}
@@ -48,6 +66,15 @@ export function PollCard({ poll, onVote }: PollCardProps) {
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-[360px] px-6">
+        {/* Nudge Banner */}
+        {nudgeContent && (
+          <NudgeBanner 
+            text={nudgeContent.text} 
+            color={poll.accentColor} 
+            subtle={nudgeContent.subtle} 
+          />
+        )}
+
         {/* Badge */}
         <div className="flex justify-center mb-6">
           <div 
@@ -135,19 +162,9 @@ export function PollCard({ poll, onVote }: PollCardProps) {
         </p>
 
         {/* Source + Time */}
-        <p className="text-[11px] text-center text-white/30 mb-4">
+        <p className="text-[11px] text-center text-white/30">
           {poll.from} · {poll.date} · {poll.time}
         </p>
-
-        {/* Lock Hint */}
-        {!poll.answered && !selectedId && (
-          <div className="flex items-center justify-center gap-1.5">
-            <Lock className="w-3 h-3 text-white/30" />
-            <span className="text-[11px] text-white/30">
-              Vote to continue scrolling
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );
