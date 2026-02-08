@@ -130,12 +130,12 @@ export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: Or
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10" />
-                <TableHead>Order</TableHead>
-                {showEventColumn && <TableHead className="hidden md:table-cell">Event</TableHead>}
-                <TableHead className="hidden sm:table-cell">Customer</TableHead>
-                <TableHead className="hidden lg:table-cell">Tickets</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="whitespace-nowrap">Order</TableHead>
+                {showEventColumn && <TableHead className="whitespace-nowrap min-w-[150px]">Event</TableHead>}
+                <TableHead className="whitespace-nowrap min-w-[180px]">Customer</TableHead>
+                <TableHead className="whitespace-nowrap">Tickets</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -160,32 +160,26 @@ export function OrdersTable({ orders, isLoading, eventMap, showEventColumn }: Or
                         </CollapsibleTrigger>
                       </TableCell>
                       <TableCell>
-                        <div className="font-mono text-sm truncate max-w-[100px] sm:max-w-none">{order.order_number}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {format(new Date(order.created_at), 'MMM d, yyyy')}
-                          <span className="hidden sm:inline"> {format(new Date(order.created_at), 'h:mm a')}</span>
-                        </div>
-                        {/* Mobile-only: show customer name inline */}
-                        <div className="sm:hidden text-sm text-muted-foreground truncate mt-1">
-                          {order.full_name}
+                        <div className="font-mono text-sm whitespace-nowrap">{order.order_number}</div>
+                        <div className="text-xs text-muted-foreground whitespace-nowrap">
+                          {format(new Date(order.created_at), 'MMM d, yyyy h:mm a')}
                         </div>
                       </TableCell>
                       {showEventColumn && (
-                        <TableCell className="hidden md:table-cell">
-                          <span className="text-sm truncate max-w-[200px] block">
+                        <TableCell>
+                          <span className="text-sm whitespace-nowrap">
                             {eventMap?.get(order.event_id) || 'Unknown'}
                           </span>
                         </TableCell>
                       )}
-                      <TableCell className="hidden sm:table-cell">
-                        <div className="font-medium truncate max-w-[150px]">{order.full_name}</div>
-                        <div className="text-sm text-muted-foreground truncate max-w-[150px]">{order.email}</div>
+                      <TableCell>
+                        <div className="font-medium whitespace-nowrap">{order.full_name}</div>
+                        <div className="text-sm text-muted-foreground whitespace-nowrap">{order.email}</div>
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">{getTotalTickets(order)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{getTotalTickets(order)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusColors[order.status]}>
-                          <span className="hidden sm:inline">{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
-                          <span className="sm:hidden">{order.status.charAt(0).toUpperCase()}</span>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium whitespace-nowrap">

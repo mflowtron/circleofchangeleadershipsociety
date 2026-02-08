@@ -131,27 +131,22 @@ export default function ManageTickets() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead className="hidden sm:table-cell">Sold / Available</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="whitespace-nowrap min-w-[150px]">Name</TableHead>
+                <TableHead className="whitespace-nowrap">Price</TableHead>
+                <TableHead className="whitespace-nowrap">Sold / Available</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {ticketTypes.map((ticket) => (
                 <TableRow key={ticket.id}>
                   <TableCell>
-                    <div className="font-medium truncate max-w-[120px] sm:max-w-xs">{ticket.name}</div>
+                    <div className="font-medium whitespace-nowrap">{ticket.name}</div>
                     {ticket.description && (
-                      <div className="text-sm text-muted-foreground truncate max-w-[120px] sm:max-w-xs">
+                      <div className="text-sm text-muted-foreground whitespace-nowrap">
                         {ticket.description}
                       </div>
                     )}
-                    {/* Mobile-only: show sold count inline */}
-                    <div className="sm:hidden text-xs text-muted-foreground mt-1">
-                      Sold: {ticket.quantity_sold}
-                      {ticket.quantity_available ? ` / ${ticket.quantity_available}` : ''}
-                    </div>
                   </TableCell>
                   <TableCell>
                     {ticket.price_cents === 0 ? (
@@ -160,7 +155,7 @@ export default function ManageTickets() {
                       <span className="whitespace-nowrap">{formatPrice(ticket.price_cents)}</span>
                     )}
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">
+                  <TableCell className="whitespace-nowrap">
                     {ticket.quantity_sold}
                     {ticket.quantity_available
                       ? ` / ${ticket.quantity_available}`

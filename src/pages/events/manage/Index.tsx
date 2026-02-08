@@ -71,40 +71,36 @@ export default function ManageEventsIndex() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Event</TableHead>
-                <TableHead className="hidden sm:table-cell">Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="whitespace-nowrap min-w-[180px]">Event</TableHead>
+                <TableHead className="whitespace-nowrap min-w-[180px]">Date</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {events.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell>
-                    <div className="font-medium truncate max-w-[150px] sm:max-w-none">{event.title}</div>
+                    <div className="font-medium whitespace-nowrap">{event.title}</div>
                     {event.venue_name && (
-                      <div className="text-sm text-muted-foreground truncate max-w-[150px] sm:max-w-none">
+                      <div className="text-sm text-muted-foreground whitespace-nowrap">
                         {event.venue_name}
                       </div>
                     )}
-                    {/* Mobile-only: show date inline */}
-                    <div className="sm:hidden text-xs text-muted-foreground mt-1">
-                      {format(new Date(event.starts_at), 'MMM d, yyyy')}
-                    </div>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">
+                  <TableCell className="whitespace-nowrap">
                     {format(new Date(event.starts_at), 'MMM d, yyyy h:mm a')}
                   </TableCell>
                   <TableCell>
                     {event.is_published ? (
-                      <Badge className="gap-1">
+                      <Badge className="gap-1 whitespace-nowrap">
                         <Eye className="h-3 w-3" />
-                        <span className="hidden sm:inline">Published</span>
+                        Published
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="gap-1">
+                      <Badge variant="secondary" className="gap-1 whitespace-nowrap">
                         <EyeOff className="h-3 w-3" />
-                        <span className="hidden sm:inline">Draft</span>
+                        Draft
                       </Badge>
                     )}
                   </TableCell>
