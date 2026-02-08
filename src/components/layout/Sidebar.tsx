@@ -86,8 +86,10 @@ export default function Sidebar() {
   const {
     isLMSAdmin,
     isLMSAdvisor,
-    hasEMAccess
+    hasEMAccess,
+    hasAttendeeAccess
   } = useAuth();
+  const showSwitchOption = hasEMAccess || hasAttendeeAccess;
   const {
     isOpen,
     setIsOpen
@@ -149,7 +151,7 @@ export default function Sidebar() {
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border/50 space-y-3">
           {/* Switch to Events Dashboard button for users with events access */}
-          {hasEMAccess && <Button variant="outline" className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border/50 text-sidebar-foreground hover:bg-sidebar-accent" onClick={handleSwitchDashboard}>
+          {showSwitchOption && <Button variant="outline" className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border/50 text-sidebar-foreground hover:bg-sidebar-accent" onClick={handleSwitchDashboard}>
               <ArrowLeftRight className="h-4 w-4" />
               Switch Dashboard
             </Button>}
