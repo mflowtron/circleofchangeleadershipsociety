@@ -1,19 +1,23 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import MuxPlayer from '@mux/mux-player-react';
 import { PostCard as PostCardType } from '@/types/conferenceFeed';
-import { Heart, MessageCircle, Share, Bookmark, Camera, Pin } from 'lucide-react';
+import { Heart, MessageCircle, Share, Bookmark, Camera, Pin, Volume2, VolumeX } from 'lucide-react';
 import { HeartBurstAnimation } from '../HeartBurstAnimation';
 
 interface PostCardProps {
   post: PostCardType;
   isActive: boolean;
+  isMuted: boolean;
   onLike: () => void;
   onBookmark: () => void;
+  onToggleMute: () => void;
 }
 
-export function PostCard({ post, isActive, onLike, onBookmark }: PostCardProps) {
+export function PostCard({ post, isActive, isMuted, onLike, onBookmark, onToggleMute }: PostCardProps) {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
+  const [showMuteIndicator, setShowMuteIndicator] = useState(false);
   const [lastTap, setLastTap] = useState(0);
+  const singleTapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const muxPlayerRef = useRef<any>(null);
 
   // Handle video autoplay based on visibility
@@ -28,19 +32,37 @@ export function PostCard({ post, isActive, onLike, onBookmark }: PostCardProps) 
     }
   }, [isActive]);
 
-  // Double-tap detection
+  // Double-tap detection with single-tap for mute toggle
   const handleTap = useCallback(() => {
     const now = Date.now();
-    if (now - lastTap < 300) {
+    const timeSinceLastTap = now - lastTap;
+    
+    // Clear any pending single-tap action
+    if (singleTapTimeoutRef.current) {
+      clearTimeout(singleTapTimeoutRef.current);
+      singleTapTimeoutRef.current = null;
+    }
+    
+    if (timeSinceLastTap < 300) {
       // Double tap - trigger like
       if (!post.liked) {
         onLike();
       }
       setShowHeartBurst(true);
       setTimeout(() => setShowHeartBurst(false), 800);
+      setLastTap(0); // Reset to prevent triple-tap issues
+    } else {
+      // Single tap - toggle mute (for video posts only)
+      if (post.type === 'video' || post.type === 'recap') {
+        singleTapTimeoutRef.current = setTimeout(() => {
+          onToggleMute();
+          setShowMuteIndicator(true);
+          setTimeout(() => setShowMuteIndicator(false), 600);
+        }, 300);
+      }
+      setLastTap(now);
     }
-    setLastTap(now);
-  }, [lastTap, post.liked, onLike]);
+  }, [lastTap, post.liked, post.type, onLike, onToggleMute]);
 
   const formatCount = (count: number) => {
     if (count >= 1000) {
@@ -62,7 +84,7 @@ export function PostCard({ post, isActive, onLike, onBookmark }: PostCardProps) 
             playbackId={post.playbackId}
             streamType="on-demand"
             autoPlay={false}
-            muted
+            muted={isMuted}
             loop
             playsInline
             className="w-full h-full [--controls:none] [--media-object-fit:cover]"
@@ -127,6 +149,27 @@ export function PostCard({ post, isActive, onLike, onBookmark }: PostCardProps) 
 
       {/* Action Buttons (Right Column) */}
       <div className="absolute right-3 bottom-36 flex flex-col items-center gap-5 z-10">
+        {/* Sound Toggle (only for video posts) */}
+        {(post.type === 'video' || post.type === 'recap') && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleMute();
+              setShowMuteIndicator(true);
+              setTimeout(() => setShowMuteIndicator(false), 600);
+            }}
+            className="flex flex-col items-center"
+          >
+            <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
+              {isMuted ? (
+                <VolumeX className="w-5 h-5 text-white" />
+              ) : (
+                <Volume2 className="w-5 h-5 text-white" />
+              )}
+            </div>
+          </button>
+        )}
+
         {/* Like */}
         <button
           onClick={(e) => {
@@ -229,6 +272,19 @@ export function PostCard({ post, isActive, onLike, onBookmark }: PostCardProps) 
 
       {/* Heart Burst Animation */}
       {showHeartBurst && <HeartBurstAnimation />}
+
+      {/* Mute/Unmute Visual Feedback */}
+      {showMuteIndicator && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+          <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur flex items-center justify-center animate-scale-in">
+            {isMuted ? (
+              <VolumeX className="w-8 h-8 text-white" />
+            ) : (
+              <Volume2 className="w-8 h-8 text-white" />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
