@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Home, Video, User, Users, BookOpen, Shield, X, Megaphone, Ticket, CalendarDays, ArrowRight } from 'lucide-react';
+import { Home, Video, User, Users, BookOpen, Shield, X, Megaphone, CalendarDays, ArrowRight, ArrowLeftRight } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import logoDark from '@/assets/coclc-logo-dark.png';
 import logoLight from '@/assets/coclc-logo-light.png';
@@ -105,9 +105,9 @@ export default function Sidebar() {
     return navItems.student;
   };
   const items = getNavItems();
-  const handleSwitchToEvents = () => {
+  const handleSwitchDashboard = () => {
     setIsOpen(false);
-    navigate('/events/manage');
+    navigate('/');
   };
   return <>
       {/* Mobile overlay */}
@@ -149,9 +149,9 @@ export default function Sidebar() {
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border/50 space-y-3">
           {/* Switch to Events Dashboard button for users with events access */}
-          {hasEMAccess && <Button variant="outline" className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border/50 text-sidebar-foreground hover:bg-sidebar-accent" onClick={handleSwitchToEvents}>
-              <Ticket className="h-4 w-4" />
-              Events Dashboard
+          {hasEMAccess && <Button variant="outline" className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border/50 text-sidebar-foreground hover:bg-sidebar-accent" onClick={handleSwitchDashboard}>
+              <ArrowLeftRight className="h-4 w-4" />
+              Switch Dashboard
             </Button>}
           <div className="px-4 py-3 rounded-xl bg-sidebar-accent/50 text-center">
             <p className="text-xs text-sidebar-foreground/60">
