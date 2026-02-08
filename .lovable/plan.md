@@ -1,130 +1,245 @@
 
-# Add Confirmation Dialog for Push Notifications
+
+# Add Scheduled Push Notifications
 
 ## Overview
-Add a confirmation dialog before sending push notifications to prevent accidental sends. This provides a safety check showing the notification details and recipient count before final confirmation.
+Enable organizers to schedule push notifications for future delivery, in addition to sending them immediately. This involves database changes, a new cron-based processor edge function, and UI updates for date/time selection.
 
 ---
 
-## Implementation Approach
+## Architecture
 
-Use the existing `AlertDialog` component from the UI library to show a confirmation modal when the user clicks "Send Notification".
+### Scheduling Strategy
 
----
+There are two approaches to scheduling:
 
-## Changes to NotificationComposer
+| Approach | Description | Pros | Cons |
+|----------|-------------|------|------|
+| **pg_cron (Recommended)** | Store scheduled notifications in DB, cron job checks every minute | Simple, reliable, no external services | 1-minute granularity |
+| OneSignal Scheduling | Use OneSignal's built-in `send_after` parameter | Exact delivery time | Requires UTC conversion, less visibility |
 
-### 1. Add State for Dialog
+**Decision**: Use **pg_cron** approach for better control, visibility into scheduled items, and ability to cancel/edit scheduled notifications.
 
-```typescript
-const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-```
-
-### 2. Modify Submit Flow
-
-Instead of sending immediately on form submit:
-1. Form submit opens the confirmation dialog
-2. Dialog shows notification preview (title, message, recipient count)
-3. "Confirm" button triggers the actual send
-4. "Cancel" button closes the dialog without sending
-
-### 3. Dialog Content
-
-The confirmation dialog will display:
-- Warning icon to draw attention
-- Title: "Send Push Notification?"
-- Preview of the notification title and message
-- Audience type and recipient count
-- Clear warning that this action cannot be undone
-- Cancel and Confirm buttons
-
----
-
-## UI Design
+### How It Works
 
 ```text
-┌──────────────────────────────────────────────────────────┐
-│  ⚠️ Send Push Notification?                              │
-│                                                          │
-│  You are about to send a notification to 125 attendees.  │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │  Title: Welcome to CLC 2026!                       │  │
-│  │  Message: Doors open in 15 minutes. Head to the... │  │
-│  │  Audience: All Attendees                           │  │
-│  └────────────────────────────────────────────────────┘  │
-│                                                          │
-│  This action cannot be undone. Notifications will be     │
-│  sent immediately to all targeted devices.               │
-│                                                          │
-│                            [Cancel]  [Send Notification] │
-└──────────────────────────────────────────────────────────┘
+1. Organizer composes notification and selects "Schedule for Later"
+2. Picks date/time using datepicker + time input
+3. Notification saved to DB with status="scheduled" and scheduled_for timestamp
+4. pg_cron job runs every minute, checking for due notifications
+5. Cron calls edge function to process and send via OneSignal
+6. Status updated to "sent" or "failed"
 ```
 
 ---
 
-## Code Changes
+## Database Changes
 
-### File: `src/components/events/push/NotificationComposer.tsx`
+### Add columns to push_notifications table
 
-**Add imports:**
-```typescript
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { AlertTriangle } from 'lucide-react';
+```sql
+ALTER TABLE public.push_notifications
+ADD COLUMN scheduled_for timestamptz,
+ADD COLUMN sent_at timestamptz;
+
+-- Update status enum to include 'scheduled'
+-- (status is already text, just need to handle new value)
+
+COMMENT ON COLUMN public.push_notifications.scheduled_for IS 
+  'When the notification should be sent. NULL = sent immediately.';
+COMMENT ON COLUMN public.push_notifications.sent_at IS 
+  'When the notification was actually sent. NULL = not yet sent.';
 ```
 
-**Add state:**
-```typescript
-const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+---
+
+## New Edge Function: process-scheduled-notifications
+
+A new edge function that:
+1. Queries for notifications where `status = 'scheduled'` AND `scheduled_for <= now()`
+2. For each, extracts the audience and sends via OneSignal (reusing existing logic)
+3. Updates status to 'sent' or 'failed' with `sent_at` timestamp
+
+This function is called by pg_cron every minute.
+
+---
+
+## UI Changes
+
+### NotificationComposer Updates
+
+Add a toggle between "Send Now" and "Schedule for Later":
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  Compose Notification                                           │
+│  ─────────────────────────────────────────────────────────────  │
+│                                                                  │
+│  [Title and Message fields...]                                   │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Delivery                                                   ││
+│  │  ─────────────────────────────────────────────────────────  ││
+│  │                                                              ││
+│  │  ◉ Send Now                                                  ││
+│  │  ○ Schedule for Later                                        ││
+│  │                                                              ││
+│  │  [When "Schedule" selected:]                                 ││
+│  │  ┌───────────────────────┐  ┌──────────────┐                ││
+│  │  │ Feb 15, 2026      ▼   │  │ 09:30 AM     │                ││
+│  │  └───────────────────────┘  └──────────────┘                ││
+│  │                                                              ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│                              [Cancel]  [Schedule Notification]   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Modify handleSubmit:**
-- Rename to `handleConfirm` for the actual send logic
-- Create new `handleSubmit` that opens the dialog instead
+### NotificationHistory Updates
 
-**Add helper function:**
-```typescript
-const getAudienceLabel = () => {
-  switch (audienceType) {
-    case 'all': return 'All Attendees';
-    case 'in_person': return 'In-Person Only';
-    case 'virtual': return 'Virtual Only';
-    case 'ticket_type': return 'By Ticket Type';
-    case 'individual': return 'Individual Attendees';
-    default: return audienceType;
-  }
-};
+Display scheduled notifications with:
+- "Scheduled" badge (yellow/orange)
+- Scheduled time shown
+- Cancel button for pending scheduled notifications
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ Session 3 Starting Soon                           Scheduled 🕐  │
+│ Don't miss the workshop in Room B...                            │
+│ All Attendees • 125 recipients • Feb 15 at 2:30 PM  [Cancel]    │
+├─────────────────────────────────────────────────────────────────┤
+│ Welcome to CLC 2026!                                    Sent ✓  │
+│ Doors open in 15 minutes...                                     │
+│ All Attendees • 125 recipients • 5 mins ago                     │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Add AlertDialog component** after the form, showing:
-- Recipient count in the description
-- Preview card with title, message (truncated), and audience type
-- Warning about immediate delivery
-- Cancel and confirm actions
+### Confirmation Dialog Updates
+
+Update text based on scheduling mode:
+- "Send Now": "Notifications will be sent immediately..."
+- "Scheduled": "This notification will be sent on [date] at [time]..."
+
+---
+
+## Files to Create
+
+| File | Description |
+|------|-------------|
+| `supabase/functions/process-scheduled-notifications/index.ts` | Cron-triggered function to send due notifications |
 
 ---
 
 ## Files to Modify
 
-| File | Action | Description |
-|------|--------|-------------|
-| `src/components/events/push/NotificationComposer.tsx` | Modify | Add AlertDialog confirmation before sending |
+| File | Changes |
+|------|---------|
+| Database migration | Add `scheduled_for` and `sent_at` columns |
+| `src/components/events/push/NotificationComposer.tsx` | Add scheduling toggle, date picker, time input |
+| `src/components/events/push/NotificationHistory.tsx` | Show scheduled badge, scheduled time, cancel button |
+| `src/hooks/usePushNotifications.ts` | Add `scheduled_for` to interface and mutation, add cancel mutation |
+| `supabase/functions/send-push-notification/index.ts` | Support `scheduled_for` param, save with "scheduled" status |
+| `supabase/config.toml` | Add new function config |
+
+---
+
+## Cron Job Setup
+
+After deployment, a SQL statement needs to be run to create the cron schedule:
+
+```sql
+SELECT cron.schedule(
+  'process-scheduled-push-notifications',
+  '* * * * *',  -- Every minute
+  $$
+  SELECT net.http_post(
+    url:='https://<project-id>.supabase.co/functions/v1/process-scheduled-notifications',
+    headers:='{"Authorization": "Bearer <anon-key>"}'::jsonb,
+    body:='{}'::jsonb
+  );
+  $$
+);
+```
+
+This will be provided as a follow-up step after the code is deployed.
+
+---
+
+## Implementation Flow
+
+### 1. Database Migration
+Add `scheduled_for` and `sent_at` columns to `push_notifications`
+
+### 2. Update send-push-notification Edge Function
+- Accept optional `scheduled_for` parameter
+- If provided, save with `status: 'scheduled'` instead of sending
+- If not provided, send immediately (current behavior)
+
+### 3. Create process-scheduled-notifications Edge Function
+- Query for due notifications
+- Reuse sending logic from send-push-notification
+- Update status after sending
+
+### 4. Update UI Components
+- Add scheduling toggle and datetime picker to NotificationComposer
+- Update confirmation dialog text
+- Add scheduled badge and cancel button to NotificationHistory
+
+### 5. Update Hook
+- Add `scheduled_for` to interfaces
+- Add `cancelNotification` mutation
 
 ---
 
 ## Technical Notes
 
-- Uses existing AlertDialog component (already in the project)
-- Dialog is controlled by state, not a trigger element
-- Message preview truncated to prevent dialog overflow
-- Confirm button disabled while sending to prevent double-sends
-- Dialog closes automatically after successful send (form reset already handles this)
+### Timezone Handling
+- UI displays local browser time with clear labeling
+- Stored in database as UTC timestamptz
+- Displayed in history relative to user's timezone
+
+### Validation Rules
+- Scheduled time must be at least 5 minutes in the future
+- Scheduled time must not be more than 30 days ahead
+- Cannot schedule for past times
+
+### Status Values
+| Status | Meaning |
+|--------|---------|
+| `scheduled` | Saved, waiting to be sent |
+| `sent` | Successfully delivered |
+| `failed` | Delivery failed |
+
+### Cancellation
+- Only notifications with `status: 'scheduled'` can be cancelled
+- Cancellation sets `status: 'cancelled'` (new status)
+- Cancelled notifications remain in history for audit
+
+---
+
+## Files Summary
+
+| File | Action |
+|------|--------|
+| Database migration | Create |
+| `supabase/functions/process-scheduled-notifications/index.ts` | Create |
+| `supabase/functions/send-push-notification/index.ts` | Modify |
+| `src/components/events/push/NotificationComposer.tsx` | Modify |
+| `src/components/events/push/NotificationHistory.tsx` | Modify |
+| `src/hooks/usePushNotifications.ts` | Modify |
+| `supabase/config.toml` | Modify |
+
+---
+
+## User Experience
+
+1. Organizer selects "Schedule for Later" toggle
+2. Date picker and time input appear
+3. Picks date and time (e.g., "Feb 15, 2026 at 2:30 PM")
+4. Clicks "Schedule Notification"
+5. Confirmation shows scheduled delivery time
+6. Notification appears in history with "Scheduled" badge
+7. Can cancel before send time if needed
+8. At scheduled time, cron job sends notification
+9. Status updates to "Sent" in history
+
