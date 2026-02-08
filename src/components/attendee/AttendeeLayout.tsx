@@ -70,7 +70,7 @@ export function AttendeeLayout({
       {/* Main content with padding for bottom nav */}
       <main 
         className="flex-1 overflow-y-auto"
-        style={{ paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' }}
+        style={{ paddingBottom: 'calc(64px + max(env(safe-area-inset-bottom), var(--natively-safe-area-bottom, 0px)))' }}
       >
         {children}
       </main>

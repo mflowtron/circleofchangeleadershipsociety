@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAttendee, AttendeeProvider } from '@/contexts/AttendeeContext';
 import { AttendeeLayout } from '@/components/attendee/AttendeeLayout';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useNativelySafeArea } from '@/hooks/useNativelySafeArea';
 
 // Preload all attendee tab components for instant navigation
 const preloadAttendeePages = () => {
@@ -18,6 +19,9 @@ const preloadAttendeePages = () => {
 function DashboardContent() {
   const { isAuthenticated, loading, selectedEvent, events, orders } = useAttendee();
   const location = useLocation();
+
+  // Initialize Natively safe area insets for proper bottom padding
+  useNativelySafeArea();
 
   // Preload sibling tabs after initial render
   useEffect(() => {

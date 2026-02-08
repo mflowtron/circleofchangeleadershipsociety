@@ -312,7 +312,7 @@ export function ConferenceFeed() {
       <button
         onClick={handleCreatePost}
         className="fixed right-4 z-40 w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center touch-manipulation active:scale-95 transition-transform opacity-0 animate-fab-pop-in"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
+        style={{ bottom: 'calc(max(env(safe-area-inset-bottom), var(--natively-safe-area-bottom, 0px)) + 80px)' }}
         aria-label="Create post"
       >
         <Plus className="h-6 w-6 text-primary-foreground" />
