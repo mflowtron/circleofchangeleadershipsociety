@@ -43,6 +43,7 @@ export function AttendeesTable({
   const [search, setSearch] = useState('');
   const [ticketFilter, setTicketFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [attendanceFilter, setAttendanceFilter] = useState<string>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
@@ -69,7 +70,13 @@ export function AttendeesTable({
       (statusFilter === 'complete' && isComplete) ||
       (statusFilter === 'incomplete' && !isComplete);
 
-    return matchesSearch && matchesTicket && matchesStatus;
+    // Attendance type filter (in-person vs virtual)
+    const matchesAttendance =
+      attendanceFilter === 'all' ||
+      (attendanceFilter === 'in-person' && !attendee.ticket_type?.is_virtual) ||
+      (attendanceFilter === 'virtual' && attendee.ticket_type?.is_virtual);
+
+    return matchesSearch && matchesTicket && matchesStatus && matchesAttendance;
   });
 
   const startEdit = (attendee: Attendee) => {
@@ -112,6 +119,8 @@ export function AttendeesTable({
     (a) => a.attendee_name && a.attendee_email
   ).length;
   const incompleteCount = attendees.length - completeCount;
+  const inPersonCount = attendees.filter((a) => !a.ticket_type?.is_virtual).length;
+  const virtualCount = attendees.filter((a) => a.ticket_type?.is_virtual).length;
 
   return (
     <div className="space-y-4">
@@ -130,6 +139,14 @@ export function AttendeesTable({
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">Incomplete:</span>
           <Badge variant="destructive">{incompleteCount}</Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">🏠 In-Person:</span>
+          <Badge variant="outline">{inPersonCount}</Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">💻 Virtual:</span>
+          <Badge variant="outline">{virtualCount}</Badge>
         </div>
       </div>
 
@@ -167,6 +184,16 @@ export function AttendeesTable({
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="complete">Complete</SelectItem>
               <SelectItem value="incomplete">Incomplete</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={attendanceFilter} onValueChange={setAttendanceFilter}>
+            <SelectTrigger className="flex-1 sm:flex-none sm:w-[150px]">
+              <SelectValue placeholder="Attendance" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="in-person">🏠 In-Person</SelectItem>
+              <SelectItem value="virtual">💻 Virtual</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={onExport} className="flex-1 sm:flex-none">
