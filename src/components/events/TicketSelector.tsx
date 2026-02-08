@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,10 +60,11 @@ export function TicketSelector({
 
   const totalTickets = Object.values(selectedTickets).reduce((sum, qty) => sum + qty, 0);
 
+  const availableTickets = ticketTypes.filter(isTicketAvailable);
+
   return (
     <div className="space-y-4">
-      {ticketTypes.map((ticket) => {
-        const available = isTicketAvailable(ticket);
+      {availableTickets.map((ticket) => {
         const maxQty = getAvailableQuantity(ticket);
         const currentQty = selectedTickets[ticket.id] || 0;
         const remaining = ticket.quantity_available !== null
@@ -82,11 +82,6 @@ export function TicketSelector({
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="font-medium">{ticket.name}</h3>
-                  {!available && (
-                    <Badge variant="secondary">
-                      {remaining === 0 ? 'Sold Out' : 'Unavailable'}
-                    </Badge>
-                  )}
                   {remaining !== null && remaining > 0 && remaining <= 10 && (
                     <Badge variant="outline" className="text-orange-600 border-orange-300">
                       {remaining} left
@@ -103,29 +98,27 @@ export function TicketSelector({
                 </div>
               </div>
 
-              {available && (
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => updateQuantity(ticket.id, -1)}
-                    disabled={currentQty === 0}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-8 text-center font-medium">{currentQty}</span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => updateQuantity(ticket.id, 1)}
-                    disabled={currentQty >= maxQty}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateQuantity(ticket.id, -1)}
+                  disabled={currentQty === 0}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="w-8 text-center font-medium">{currentQty}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateQuantity(ticket.id, 1)}
+                  disabled={currentQty >= maxQty}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         );
