@@ -51,6 +51,7 @@ export function usePushNotifications(eventId: string | null) {
         .from('push_notifications')
         .select('*')
         .eq('event_id', eventId)
+        .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -99,6 +100,14 @@ export function usePushNotifications(eventId: string | null) {
   const cancelNotification = useCallback(
     async (notificationId: string) => {
       setIsCancelling(true);
+      
+      // Optimistic update: immediately remove from cache
+      queryClient.setQueryData(
+        ['push-notifications', eventId],
+        (old: PushNotification[] | undefined) => 
+          old?.filter(n => n.id !== notificationId) ?? []
+      );
+      
       try {
         const { error } = await supabase
           .from('push_notifications')
@@ -108,9 +117,10 @@ export function usePushNotifications(eventId: string | null) {
 
         if (error) throw error;
         
-        queryClient.invalidateQueries({ queryKey: ['push-notifications', eventId] });
-        toast.success('Notification cancelled');
+        toast.success('Scheduled notification cancelled — it will not be sent');
       } catch (error) {
+        // Revert optimistic update on failure
+        queryClient.invalidateQueries({ queryKey: ['push-notifications', eventId] });
         console.error('Failed to cancel notification:', error);
         toast.error('Failed to cancel notification');
       } finally {
