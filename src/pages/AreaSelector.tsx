@@ -25,7 +25,7 @@ interface AreaConfig {
 const AREA_CONFIGS: AreaConfig[] = [
   {
     id: 'lms',
-    title: 'LMS Dashboard',
+    title: 'Society',
     subtitle: 'Circle of Change Leadership Society',
     description: 'Access the learning management system, view recordings, manage chapters, and moderate content.',
     icon: GraduationCap,
