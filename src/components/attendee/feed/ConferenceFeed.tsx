@@ -311,7 +311,7 @@ export function ConferenceFeed() {
       {/* Floating Action Button */}
       <button
         onClick={handleCreatePost}
-        className="fixed right-4 z-40 w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center touch-manipulation active:scale-95 transition-transform"
+        className="fixed right-4 z-40 w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center touch-manipulation active:scale-95 transition-transform opacity-0 animate-fab-pop-in"
         style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
         aria-label="Create post"
       >
