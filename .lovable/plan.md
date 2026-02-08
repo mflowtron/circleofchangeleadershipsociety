@@ -1,82 +1,78 @@
 
-# Add Dashboard Switch Button to Attendee App
 
-## Overview
-When users with access to the LMS or Events dashboards are viewing the Attendee App, show a button that allows them to navigate back to the dashboard selection screen (`/select-dashboard`). This helps organizers and administrators easily switch contexts without logging out and back in.
+# Show Dashboard Switch Button Across All Areas
 
-## Current State
-- The `AttendeeLayout` component has a header with a logout button
-- The `AuthContext` (wrapping the entire app) provides `hasLMSAccess` and `hasEMAccess` flags
-- Both the main auth and attendee auth share the same Supabase session
-- The dashboard selector is located at `/select-dashboard`
+## Problem
+The "Switch Dashboard" button should appear in all areas (LMS, Events, Attendee) when a user has access to 2 or more of the 3 areas. Currently:
+- **Attendee App**: Shows button when `hasLMSAccess || hasEMAccess` (correct)
+- **LMS Sidebar**: Shows button only when `hasEMAccess` (incomplete)
+- **Events Sidebar**: Shows button only when `hasLMSAccess` (incomplete)
+
+Since the Attendee App is always accessible to all users, anyone with LMS or Events access automatically has 2+ areas available.
 
 ## Solution
-Add a conditional "Switch Dashboard" button to the `AttendeeLayout` header that:
-1. Uses `useAuth()` from the main `AuthContext` to check if user has LMS or Events access
-2. Only shows the button if the user has access to either LMS or Events (since that means they have multiple dashboards to choose from)
-3. Links to `/select-dashboard` to let them choose a different area
+Update the logic in both the LMS and Events dashboards to consider all three areas when deciding whether to show the switch button.
 
 ---
 
-## Technical Implementation
+## Technical Details
 
-### File to Modify
-`src/components/attendee/AttendeeLayout.tsx`
+### Changes to LMS Sidebar (`src/components/layout/Sidebar.tsx`)
 
-### Changes
-
-1. **Import `useAuth`** from the main AuthContext
-2. **Import `LayoutDashboard`** icon from lucide-react  
-3. **Check access** using `hasLMSAccess` or `hasEMAccess` from the auth context
-4. **Add button** in the header, positioned before the logout button
-
-### Updated Header Structure
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Header                                                     │
-├─────────────────────────────────────────────────────────────┤
-│  [Title] [EventSelector]           [Dashboard] [Logout]     │
-│                                         ↑                   │
-│                                  Only visible               │
-│                                  if hasLMSAccess            │
-│                                  or hasEMAccess             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Code Changes
-
+**Current logic (line 152):**
 ```tsx
-// Add to imports
-import { useAuth } from '@/contexts/AuthContext';
-import { Link } from 'react-router-dom';
-import { LogOut, LayoutDashboard } from 'lucide-react';
-
-// Inside AttendeeLayout component
-const { hasLMSAccess, hasEMAccess } = useAuth();
-const showDashboardSwitch = hasLMSAccess || hasEMAccess;
-
-// In header, before logout button
-{showDashboardSwitch && (
-  <Button
-    variant="ghost"
-    size="icon"
-    asChild
-    aria-label="Switch dashboard"
-  >
-    <Link to="/select-dashboard">
-      <LayoutDashboard className="h-5 w-5" />
-    </Link>
-  </Button>
-)}
+{hasEMAccess && <Button ...>Switch Dashboard</Button>}
 ```
 
-## Files Modified
-| File | Action |
-|------|--------|
-| `src/components/attendee/AttendeeLayout.tsx` | Add dashboard switch button |
+**New logic:**
+```tsx
+const { hasLMSAccess, hasEMAccess, hasAttendeeAccess } = useAuth();
+// Show switch button if user has access to another area besides LMS
+// Since we're IN the LMS, check if they have Events or Attendee access
+const showSwitchOption = hasEMAccess || hasAttendeeAccess;
+```
 
-## Edge Cases Handled
-- Users without LMS/Events access won't see the button (attendee-only users)
-- The button uses a link component for proper navigation
-- Uses an icon-only button to keep the header clean and consistent with the existing logout button
+Since `hasAttendeeAccess` is effectively always true for authenticated users, this simplifies to always showing the button for LMS users. However, we should use the proper check for correctness.
+
+### Changes to Events Dashboard Layout (`src/layouts/EventsDashboardLayout.tsx`)
+
+**Current logic (line 35):**
+```tsx
+showSwitchOption={hasLMSAccess}
+```
+
+**New logic:**
+```tsx
+const { hasLMSAccess, hasAttendeeAccess } = useAuth();
+// Show switch button if user has access to another area besides Events
+const showSwitchOption = hasLMSAccess || hasAttendeeAccess;
+```
+
+### Attendee Layout (Already Correct)
+The `AttendeeLayout.tsx` already has the correct logic:
+```tsx
+const showDashboardSwitch = hasLMSAccess || hasEMAccess;
+```
+
+---
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/components/layout/Sidebar.tsx` | Add `hasAttendeeAccess` check alongside `hasEMAccess` |
+| `src/layouts/EventsDashboardLayout.tsx` | Add `hasAttendeeAccess` check alongside `hasLMSAccess` |
+
+## Behavior After Changes
+
+| Current Area | Shows Switch Button When |
+|--------------|-------------------------|
+| LMS | User has Events OR Attendee access |
+| Events | User has LMS OR Attendee access |
+| Attendee | User has LMS OR Events access |
+
+Since Attendee access is universal, this effectively means:
+- LMS users always see the switch button
+- Events users always see the switch button  
+- Attendee-only users (no LMS/Events) do NOT see the button
+
