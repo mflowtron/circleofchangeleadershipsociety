@@ -59,6 +59,55 @@ export default function EventAnnouncements() {
   const [audienceType, setAudienceType] = useState<AudienceType>('all');
   const [audienceFilter, setAudienceFilter] = useState<AudienceFilter>({});
 
+  // Push notification content (separate from announcement)
+  const MAX_PUSH_TITLE = 50;
+  const MAX_PUSH_MESSAGE = 200;
+  const [pushTitle, setPushTitle] = useState('');
+  const [pushMessage, setPushMessage] = useState('');
+  const [pushCustomized, setPushCustomized] = useState(false);
+
+  // When toggling push ON, auto-populate push fields from announcement
+  const handleSendPushToggle = (checked: boolean) => {
+    setSendPush(checked);
+    if (checked && !pushCustomized) {
+      setPushTitle(title.trim().slice(0, MAX_PUSH_TITLE));
+      setPushMessage(content.trim().slice(0, MAX_PUSH_MESSAGE));
+    }
+  };
+
+  // Keep push fields in sync with announcement fields UNTIL user manually edits them
+  const handleTitleChange = (value: string) => {
+    setTitle(value);
+    if (sendPush && !pushCustomized) {
+      setPushTitle(value.trim().slice(0, MAX_PUSH_TITLE));
+    }
+  };
+
+  const handleContentChange = (value: string) => {
+    setContent(value);
+    if (sendPush && !pushCustomized) {
+      setPushMessage(value.trim().slice(0, MAX_PUSH_MESSAGE));
+    }
+  };
+
+  // Once the user edits push fields directly, stop auto-syncing
+  const handlePushTitleChange = (value: string) => {
+    setPushTitle(value.slice(0, MAX_PUSH_TITLE));
+    setPushCustomized(true);
+  };
+
+  const handlePushMessageChange = (value: string) => {
+    setPushMessage(value.slice(0, MAX_PUSH_MESSAGE));
+    setPushCustomized(true);
+  };
+
+  // Let user re-sync push fields from announcement after customizing
+  const resetPushToAnnouncement = () => {
+    setPushTitle(title.trim().slice(0, MAX_PUSH_TITLE));
+    setPushMessage(content.trim().slice(0, MAX_PUSH_MESSAGE));
+    setPushCustomized(false);
+  };
+
   const { data: audienceCounts } = useAudienceCounts(selectedEventId);
 
   // Fetch announcements for this event
@@ -105,8 +154,8 @@ export default function EventAnnouncements() {
         const { data: pushResult, error: pushError } = await supabase.functions.invoke('send-push-notification', {
           body: {
             event_id: selectedEventId,
-            title: title.trim(),
-            message: content.trim().slice(0, 200),
+            title: pushTitle.trim(),
+            message: pushMessage.trim(),
             audience_type: audienceType,
             audience_filter: Object.keys(audienceFilter).length > 0 ? audienceFilter : undefined,
           },
@@ -135,6 +184,9 @@ export default function EventAnnouncements() {
       setPriority('normal');
       setExpiresAt('');
       setSendPush(false);
+      setPushTitle('');
+      setPushMessage('');
+      setPushCustomized(false);
       setAudienceType('all');
       setAudienceFilter({});
     },
@@ -187,7 +239,8 @@ export default function EventAnnouncements() {
     );
   }
 
-  const isValid = title.trim().length > 0 && content.trim().length > 0;
+  const isValid = title.trim().length > 0 && content.trim().length > 0 &&
+    (!sendPush || (pushTitle.trim().length > 0 && pushMessage.trim().length > 0));
 
   return (
     <div className="p-6 space-y-6">
@@ -231,7 +284,7 @@ export default function EventAnnouncements() {
                   <Input
                     id="ann-title"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => handleTitleChange(e.target.value)}
                     placeholder="Announcement title..."
                     required
                   />
@@ -241,8 +294,8 @@ export default function EventAnnouncements() {
                   <Textarea
                     id="ann-content"
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="Write your announcement..."
+                    onChange={(e) => handleContentChange(e.target.value)}
+                    placeholder="Write your announcement... (no character limit)"
                     rows={4}
                     required
                   />
@@ -288,8 +341,56 @@ export default function EventAnnouncements() {
                           </p>
                         </div>
                       </div>
-                      <Switch checked={sendPush} onCheckedChange={setSendPush} />
+                      <Switch checked={sendPush} onCheckedChange={handleSendPushToggle} />
                     </div>
+                    {/* Customizable Push Content — shown when push is enabled */}
+                    {sendPush && (
+                      <div className="space-y-3 pt-3 mt-3 border-t border-border/50">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-muted-foreground">Push Notification Content</p>
+                          {pushCustomized && (
+                            <Button type="button" variant="ghost" size="sm" className="text-xs h-7" onClick={resetPushToAnnouncement}>
+                              Reset to announcement text
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Push notifications have character limits. Customize the push title and message separately from the full announcement.
+                        </p>
+                        <div className="space-y-2">
+                          <Label htmlFor="push-title">Push Title</Label>
+                          <Input
+                            id="push-title"
+                            value={pushTitle}
+                            onChange={(e) => handlePushTitleChange(e.target.value)}
+                            placeholder="Short push title..."
+                            maxLength={MAX_PUSH_TITLE}
+                          />
+                          <p className="text-xs text-muted-foreground text-right">
+                            {pushTitle.length}/{MAX_PUSH_TITLE}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="push-message">Push Message</Label>
+                          <Textarea
+                            id="push-message"
+                            value={pushMessage}
+                            onChange={(e) => handlePushMessageChange(e.target.value)}
+                            placeholder="Brief push message..."
+                            rows={2}
+                            maxLength={MAX_PUSH_MESSAGE}
+                          />
+                          <p className="text-xs text-muted-foreground text-right">
+                            {pushMessage.length}/{MAX_PUSH_MESSAGE}
+                          </p>
+                        </div>
+                        {(title.length > MAX_PUSH_TITLE || content.length > MAX_PUSH_MESSAGE) && !pushCustomized && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
+                            ⚠ Your announcement text exceeds push notification limits and was auto-truncated. Edit the fields above to customize.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
