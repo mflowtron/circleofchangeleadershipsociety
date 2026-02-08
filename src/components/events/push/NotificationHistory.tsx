@@ -1,13 +1,27 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Clock, Users, Home, Monitor, Tag, User, CheckCircle, XCircle } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Clock, Users, Home, Monitor, Tag, User, CheckCircle, XCircle, CalendarClock, Loader2, Ban } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
 import { type PushNotification } from '@/hooks/usePushNotifications';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface NotificationHistoryProps {
   notifications: PushNotification[];
   isLoading: boolean;
+  onCancel?: (notificationId: string) => Promise<void>;
+  isCancelling?: boolean;
 }
 
 const audienceTypeLabels: Record<string, { label: string; icon: React.ElementType }> = {
@@ -18,7 +32,14 @@ const audienceTypeLabels: Record<string, { label: string; icon: React.ElementTyp
   individual: { label: 'Individual', icon: User },
 };
 
-export function NotificationHistory({ notifications, isLoading }: NotificationHistoryProps) {
+const statusConfig: Record<string, { label: string; variant: 'default' | 'destructive' | 'secondary' | 'outline'; icon: React.ElementType }> = {
+  sent: { label: 'Sent', variant: 'default', icon: CheckCircle },
+  failed: { label: 'Failed', variant: 'destructive', icon: XCircle },
+  scheduled: { label: 'Scheduled', variant: 'secondary', icon: CalendarClock },
+  cancelled: { label: 'Cancelled', variant: 'outline', icon: Ban },
+};
+
+export function NotificationHistory({ notifications, isLoading, onCancel, isCancelling }: NotificationHistoryProps) {
   if (isLoading) {
     return (
       <Card>
@@ -73,7 +94,9 @@ export function NotificationHistory({ notifications, isLoading }: NotificationHi
         {notifications.map((notification) => {
           const audienceInfo = audienceTypeLabels[notification.audience_type] || audienceTypeLabels.all;
           const AudienceIcon = audienceInfo.icon;
-          const isSent = notification.status === 'sent';
+          const status = statusConfig[notification.status] || statusConfig.sent;
+          const StatusIcon = status.icon;
+          const isScheduled = notification.status === 'scheduled';
 
           return (
             <div
@@ -82,12 +105,9 @@ export function NotificationHistory({ notifications, isLoading }: NotificationHi
             >
               <div className="flex items-start justify-between gap-2">
                 <h4 className="font-medium">{notification.title}</h4>
-                <Badge variant={isSent ? 'default' : 'destructive'} className="shrink-0">
-                  {isSent ? (
-                    <><CheckCircle className="h-3 w-3 mr-1" /> Sent</>
-                  ) : (
-                    <><XCircle className="h-3 w-3 mr-1" /> Failed</>
-                  )}
+                <Badge variant={status.variant} className="shrink-0">
+                  <StatusIcon className="h-3 w-3 mr-1" />
+                  {status.label}
                 </Badge>
               </div>
               
@@ -104,16 +124,66 @@ export function NotificationHistory({ notifications, isLoading }: NotificationHi
                   <Users className="h-3 w-3" />
                   {notification.recipient_count} recipients
                 </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                </span>
+                {isScheduled && notification.scheduled_for ? (
+                  <span className="flex items-center gap-1">
+                    <CalendarClock className="h-3 w-3" />
+                    {format(new Date(notification.scheduled_for), "MMM d 'at' h:mm a")}
+                  </span>
+                ) : notification.sent_at ? (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Sent {formatDistanceToNow(new Date(notification.sent_at), { addSuffix: true })}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                  </span>
+                )}
               </div>
 
               {notification.error_message && (
                 <p className="text-xs text-destructive mt-2">
                   Error: {notification.error_message}
                 </p>
+              )}
+
+              {isScheduled && onCancel && (
+                <div className="pt-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isCancelling}
+                      >
+                        {isCancelling ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <Ban className="h-3 w-3 mr-1" />
+                        )}
+                        Cancel
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel Scheduled Notification?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This notification will not be sent. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Keep Scheduled</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => onCancel(notification.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Cancel Notification
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               )}
             </div>
           );

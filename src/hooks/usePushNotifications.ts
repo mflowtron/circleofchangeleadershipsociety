@@ -22,6 +22,8 @@ export interface PushNotification {
   recipient_count: number;
   status: string;
   error_message: string | null;
+  scheduled_for: string | null;
+  sent_at: string | null;
   created_at: string;
 }
 
@@ -32,10 +34,12 @@ export interface SendNotificationParams {
   redirect_url?: string;
   audience_type: AudienceType;
   audience_filter?: AudienceFilter;
+  scheduled_for?: string;
 }
 
 export function usePushNotifications(eventId: string | null) {
   const queryClient = useQueryClient();
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Fetch notification history for the event
   const { data: notifications, isLoading, refetch } = useQuery({
@@ -69,7 +73,11 @@ export function usePushNotifications(eventId: string | null) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['push-notifications', eventId] });
-      toast.success(`Notification sent to ${data.recipient_count} attendees`);
+      if (data.scheduled) {
+        toast.success(`Notification scheduled for ${data.recipient_count} attendees`);
+      } else {
+        toast.success(`Notification sent to ${data.recipient_count} attendees`);
+      }
     },
     onError: (error: Error) => {
       console.error('Failed to send notification:', error);
@@ -88,11 +96,37 @@ export function usePushNotifications(eventId: string | null) {
     [eventId, sendNotificationMutation]
   );
 
+  const cancelNotification = useCallback(
+    async (notificationId: string) => {
+      setIsCancelling(true);
+      try {
+        const { error } = await supabase
+          .from('push_notifications')
+          .update({ status: 'cancelled' })
+          .eq('id', notificationId)
+          .eq('status', 'scheduled');
+
+        if (error) throw error;
+        
+        queryClient.invalidateQueries({ queryKey: ['push-notifications', eventId] });
+        toast.success('Notification cancelled');
+      } catch (error) {
+        console.error('Failed to cancel notification:', error);
+        toast.error('Failed to cancel notification');
+      } finally {
+        setIsCancelling(false);
+      }
+    },
+    [eventId, queryClient]
+  );
+
   return {
     notifications: notifications ?? [],
     isLoading,
     isSending: sendNotificationMutation.isPending,
+    isCancelling,
     sendNotification,
+    cancelNotification,
     refetch,
   };
 }

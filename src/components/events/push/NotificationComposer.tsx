@@ -4,7 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2, AlertTriangle } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Send, Loader2, AlertTriangle, CalendarIcon, Clock } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +20,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AudienceSelector } from './AudienceSelector';
 import { type AudienceType, type AudienceFilter, useAudienceCounts } from '@/hooks/usePushNotifications';
+import { cn } from '@/lib/utils';
+import { format, addMinutes, setHours, setMinutes, isBefore, addDays } from 'date-fns';
 
 interface NotificationComposerProps {
   eventId: string;
@@ -26,12 +31,15 @@ interface NotificationComposerProps {
     redirect_url?: string;
     audience_type: AudienceType;
     audience_filter?: AudienceFilter;
+    scheduled_for?: string;
   }) => Promise<void>;
   isSending: boolean;
 }
 
 const MAX_TITLE_LENGTH = 50;
 const MAX_MESSAGE_LENGTH = 200;
+
+type DeliveryMode = 'now' | 'scheduled';
 
 export function NotificationComposer({ eventId, onSend, isSending }: NotificationComposerProps) {
   const [title, setTitle] = useState('');
@@ -40,22 +48,46 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
   const [audienceType, setAudienceType] = useState<AudienceType>('all');
   const [audienceFilter, setAudienceFilter] = useState<AudienceFilter>({});
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  
+  // Scheduling state
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('now');
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
+  const [scheduledTime, setScheduledTime] = useState('09:00');
 
   const { data: audienceCounts } = useAudienceCounts(eventId);
+
+  const getScheduledDateTime = (): Date | null => {
+    if (!scheduledDate) return null;
+    const [hours, minutes] = scheduledTime.split(':').map(Number);
+    return setMinutes(setHours(scheduledDate, hours), minutes);
+  };
+
+  const isScheduleValid = (): boolean => {
+    if (deliveryMode === 'now') return true;
+    const scheduledDateTime = getScheduledDateTime();
+    if (!scheduledDateTime) return false;
+    const minTime = addMinutes(new Date(), 5);
+    const maxTime = addDays(new Date(), 30);
+    return !isBefore(scheduledDateTime, minTime) && isBefore(scheduledDateTime, maxTime);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !message.trim()) return;
+    if (!isScheduleValid()) return;
     setShowConfirmDialog(true);
   };
 
   const handleConfirm = async () => {
+    const scheduledDateTime = deliveryMode === 'scheduled' ? getScheduledDateTime() : null;
+    
     await onSend({
       title: title.trim(),
       message: message.trim(),
       redirect_url: redirectUrl.trim() || undefined,
       audience_type: audienceType,
       audience_filter: Object.keys(audienceFilter).length > 0 ? audienceFilter : undefined,
+      scheduled_for: scheduledDateTime?.toISOString(),
     });
 
     // Reset form and close dialog
@@ -65,6 +97,9 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
     setRedirectUrl('');
     setAudienceType('all');
     setAudienceFilter({});
+    setDeliveryMode('now');
+    setScheduledDate(undefined);
+    setScheduledTime('09:00');
   };
 
   const getAudienceLabel = () => {
@@ -100,7 +135,8 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
     }
   };
 
-  const isValid = title.trim().length > 0 && message.trim().length > 0;
+  const isValid = title.trim().length > 0 && message.trim().length > 0 && isScheduleValid();
+  const scheduledDateTime = getScheduledDateTime();
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -163,6 +199,97 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
         audienceCounts={audienceCounts}
       />
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Delivery
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <RadioGroup
+            value={deliveryMode}
+            onValueChange={(v) => setDeliveryMode(v as DeliveryMode)}
+            disabled={isSending}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="now" id="delivery-now" />
+              <Label htmlFor="delivery-now" className="font-normal cursor-pointer">
+                Send Now
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="scheduled" id="delivery-scheduled" />
+              <Label htmlFor="delivery-scheduled" className="font-normal cursor-pointer">
+                Schedule for Later
+              </Label>
+            </div>
+          </RadioGroup>
+
+          {deliveryMode === 'scheduled' && (
+            <div className="space-y-4 pt-2">
+              <div className="flex flex-wrap gap-3">
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-[200px] justify-start text-left font-normal',
+                          !scheduledDate && 'text-muted-foreground'
+                        )}
+                        disabled={isSending}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {scheduledDate ? format(scheduledDate, 'MMM d, yyyy') : 'Pick a date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={scheduledDate}
+                        onSelect={setScheduledDate}
+                        disabled={(date) => isBefore(date, new Date()) || isBefore(addDays(new Date(), 30), date)}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="scheduled-time">Time</Label>
+                  <Input
+                    id="scheduled-time"
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                    className="w-[140px]"
+                    disabled={isSending}
+                  />
+                </div>
+              </div>
+
+              {scheduledDate && !isScheduleValid() && (
+                <p className="text-sm text-destructive">
+                  Schedule must be at least 5 minutes in the future and within 30 days.
+                </p>
+              )}
+
+              {scheduledDate && isScheduleValid() && scheduledDateTime && (
+                <p className="text-sm text-muted-foreground">
+                  Will be sent on{' '}
+                  <span className="font-medium">
+                    {format(scheduledDateTime, "MMM d, yyyy 'at' h:mm a")}
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Will be sent to <span className="font-medium">{getRecipientCount()}</span> attendees
@@ -177,12 +304,21 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
           {isSending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Sending...
+              {deliveryMode === 'scheduled' ? 'Scheduling...' : 'Sending...'}
             </>
           ) : (
             <>
-              <Send className="mr-2 h-4 w-4" />
-              Send Notification
+              {deliveryMode === 'scheduled' ? (
+                <>
+                  <Clock className="mr-2 h-4 w-4" />
+                  Schedule Notification
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Notification
+                </>
+              )}
             </>
           )}
         </Button>
@@ -193,13 +329,23 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-warning" />
-              Send Push Notification?
+              {deliveryMode === 'scheduled' ? 'Schedule Push Notification?' : 'Send Push Notification?'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
                 <p>
-                  You are about to send a notification to{' '}
-                  <span className="font-medium">{getRecipientCount()}</span> attendees.
+                  {deliveryMode === 'scheduled' && scheduledDateTime ? (
+                    <>
+                      This notification will be sent to{' '}
+                      <span className="font-medium">{getRecipientCount()}</span> attendees on{' '}
+                      <span className="font-medium">{format(scheduledDateTime, "MMM d, yyyy 'at' h:mm a")}</span>.
+                    </>
+                  ) : (
+                    <>
+                      You are about to send a notification to{' '}
+                      <span className="font-medium">{getRecipientCount()}</span> attendees.
+                    </>
+                  )}
                 </p>
                 
                 <div className="rounded-md border bg-muted/50 p-3 space-y-2 text-sm">
@@ -213,10 +359,18 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
                   <div>
                     <span className="font-medium">Audience:</span> {getAudienceLabel()}
                   </div>
+                  {deliveryMode === 'scheduled' && scheduledDateTime && (
+                    <div>
+                      <span className="font-medium">Scheduled:</span>{' '}
+                      {format(scheduledDateTime, "MMM d, yyyy 'at' h:mm a")}
+                    </div>
+                  )}
                 </div>
                 
                 <p className="text-xs text-muted-foreground">
-                  This action cannot be undone. Notifications will be sent immediately to all targeted devices.
+                  {deliveryMode === 'scheduled'
+                    ? 'You can cancel this notification before the scheduled time from the history below.'
+                    : 'This action cannot be undone. Notifications will be sent immediately to all targeted devices.'}
                 </p>
               </div>
             </AlertDialogDescription>
@@ -227,7 +381,12 @@ export function NotificationComposer({ eventId, onSend, isSending }: Notificatio
               {isSending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
+                  {deliveryMode === 'scheduled' ? 'Scheduling...' : 'Sending...'}
+                </>
+              ) : deliveryMode === 'scheduled' ? (
+                <>
+                  <Clock className="mr-2 h-4 w-4" />
+                  Schedule Notification
                 </>
               ) : (
                 <>

@@ -7,7 +7,7 @@ import { useEventSelection } from '@/contexts/EventSelectionContext';
 
 export default function PushNotifications() {
   const { selectedEventId, hasSelection } = useEventSelection();
-  const { notifications, isLoading, isSending, sendNotification } = usePushNotifications(selectedEventId);
+  const { notifications, isLoading, isSending, isCancelling, sendNotification, cancelNotification } = usePushNotifications(selectedEventId);
 
   if (!hasSelection) {
     return (
@@ -40,7 +40,7 @@ export default function PushNotifications() {
         <AlertTitle>Natively + OneSignal Integration</AlertTitle>
         <AlertDescription>
           Push notifications are sent to attendees who have the native app installed and notifications enabled.
-          Messages are delivered instantly to their devices.
+          Messages are delivered instantly or at your scheduled time.
         </AlertDescription>
       </Alert>
 
@@ -56,6 +56,8 @@ export default function PushNotifications() {
           <NotificationHistory
             notifications={notifications}
             isLoading={isLoading}
+            onCancel={cancelNotification}
+            isCancelling={isCancelling}
           />
         </div>
       </div>
