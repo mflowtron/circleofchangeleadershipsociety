@@ -131,16 +131,17 @@ Deno.serve(async (req) => {
         }
       } catch (err) {
         console.error(`Error processing notification ${notification.id}:`, err);
+        const errMessage = err instanceof Error ? err.message : "Processing error";
         
         await supabase
           .from("push_notifications")
           .update({
             status: "failed",
-            error_message: err.message || "Processing error",
+            error_message: errMessage,
           })
           .eq("id", notification.id);
 
-        results.push({ id: notification.id, status: "failed", error: err.message });
+        results.push({ id: notification.id, status: "failed", error: errMessage });
       }
     }
 
@@ -156,7 +157,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("Error in process-scheduled-notifications:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
