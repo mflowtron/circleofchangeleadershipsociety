@@ -87,7 +87,17 @@ serve(async (req) => {
       const orderItemIds = (order.order_items || []).map(
         (item: { id: string }) => item.id
       );
-      let attendees: unknown[] = [];
+      interface AttendeeRecord {
+        id: string;
+        attendee_name?: string;
+        attendee_email?: string;
+        is_purchaser?: boolean;
+        form_status?: string;
+        tally_form_sent_at?: string;
+        tally_form_completed_at?: string;
+        qr_token?: string;
+      }
+      let attendees: AttendeeRecord[] = [];
 
       if (orderItemIds.length > 0) {
         const { data: attendeeData } = await supabaseAdmin
@@ -96,7 +106,7 @@ serve(async (req) => {
             "id, attendee_name, attendee_email, is_purchaser, form_status, tally_form_sent_at, tally_form_completed_at, qr_token"
           )
           .in("order_item_id", orderItemIds);
-        attendees = attendeeData || [];
+        attendees = (attendeeData || []) as AttendeeRecord[];
       }
 
       const { data: regData } = await supabaseAdmin
@@ -107,14 +117,13 @@ serve(async (req) => {
 
       const totalAttendees = attendees.length;
       const named = attendees.filter(
-        (a: { attendee_name?: string }) =>
-          a.attendee_name && a.attendee_name.trim() !== ""
+        (a) => a.attendee_name && a.attendee_name.trim() !== ""
       ).length;
       const formsSent = attendees.filter(
-        (a: { form_status?: string }) => a.form_status === "pending"
+        (a) => a.form_status === "pending"
       ).length;
       const formsComplete = attendees.filter(
-        (a: { form_status?: string }) => a.form_status === "completed"
+        (a) => a.form_status === "completed"
       ).length;
 
       registrations.push({
