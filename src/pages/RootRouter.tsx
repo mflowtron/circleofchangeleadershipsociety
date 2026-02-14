@@ -59,9 +59,10 @@ export default function RootRouter() {
     // Determine accessible areas
     const hasLMS = hasModuleAccess('lms');
     const hasEvents = hasModuleAccess('events');
+    const hasAttendee = hasModuleAccess('attendee');
 
     // Count accessible areas
-    const accessCount = (hasLMS ? 1 : 0) + (hasEvents ? 1 : 0) + 1; // +1 for attendee (always available)
+    const accessCount = (hasLMS ? 1 : 0) + (hasEvents ? 1 : 0) + (hasAttendee ? 1 : 0);
 
     // Multiple areas - show selector
     if (accessCount > 1) {
@@ -74,9 +75,11 @@ export default function RootRouter() {
       navigate('/lms', { replace: true });
     } else if (hasEvents) {
       navigate('/events/manage', { replace: true });
-    } else {
-      // Default to attendee app
+    } else if (hasAttendee) {
       navigate('/attendee/app/home', { replace: true });
+    } else {
+      // No module access at all
+      navigate('/pending-approval', { replace: true });
     }
   }, [loading, user, isApproved, profile, navigate, hasModuleAccess]);
 

@@ -10,9 +10,8 @@ interface EventsDashboardLayoutProps {
 }
 
 export default function EventsDashboardLayout({ children }: EventsDashboardLayoutProps) {
-  const { user, loading, hasLMSAccess } = useAuth();
-  // Always show switch button since Attendee app is accessible to anyone with event tickets
-  const showSwitchOption = true;
+  const { user, loading, hasModuleAccess } = useAuth();
+  const showSwitchOption = [hasModuleAccess('lms'), hasModuleAccess('events'), hasModuleAccess('attendee')].filter(Boolean).length > 1;
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
