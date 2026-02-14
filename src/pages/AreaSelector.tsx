@@ -60,8 +60,7 @@ export default function AreaSelector() {
   const accessibleAreas: AccessArea[] = [];
   if (hasModuleAccess('lms')) accessibleAreas.push('lms');
   if (hasModuleAccess('events')) accessibleAreas.push('events');
-  // Attendee access is always available for now
-  accessibleAreas.push('attendee');
+  if (hasModuleAccess('attendee')) accessibleAreas.push('attendee');
 
   const handleSelectArea = async (config: AreaConfig) => {
     navigate(config.route, { replace: true });
