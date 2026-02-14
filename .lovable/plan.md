@@ -1,235 +1,79 @@
 
+# Fix: Attendee App Should Only Show for Users with Attendee Records
 
-# Fix Public /events/* Pages for Non-Logged-In Users
+## Problem
 
-## Overview
+The Area Selector and Root Router both assume the Attendee App is **always accessible** to every authenticated user. This means new signups who have no attendee record or event tickets still see the Attendee App as an option on the dashboard selector.
 
-This plan addresses two issues:
-1. **RLS Policy fixes** to ensure anonymous users can view published event data (speakers, agenda, tickets)
-2. **TypeScript build errors** in edge functions that need to be fixed
+## Root Cause
 
-## Problem Analysis
+Two hardcoded assumptions:
 
-### RLS Policies
-The current RLS policies for `speakers`, `ticket_types`, and `agenda_items` combine published event access with admin/creator access in a single policy using OR conditions. While this should work, splitting them into separate policies (as was done for the `events` table) ensures reliable anonymous access:
+1. **`AreaSelector.tsx` line 63-64**: `accessibleAreas.push('attendee')` is unconditional -- always added.
+2. **`RootRouter.tsx` line 64**: `accessCount` always adds `+1` for attendee.
 
-**Current (problematic) pattern:**
-```sql
--- Single policy with combined conditions
-USING (
-  EXISTS (
-    SELECT 1 FROM events e
-    WHERE e.id = speakers.event_id
-    AND (e.is_published = true OR e.created_by = auth.uid() OR is_admin(auth.uid()))
-  )
-)
-```
+## Solution
 
-**Recommended pattern (matches events table):**
-```sql
--- Policy 1: Public access for published events (no auth required)
-USING (EXISTS (SELECT 1 FROM events e WHERE e.id = speakers.event_id AND e.is_published = true))
+Use the existing `hasModuleAccess('attendee')` check (which reads from `profile.module_access`) instead of always including the attendee area. Admins already get access to everything via the `profile.role === 'admin'` check in `hasModuleAccess`.
 
--- Policy 2: Admin/creator access for unpublished events (auth required)
-USING (EXISTS (SELECT 1 FROM events e WHERE e.id = speakers.event_id AND (e.created_by = auth.uid() OR is_admin(auth.uid()))))
-```
+### Files to Change
 
-### Storage Buckets
-Already confirmed as public: `event-images`, `avatars`, `speaker-images` ✅
+**1. `src/pages/AreaSelector.tsx`**
 
-### Edge Function TypeScript Errors
-Multiple edge functions have TypeScript errors where:
-- `error` is of type `unknown` and needs casting
-- Arrays typed as `unknown[]` need proper type assertions
+Replace the unconditional attendee push:
 
-## Implementation Plan
-
-### Phase 1: Database Migration (RLS Policy Updates)
-
-Update policies for `speakers`, `ticket_types`, and `agenda_items` to split public/admin access:
-
-```sql
--- ============================================================
--- SPEAKERS: Split into public + admin policies
--- ============================================================
-DROP POLICY IF EXISTS "Speakers with published events" ON public.speakers;
-
-CREATE POLICY "Speakers with published events"
-  ON public.speakers
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.events e
-      WHERE e.id = speakers.event_id
-      AND e.is_published = true
-    )
-  );
-
-CREATE POLICY "Speakers for unpublished events"
-  ON public.speakers
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.events e
-      WHERE e.id = speakers.event_id
-      AND (e.created_by = auth.uid() OR public.is_admin(auth.uid()))
-    )
-  );
-
--- ============================================================
--- TICKET_TYPES: Split into public + admin policies
--- ============================================================
-DROP POLICY IF EXISTS "Ticket types with published events" ON public.ticket_types;
-
-CREATE POLICY "Ticket types with published events"
-  ON public.ticket_types
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.events e
-      WHERE e.id = ticket_types.event_id
-      AND e.is_published = true
-    )
-  );
-
-CREATE POLICY "Ticket types for unpublished events"
-  ON public.ticket_types
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.events e
-      WHERE e.id = ticket_types.event_id
-      AND (e.created_by = auth.uid() OR public.is_admin(auth.uid()))
-    )
-  );
-
--- ============================================================
--- AGENDA_ITEMS: Split into public + admin policies
--- ============================================================
-DROP POLICY IF EXISTS "Agenda with published events" ON public.agenda_items;
-
-CREATE POLICY "Agenda with published events"
-  ON public.agenda_items
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.events e
-      WHERE e.id = agenda_items.event_id
-      AND e.is_published = true
-    )
-  );
-
-CREATE POLICY "Agenda for unpublished events"
-  ON public.agenda_items
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.events e
-      WHERE e.id = agenda_items.event_id
-      AND (e.created_by = auth.uid() OR public.is_admin(auth.uid()))
-    )
-  );
-```
-
-### Phase 2: Fix Edge Function TypeScript Errors
-
-Fix TypeScript strict mode errors across multiple edge functions:
-
-| File | Issue | Fix |
-|------|-------|-----|
-| `get-networkable-attendees/index.ts` | `error.message` on unknown type | Cast error: `(error as Error).message` |
-| `get-registration-orders/index.ts` | Array `unknown[]` type with typed predicates | Define interface and cast: `attendees as Attendee[]` |
-| `verify-registration-otp/index.ts` | Array `unknown[]` type with typed predicates | Define interface and cast: `attendees as Attendee[]` |
-| `join-event-chat/index.ts` | `eventChat` possibly null + error unknown | Add null check before usage, cast error |
-| `join-session-chat/index.ts` | `sessionChat` possibly null + error unknown | Add null check before usage, cast error |
-| `manage-feed-comments/index.ts` | Accessing `.id` on array type | Fix to access single object, not array |
-| `process-scheduled-notifications/index.ts` | `err.message` on unknown type | Cast: `(err as Error).message` |
-| `register-push-token/index.ts` | `error.message` on unknown type | Cast error |
-| `send-attendee-message/index.ts` | `error.message` on unknown type | Cast error |
-| `send-push-notification/index.ts` | `error.message` on unknown type | Cast error |
-| `toggle-message-reaction/index.ts` | `error.message` on unknown type | Cast error |
-| `update-attendee-profile/index.ts` | `error.message` on unknown type | Cast error |
-| `upload-chat-attachment/index.ts` | `error.message` on unknown type | Cast error |
-
-**Common fix pattern for error handling:**
 ```typescript
-// Before
-} catch (error) {
-  JSON.stringify({ error: error.message })
-}
+// Before (line 63-64)
+// Attendee access is always available for now
+accessibleAreas.push('attendee');
 
 // After
-} catch (error) {
-  JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' })
-}
+if (hasModuleAccess('attendee')) accessibleAreas.push('attendee');
 ```
 
-**Common fix pattern for typed arrays:**
+**2. `src/pages/RootRouter.tsx`**
+
+Use `hasModuleAccess('attendee')` in the access count and fallback logic:
+
 ```typescript
-// Before
-let attendees: unknown[] = [];
-attendees.filter((a: { attendee_name?: string }) => ...)
+// Before (lines 59-64)
+const hasLMS = hasModuleAccess('lms');
+const hasEvents = hasModuleAccess('events');
+const accessCount = (hasLMS ? 1 : 0) + (hasEvents ? 1 : 0) + 1; // +1 for attendee (always available)
 
 // After
-interface AttendeeRecord {
-  id: string;
-  attendee_name?: string;
-  attendee_email?: string;
-  form_status?: string;
-  // ... other fields
-}
-let attendees: AttendeeRecord[] = [];
-attendees.filter((a) => a.attendee_name && a.attendee_name.trim() !== "")
+const hasLMS = hasModuleAccess('lms');
+const hasEvents = hasModuleAccess('events');
+const hasAttendee = hasModuleAccess('attendee');
+const accessCount = (hasLMS ? 1 : 0) + (hasEvents ? 1 : 0) + (hasAttendee ? 1 : 0);
 ```
 
-**Fix for manage-feed-comments (accessing array as object):**
+Also update the fallback at the bottom (lines 72-82) to handle the case where a user has zero accessible areas:
+
 ```typescript
-// Before - attendees is an array due to join, not a single object
-const formattedComment = {
-  id: newComment.attendees.id,  // Error: .id doesn't exist on array
-  name: newComment.attendees.attendee_name,
-};
-
-// After - access first element or adjust select
-const attendeeData = newComment.attendees as unknown as { id: string; attendee_name: string };
-const formattedComment = {
-  id: attendeeData.id,
-  name: attendeeData.attendee_name,
-};
+// Single area - go directly
+if (hasLMS) {
+  navigate('/lms', { replace: true });
+} else if (hasEvents) {
+  navigate('/events/manage', { replace: true });
+} else if (hasAttendee) {
+  navigate('/attendee/app/home', { replace: true });
+} else {
+  // No module access at all - stay on a holding page or show message
+  navigate('/pending-approval', { replace: true });
+}
 ```
 
-## Files to Modify
+**3. `src/layouts/EventsDashboardLayout.tsx`** and **`src/components/layout/Sidebar.tsx`**
 
-1. **Database migration** (new file):
-   - RLS policy updates for `speakers`, `ticket_types`, `agenda_items`
+Both have `const showSwitchOption = true;` hardcoded. These should check whether the user has access to more than one module before showing the "Switch Dashboard" button. This is a minor improvement but keeps behavior consistent.
 
-2. **Edge functions** (12 files):
-   - `supabase/functions/get-networkable-attendees/index.ts`
-   - `supabase/functions/get-registration-orders/index.ts`
-   - `supabase/functions/verify-registration-otp/index.ts`
-   - `supabase/functions/join-event-chat/index.ts`
-   - `supabase/functions/join-session-chat/index.ts`
-   - `supabase/functions/manage-feed-comments/index.ts`
-   - `supabase/functions/process-scheduled-notifications/index.ts`
-   - `supabase/functions/register-push-token/index.ts`
-   - `supabase/functions/send-attendee-message/index.ts`
-   - `supabase/functions/send-push-notification/index.ts`
-   - `supabase/functions/toggle-message-reaction/index.ts`
-   - `supabase/functions/update-attendee-profile/index.ts`
-   - `supabase/functions/upload-chat-attachment/index.ts`
+## How It Works
 
-## Testing
+- New signups get `module_access = '{lms}'` by default, so they only see the Society/LMS area.
+- When an attendee record is created and linked, an admin can add `'attendee'` to their `module_access`.
+- Admins (`role = 'admin'`) automatically pass all `hasModuleAccess` checks, so they always see all three areas.
 
-After implementation:
+## No Database Changes Required
 
-1. **Anonymous access test**: Open an incognito window and navigate to `/events/{event-slug}` to verify:
-   - Event details display (title, description, cover image)
-   - Speakers section shows with photos
-   - Schedule/agenda displays with session details
-   - Ticket types show with pricing
-   - Hotel and travel information appears
-
-2. **Authenticated access test**: Log in as an admin/creator and verify you can still:
-   - See unpublished events
-   - Manage speakers, agenda items, and tickets
-
+The `module_access` column and `hasModuleAccess` function already exist and handle this correctly. The only issue is the frontend bypassing those checks for the attendee area.
