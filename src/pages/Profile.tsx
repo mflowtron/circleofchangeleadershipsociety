@@ -9,8 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, Shield, Save, Camera, Loader2, Linkedin, Briefcase, Trash2 } from 'lucide-react';
-import { clearAllCaches } from '@/utils/pwaUtils';
+import { User, Mail, Shield, Save, Camera, Loader2, Linkedin, Briefcase } from 'lucide-react';
 
 export default function Profile() {
   const location = useLocation();
@@ -328,50 +327,6 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      {/* App Settings Card */}
-      <Card className="shadow-soft border-border/50">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Trash2 className="h-5 w-5 text-muted-foreground" />
-            App Settings
-          </CardTitle>
-          <CardDescription>Troubleshooting options for the app</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-muted/30 border border-border/50">
-            <div>
-              <p className="font-medium text-sm">Clear Cache & Reload</p>
-              <p className="text-xs text-muted-foreground">
-                Use this if you're seeing an old version of the app
-              </p>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                toast('Clearing cache...', {
-                  description: 'The app will reload momentarily.',
-                });
-                
-                // Set a fallback reload in case the async function hangs
-                const fallbackTimeout = setTimeout(() => {
-                  console.log('[PWA] Fallback reload triggered');
-                  window.location.reload();
-                }, 3000);
-                
-                // Call the async function and clear fallback on success
-                clearAllCaches().finally(() => {
-                  clearTimeout(fallbackTimeout);
-                });
-              }}
-              className="gap-2 shrink-0"
-            >
-              <Trash2 className="h-4 w-4" />
-              Clear & Reload
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
