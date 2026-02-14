@@ -1,45 +1,6 @@
 /**
- * PWA utility functions for cache management and troubleshooting
+ * PWA utility functions for service worker management
  */
-
-/**
- * Force-clear all PWA caches and unregister service workers.
- * Use this for troubleshooting when users are stuck on old versions.
- */
-export async function clearAllCaches(): Promise<void> {
-  console.log('[PWA] Starting cache clear...');
-
-  try {
-    // Clear all caches
-    if ('caches' in window) {
-      const cacheNames = await caches.keys();
-      console.log('[PWA] Found caches:', cacheNames);
-      await Promise.all(
-        cacheNames.map(cacheName => caches.delete(cacheName))
-      );
-      console.log('[PWA] Cleared all caches');
-    }
-  } catch (error) {
-    console.error('[PWA] Error clearing caches:', error);
-  }
-
-  try {
-    // Unregister all service workers
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      for (const registration of registrations) {
-        await registration.unregister();
-      }
-      console.log('[PWA] Unregistered service workers');
-    }
-  } catch (error) {
-    console.error('[PWA] Error unregistering service workers:', error);
-  }
-
-  // Always reload, even if clearing failed
-  console.log('[PWA] Reloading page...');
-  window.location.reload();
-}
 
 /**
  * Check if there's a waiting service worker and activate it immediately

@@ -51,20 +51,3 @@ export async function warmNativeCache(): Promise<void> {
     console.debug('[NativelyCache] Cache warming failed:', error);
   }
 }
-
-/**
- * Clear all caches - useful for troubleshooting in native context
- */
-export async function clearNativeCache(): Promise<void> {
-  if (!('caches' in window)) return;
-  
-  try {
-    const cacheNames = await caches.keys();
-    await Promise.all(
-      cacheNames.map(cacheName => caches.delete(cacheName))
-    );
-    console.debug('[NativelyCache] All caches cleared');
-  } catch (error) {
-    console.error('[NativelyCache] Failed to clear caches:', error);
-  }
-}
