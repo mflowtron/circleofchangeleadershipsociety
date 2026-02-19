@@ -1,87 +1,124 @@
 
 
-# Make URLs Clickable in Announcement Content
+# Track Recording Watch Progress & Pass User Data to Mux
 
 ## Overview
 
-Announcement descriptions currently render as plain text. Any URLs typed into the content are not clickable. This change adds a shared utility function to parse text for URLs and render them as clickable links, then applies it across all three announcement display components in the Society (LMS) and Attendee sides.
+Add two capabilities to the session recordings player:
+1. **Resume playback** -- save the user's last watched position per recording and restore it when they return
+2. **Mux Data tracking** -- pass the user's email and name to Mux's analytics metadata so viewing behavior is trackable in the Mux dashboard
 
-## Approach
+## Changes
 
-Create a small reusable React component/utility that takes a string, finds URLs via regex, and returns a mix of text spans and `<a>` tags. This avoids pulling in a heavy Markdown library for a simple linkification need.
+### 1. New database table: `recording_watch_progress`
 
-## Files to Change
+Create a table to store each user's playback position per recording.
 
-### 1. New file: `src/utils/linkifyText.tsx`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK, auto-generated |
+| user_id | uuid | NOT NULL, references the viewer |
+| recording_id | uuid | NOT NULL, references `recordings.id` |
+| position_seconds | float | Last watched time in seconds |
+| duration_seconds | float | Total video duration (for calculating % progress) |
+| updated_at | timestamptz | Auto-updated on each save |
+| created_at | timestamptz | Auto-set |
 
-A small utility that exports a `LinkifiedText` React component:
+- Add a **unique constraint** on `(user_id, recording_id)` so we upsert cleanly
+- **RLS policies**:
+  - Users can SELECT/INSERT/UPDATE their own rows (`user_id = auth.uid()`)
+  - Admins can SELECT all rows (for analytics)
 
-- Uses a URL regex to split text into segments
-- Renders plain text as-is and URLs as `<a href="..." target="_blank" rel="noopener noreferrer">` links
-- Accepts a `className` prop for link styling (e.g., underline, primary color)
-- Handles edge cases: URLs at start/end of string, multiple URLs, no URLs
+### 2. New hook: `src/hooks/useWatchProgress.ts`
 
-### 2. `src/components/announcements/AnnouncementCard.tsx` (Society home banner)
+A custom hook that:
+- On mount, fetches the saved position for the current user + recording
+- Exposes `startPosition` (number of seconds to seek to on load)
+- Exposes a `saveProgress(positionSeconds, durationSeconds)` function that upserts to the database
+- Debounces/throttles saves to avoid hammering the database (save every ~5 seconds of playback, and on pause/unmount)
 
-**Line 47-49**: Replace `{announcement.content}` with `<LinkifiedText text={announcement.content} />` so URLs in the dismissible banner cards are clickable.
+### 3. Update `src/components/recordings/RecordingPlayerView.tsx`
 
-### 3. `src/pages/attendee/Announcements.tsx` (Attendee announcements history)
+**Pass user metadata to MuxPlayer** (line 246-255):
+- Import `useAuth` to get `user.email` and `profile.full_name`
+- Add `metadata` fields that Mux Data recognizes:
+  - `viewer_user_id` -- the user's auth ID
+  - `video_title` -- already present
+  - Plus custom metadata keys for email tracking
 
-**Line 75-77**: Replace `{announcement.content}` with `<LinkifiedText text={announcement.content} />` so URLs in the full announcement list are clickable.
+**Mux Player `metadata` prop** (Mux Data standard fields):
+```tsx
+metadata={{
+  video_title: recording.title,
+  video_id: recording.id,
+  viewer_user_id: user?.id,
+  // Mux Data custom dimensions for email tracking
+  custom_1: user?.email,
+  custom_2: profile?.full_name,
+}}
+```
 
-### 4. `src/components/attendee/feed/cards/AnnouncementCard.tsx` (Attendee feed card)
+**Resume playback**:
+- Call `useWatchProgress(recording.id)` to get `startPosition`
+- Set `startTime` on MuxPlayer to seek to the saved position on load
+- On `timeupdate` events (already handled), periodically call `saveProgress()` -- throttled to every 5 seconds
+- On component unmount and on pause, save final position
 
-**Line 74-76**: Replace `{announcement.body}` with `<LinkifiedText text={announcement.body} />` so URLs in feed-style announcement cards are clickable.
+**Save triggers**:
+- Every 5 seconds during playback (throttled in the timeupdate handler)
+- On video pause event
+- On component unmount (cleanup effect)
+
+### 4. Optional: Show progress indicator on `RecordingCard.tsx`
+
+Add a subtle progress bar at the bottom of each recording card thumbnail showing how much the user has watched. This requires:
+- Fetching all watch progress records for the current user in the Recordings page
+- Passing progress percentage to each `RecordingCard`
+- Rendering a thin gold bar at the bottom of the thumbnail
 
 ## Technical Details
 
-The `LinkifiedText` component will look like:
-
+**Throttled save logic** (inside `RecordingPlayerView`):
 ```tsx
-// src/utils/linkifyText.tsx
-import React from 'react';
+const lastSaveRef = useRef(0);
+const SAVE_INTERVAL = 5; // seconds
 
-const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/gi;
-
-interface LinkifiedTextProps {
-  text: string;
-  linkClassName?: string;
-}
-
-export function LinkifiedText({ text, linkClassName = "text-primary underline break-all" }: LinkifiedTextProps) {
-  const parts = text.split(URL_REGEX);
-
-  return (
-    <>
-      {parts.map((part, i) =>
-        URL_REGEX.test(part) ? (
-          <a
-            key={i}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={linkClassName}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {part}
-          </a>
-        ) : (
-          <React.Fragment key={i}>{part}</React.Fragment>
-        )
-      )}
-    </>
-  );
+// Inside timeupdate handler:
+const now = currentTime;
+if (now - lastSaveRef.current >= SAVE_INTERVAL) {
+  lastSaveRef.current = now;
+  saveProgress(now, duration);
 }
 ```
 
-Key details:
-- `break-all` prevents long URLs from overflowing card layouts
-- `e.stopPropagation()` prevents link clicks from triggering parent card actions (like dismiss)
-- `target="_blank"` with `noopener noreferrer` for safe external linking
-- The regex resets `lastIndex` between calls since it uses the `g` flag -- using `split` + `test` avoids this issue naturally
-- The link color uses `text-primary` to match the brand gold, with an underline for clarity
-- The feed announcement card variant will pass a custom `linkClassName` for light-on-dark styling (e.g., `"text-[#a1a1aa] underline break-all"`)
+**Upsert query** (inside the hook):
+```tsx
+await supabase
+  .from('recording_watch_progress')
+  .upsert({
+    user_id: userId,
+    recording_id: recordingId,
+    position_seconds: position,
+    duration_seconds: duration,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,recording_id' });
+```
 
-## No database changes required
+**MuxPlayer startTime**:
+```tsx
+<MuxPlayer
+  startTime={startPosition}
+  ...
+/>
+```
 
-This is a purely frontend rendering change.
+## Files Summary
+
+| File | Action |
+|------|--------|
+| Database migration | CREATE TABLE `recording_watch_progress` with RLS |
+| `src/hooks/useWatchProgress.ts` | New hook for fetching/saving progress |
+| `src/components/recordings/RecordingPlayerView.tsx` | Add Mux metadata, resume playback, throttled saves |
+| `src/components/recordings/RecordingCard.tsx` | Add optional progress bar overlay |
+| `src/pages/Recordings.tsx` | Fetch user's watch progress for all recordings, pass to cards |
+
