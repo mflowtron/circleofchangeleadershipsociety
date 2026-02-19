@@ -1,65 +1,87 @@
 
-# Fix: Attendee App Appearing for Non-Attendee Users
 
-## Diagnosis
+# Make URLs Clickable in Announcement Content
 
-The database and `AreaSelector.tsx` code are both correct:
-- The `handle_new_user` trigger sets `module_access = '{lms}'` for new signups
-- `AreaSelector.tsx` already calls `hasModuleAccess('attendee')` (fixed previously)
-- akamekon@gmail.com has `role: member`, `module_access: [lms]` in the database
+## Overview
 
-The bug is a **React render-order race condition** in `AreaSelector.tsx`. The `accessibleAreas` array is computed at the **very top of the component** (lines 60–63), before the `if (loading) return <FullPageLoader />` guard on line 69. This means:
+Announcement descriptions currently render as plain text. Any URLs typed into the content are not clickable. This change adds a shared utility function to parse text for URLs and render them as clickable links, then applies it across all three announcement display components in the Society (LMS) and Attendee sides.
 
-1. Component mounts, `loading = true`, `profile = null` initially
-2. `accessibleAreas` computes correctly as `[]` (all `hasModuleAccess` calls return `false` when profile is null)
-3. Loading completes, profile loads — but if there was a **previously cached profile** (e.g., from a prior admin session or stale React Query state), it can briefly return `true` for attendee
+## Approach
 
-More critically, if the admin user (`role: admin`) approves a new user and then the new user logs in within the same browser session, there's a window where the old admin profile state hasn't been fully cleared before the new profile loads.
-
-Additionally, the `accessibleAreas` logic runs **before** the `loading` check, meaning on intermediate renders it may use a stale profile.
-
-## Root Fix
-
-Move the `accessibleAreas` computation to run **after** the `loading` check, so it only ever runs with a fully-resolved, current-user profile.
-
-Also add a secondary guard: if `loading` is still true, don't render the area cards at all.
+Create a small reusable React component/utility that takes a string, finds URLs via regex, and returns a mix of text spans and `<a>` tags. This avoids pulling in a heavy Markdown library for a simple linkification need.
 
 ## Files to Change
 
-### `src/pages/AreaSelector.tsx`
+### 1. New file: `src/utils/linkifyText.tsx`
 
-Move the `accessibleAreas` block from lines 59–63 (before the loading check) to **after** the `if (!isApproved)` guard. This ensures the computation only happens with a fully-loaded, verified profile for the current user.
+A small utility that exports a `LinkifiedText` React component:
 
-```typescript
-// BEFORE (computed before loading check — can use stale profile)
-const accessibleAreas: AccessArea[] = [];
-if (hasModuleAccess('lms')) accessibleAreas.push('lms');
-if (hasModuleAccess('events')) accessibleAreas.push('events');
-if (hasModuleAccess('attendee')) accessibleAreas.push('attendee');
+- Uses a URL regex to split text into segments
+- Renders plain text as-is and URLs as `<a href="..." target="_blank" rel="noopener noreferrer">` links
+- Accepts a `className` prop for link styling (e.g., underline, primary color)
+- Handles edge cases: URLs at start/end of string, multiple URLs, no URLs
 
-// ... loading check happens later at line 69
+### 2. `src/components/announcements/AnnouncementCard.tsx` (Society home banner)
 
-// AFTER (computed after all guards are passed)
-if (loading) return <FullPageLoader />;
-if (!user) return <Navigate to="/auth" replace />;
-if (!isApproved) return <Navigate to="/pending-approval" replace />;
+**Line 47-49**: Replace `{announcement.content}` with `<LinkifiedText text={announcement.content} />` so URLs in the dismissible banner cards are clickable.
 
-// Only compute accessible areas once we know profile is fully loaded
-const accessibleAreas: AccessArea[] = [];
-if (hasModuleAccess('lms')) accessibleAreas.push('lms');
-if (hasModuleAccess('events')) accessibleAreas.push('events');
-if (hasModuleAccess('attendee')) accessibleAreas.push('attendee');
+### 3. `src/pages/attendee/Announcements.tsx` (Attendee announcements history)
 
-// If only one area, redirect directly
-if (accessibleAreas.length === 1) { ... }
+**Line 75-77**: Replace `{announcement.content}` with `<LinkifiedText text={announcement.content} />` so URLs in the full announcement list are clickable.
+
+### 4. `src/components/attendee/feed/cards/AnnouncementCard.tsx` (Attendee feed card)
+
+**Line 74-76**: Replace `{announcement.body}` with `<LinkifiedText text={announcement.body} />` so URLs in feed-style announcement cards are clickable.
+
+## Technical Details
+
+The `LinkifiedText` component will look like:
+
+```tsx
+// src/utils/linkifyText.tsx
+import React from 'react';
+
+const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/gi;
+
+interface LinkifiedTextProps {
+  text: string;
+  linkClassName?: string;
+}
+
+export function LinkifiedText({ text, linkClassName = "text-primary underline break-all" }: LinkifiedTextProps) {
+  const parts = text.split(URL_REGEX);
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        URL_REGEX.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={linkClassName}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        ) : (
+          <React.Fragment key={i}>{part}</React.Fragment>
+        )
+      )}
+    </>
+  );
+}
 ```
 
-This is the only file that needs to change. Moving these 4 lines below the guards eliminates the race condition entirely — by the time we compute which areas to show, we have confirmed:
-1. Loading is complete (`loading = false`)
-2. User is authenticated
-3. User is approved
-4. Profile is the current user's profile, fully loaded
+Key details:
+- `break-all` prevents long URLs from overflowing card layouts
+- `e.stopPropagation()` prevents link clicks from triggering parent card actions (like dismiss)
+- `target="_blank"` with `noopener noreferrer` for safe external linking
+- The regex resets `lastIndex` between calls since it uses the `g` flag -- using `split` + `test` avoids this issue naturally
+- The link color uses `text-primary` to match the brand gold, with an underline for clarity
+- The feed announcement card variant will pass a custom `linkClassName` for light-on-dark styling (e.g., `"text-[#a1a1aa] underline break-all"`)
 
-## Why This Works
+## No database changes required
 
-React hooks rules prevent calling `hasModuleAccess` conditionally, but the result of calling it is just a boolean — computing it after the guard is perfectly safe and simply means we ignore the stale-profile window. When `profile` is null or stale, the component already shows a loader and never reaches the area-computation code.
+This is a purely frontend rendering change.
