@@ -1062,6 +1062,44 @@ export type Database = {
         }
         Relationships: []
       }
+      recording_watch_progress: {
+        Row: {
+          created_at: string
+          duration_seconds: number
+          id: string
+          position_seconds: number
+          recording_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          position_seconds?: number
+          recording_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          position_seconds?: number
+          recording_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recording_watch_progress_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "recordings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recordings: {
         Row: {
           captions_status: string | null

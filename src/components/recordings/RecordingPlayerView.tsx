@@ -11,6 +11,8 @@ import { ResourceUploadDialog } from './ResourceUploadDialog';
 import { TranscriptViewer } from './TranscriptViewer';
 import { useRecordingResources } from '@/hooks/useRecordingResources';
 import { useTranscript, TranscriptCue } from '@/hooks/useTranscript';
+import { useWatchProgress } from '@/hooks/useWatchProgress';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -25,6 +27,7 @@ export function RecordingPlayerView({
   canManageResources,
   onBack,
 }: RecordingPlayerViewProps) {
+  const { user, profile } = useAuth();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
@@ -38,6 +41,8 @@ export function RecordingPlayerView({
     recording.mux_playback_id,
     captionsTrackId
   );
+  const { startPosition, saveProgress, lastSavedRef } = useWatchProgress(recording.id);
+  const SAVE_INTERVAL = 5; // seconds between saves
 
   // Poll for caption status while generating - using new 'recordings' table name
   useEffect(() => {
@@ -67,31 +72,50 @@ export function RecordingPlayerView({
     return () => clearInterval(interval);
   }, [captionsStatus, recording.id]);
 
-  // Handle time updates from the player
+  // Handle time updates from the player — also throttle-save progress
   const handleTimeUpdate = useCallback(() => {
     if (playerRef.current?.media?.nativeEl) {
-      setCurrentTime(playerRef.current.media.nativeEl.currentTime);
-    }
-  }, []);
+      const el = playerRef.current.media.nativeEl;
+      const time = el.currentTime;
+      setCurrentTime(time);
 
-  // Set up player ref and event listener
+      // Throttled save every SAVE_INTERVAL seconds
+      if (time - lastSavedRef.current >= SAVE_INTERVAL && el.duration > 0) {
+        lastSavedRef.current = time;
+        saveProgress(time, el.duration);
+      }
+    }
+  }, [saveProgress, lastSavedRef]);
+
+  // Set up player ref and event listeners
   const handlePlayerRef = useCallback((el: MuxPlayerElement | null) => {
     if (el) {
       playerRef.current = el;
       if (el.media?.nativeEl) {
         el.media.nativeEl.addEventListener('timeupdate', handleTimeUpdate);
+        // Save on pause
+        el.media.nativeEl.addEventListener('pause', () => {
+          const vid = el.media?.nativeEl;
+          if (vid && vid.duration > 0) {
+            saveProgress(vid.currentTime, vid.duration);
+          }
+        });
       }
     }
-  }, [handleTimeUpdate]);
+  }, [handleTimeUpdate, saveProgress]);
 
-  // Cleanup event listener
+  // Cleanup: save progress on unmount
   useEffect(() => {
     return () => {
       if (playerRef.current?.media?.nativeEl) {
+        const vid = playerRef.current.media.nativeEl;
         playerRef.current.media.nativeEl.removeEventListener('timeupdate', handleTimeUpdate);
+        if (vid.duration > 0) {
+          saveProgress(vid.currentTime, vid.duration);
+        }
       }
     };
-  }, [handleTimeUpdate]);
+  }, [handleTimeUpdate, saveProgress]);
 
   // Handle seeking when clicking on transcript cue
   const handleCueClick = useCallback((cue: TranscriptCue) => {
@@ -246,8 +270,13 @@ export function RecordingPlayerView({
           <MuxPlayer
             ref={handlePlayerRef}
             playbackId={recording.mux_playback_id}
+            startTime={startPosition}
             metadata={{
               video_title: recording.title,
+              video_id: recording.id,
+              viewer_user_id: user?.id,
+              custom_1: user?.email,
+              custom_2: profile?.full_name,
             }}
             accentColor="#C9A55C"
             className="w-full aspect-video"
