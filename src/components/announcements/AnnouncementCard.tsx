@@ -1,6 +1,7 @@
 import { Megaphone, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { LinkifiedText } from '@/utils/linkifyText';
 import type { Announcement } from '@/hooks/useAnnouncements';
 
 interface AnnouncementCardProps {
@@ -45,7 +46,7 @@ export default function AnnouncementCard({
             {announcement.title}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-            {announcement.content}
+            <LinkifiedText text={announcement.content} />
           </p>
         </div>
       </div>
