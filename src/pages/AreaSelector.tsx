@@ -56,12 +56,6 @@ export default function AreaSelector() {
   const logo = resolvedTheme === 'dark' ? logoDark : logoLight;
   const [rememberChoice, setRememberChoice] = useState(false);
 
-  // Determine accessible areas based on module_access
-  const accessibleAreas: AccessArea[] = [];
-  if (hasModuleAccess('lms')) accessibleAreas.push('lms');
-  if (hasModuleAccess('events')) accessibleAreas.push('events');
-  if (hasModuleAccess('attendee')) accessibleAreas.push('attendee');
-
   const handleSelectArea = async (config: AreaConfig) => {
     navigate(config.route, { replace: true });
   };
@@ -77,6 +71,13 @@ export default function AreaSelector() {
   if (!isApproved) {
     return <Navigate to="/pending-approval" replace />;
   }
+
+  // Determine accessible areas based on module_access — computed AFTER all
+  // guards so we always use the fully-loaded, current-user profile (never stale).
+  const accessibleAreas: AccessArea[] = [];
+  if (hasModuleAccess('lms')) accessibleAreas.push('lms');
+  if (hasModuleAccess('events')) accessibleAreas.push('events');
+  if (hasModuleAccess('attendee')) accessibleAreas.push('attendee');
 
   // If user only has access to one area, redirect directly
   if (accessibleAreas.length === 1) {
