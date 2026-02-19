@@ -5,6 +5,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { LinkifiedText } from '@/utils/linkifyText';
 
 export default function AttendeeAnnouncements() {
   const { allAnnouncements, loading, trackView } = useEventAnnouncements();
@@ -73,7 +74,7 @@ export default function AttendeeAnnouncements() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium">{announcement.title}</h3>
                     <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
-                      {announcement.content}
+                      <LinkifiedText text={announcement.content} />
                     </p>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />

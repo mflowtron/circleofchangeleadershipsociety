@@ -1,6 +1,7 @@
 import { AnnouncementCard as AnnouncementCardType } from '@/types/conferenceFeed';
 import { Check } from 'lucide-react';
 import { NudgeBanner } from '../NudgeBanner';
+import { LinkifiedText } from '@/utils/linkifyText';
 
 interface AnnouncementCardProps {
   announcement: AnnouncementCardType;
@@ -72,7 +73,7 @@ export function AnnouncementCard({ announcement, nudgeLevel = 0, onAcknowledge }
 
         {/* Body */}
         <p className="text-[14px] text-center text-[#a1a1aa] leading-relaxed mb-6">
-          {announcement.body}
+          <LinkifiedText text={announcement.body} linkClassName="text-[#a1a1aa] underline break-all" />
         </p>
 
         {/* Source + Time */}
