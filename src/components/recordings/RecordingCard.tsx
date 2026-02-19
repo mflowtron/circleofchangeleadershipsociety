@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Play, Calendar, Trash2, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Progress } from '@/components/ui/progress';
 
 export interface Recording {
   id: string;
@@ -32,11 +33,12 @@ export interface Recording {
 interface RecordingCardProps {
   recording: Recording;
   canDelete: boolean;
+  watchProgress?: number; // 0-100 percentage
   onSelect: (recording: Recording) => void;
   onDelete: (recordingId: string, e: React.MouseEvent) => void;
 }
 
-export function RecordingCard({ recording, canDelete, onSelect, onDelete }: RecordingCardProps) {
+export function RecordingCard({ recording, canDelete, watchProgress, onSelect, onDelete }: RecordingCardProps) {
   return (
     <Card
       className="overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all group"
@@ -68,6 +70,13 @@ export function RecordingCard({ recording, canDelete, onSelect, onDelete }: Reco
             <Play className="h-8 w-8 text-primary-foreground ml-1" />
           </div>
         </div>
+        
+        {/* Watch progress bar */}
+        {watchProgress != null && watchProgress > 0 && (
+          <div className="absolute bottom-0 left-0 right-0">
+            <Progress value={watchProgress} className="h-1 rounded-none bg-black/40" />
+          </div>
+        )}
       </div>
       
       <CardHeader className="pb-2">

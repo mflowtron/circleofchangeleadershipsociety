@@ -21,6 +21,7 @@ import { Plus, Upload, Loader2, ArrowUpDown, Check } from 'lucide-react';
 import { RecordingsBrowseView } from '@/components/recordings/RecordingsBrowseView';
 import { RecordingPlayerView } from '@/components/recordings/RecordingPlayerView';
 import { Recording } from '@/components/recordings/RecordingCard';
+import { useAllWatchProgress } from '@/hooks/useWatchProgress';
 
 export default function Recordings() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -39,6 +40,7 @@ export default function Recordings() {
   const { isAdmin, profile } = useAuth();
   const location = useLocation();
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const watchProgressMap = useAllWatchProgress();
 
   const isAdvisor = profile?.role === 'advisor';
   const canUpload = isAdmin || isAdvisor;
@@ -382,6 +384,7 @@ export default function Recordings() {
         recordings={recordings}
         canDelete={canDelete}
         isReorderMode={isReorderMode}
+        watchProgressMap={watchProgressMap}
         onSelect={setSelectedRecording}
         onDelete={deleteRecording}
         onReorder={handleReorder}

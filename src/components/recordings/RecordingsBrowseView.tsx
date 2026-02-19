@@ -21,6 +21,7 @@ interface RecordingsBrowseViewProps {
   recordings: Recording[];
   canDelete: boolean;
   isReorderMode: boolean;
+  watchProgressMap?: Record<string, { position_seconds: number; duration_seconds: number }>;
   onSelect: (recording: Recording) => void;
   onDelete: (recordingId: string, e: React.MouseEvent) => void;
   onReorder: (activeId: string, overId: string) => void;
@@ -31,6 +32,7 @@ export function RecordingsBrowseView({
   recordings,
   canDelete,
   isReorderMode,
+  watchProgressMap,
   onSelect,
   onDelete,
   onReorder,
@@ -99,15 +101,22 @@ export function RecordingsBrowseView({
 
   return (
     <div className="grid gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-3">
-      {recordings.map((recording) => (
-        <RecordingCard
-          key={recording.id}
-          recording={recording}
-          canDelete={canDelete}
-          onSelect={onSelect}
-          onDelete={onDelete}
-        />
-      ))}
+      {recordings.map((recording) => {
+        const wp = watchProgressMap?.[recording.id];
+        const pct = wp && wp.duration_seconds > 0
+          ? Math.min(100, Math.round((wp.position_seconds / wp.duration_seconds) * 100))
+          : undefined;
+        return (
+          <RecordingCard
+            key={recording.id}
+            recording={recording}
+            canDelete={canDelete}
+            watchProgress={pct}
+            onSelect={onSelect}
+            onDelete={onDelete}
+          />
+        );
+      })}
     </div>
   );
 }
