@@ -1,19 +1,16 @@
-import { Megaphone, X } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { LinkifiedText } from '@/utils/linkifyText';
 import type { Announcement } from '@/hooks/useAnnouncements';
 
 interface AnnouncementCardProps {
   announcement: Announcement;
   className?: string;
-  onDismiss?: (id: string) => void;
 }
 
 export default function AnnouncementCard({
   announcement,
   className,
-  onDismiss,
 }: AnnouncementCardProps) {
   return (
     <div
@@ -24,19 +21,7 @@ export default function AnnouncementCard({
     >
       <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none" />
       
-      {onDismiss && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-foreground"
-          onClick={() => onDismiss(announcement.id)}
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Dismiss announcement</span>
-        </Button>
-      )}
-      
-      <div className="relative flex items-start gap-3 pr-6">
+      <div className="relative flex items-start gap-3">
         <div className="flex-shrink-0 p-2 rounded-xl bg-primary/20">
           <Megaphone className="h-5 w-5 text-primary" />
         </div>
