@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Heart, MessageCircle, Trash2, Globe, Users, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { LinkifiedText } from '@/utils/linkifyText';
 import CommentsSection from './CommentsSection';
 import { ClickableUserAvatar } from '@/components/ui/clickable-user-avatar';
 import ImageLightbox from '@/components/ui/image-lightbox';
@@ -130,7 +131,7 @@ const PostCard = memo(function PostCard({ post, onLike, onDelete }: PostCardProp
         </div>
       </CardHeader>
       <CardContent className="pb-3 overflow-hidden">
-        <p className="text-foreground whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">{post.content}</p>
+        <p className="text-foreground whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere"><LinkifiedText text={post.content} /></p>
         {post.video_url && (
           <div className={cn(
             "mt-4 overflow-hidden relative rounded-lg",
