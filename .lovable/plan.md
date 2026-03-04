@@ -1,19 +1,17 @@
 
 
-# Remove Dismiss Button from Announcement Cards
+# Make URLs Clickable in Society Feed Posts
 
-## What Changes
+## Changes
 
-Announcements will always display with no way for users to close/dismiss them. Two files need updating:
+### 1. `src/components/feed/PostCard.tsx` (line 133)
+Replace `{post.content}` with `<LinkifiedText text={post.content} />` so URLs in Society feed posts are clickable. Import `LinkifiedText` from `@/utils/linkifyText`.
 
-### 1. `src/components/announcements/AnnouncementCard.tsx`
-- Remove the `onDismiss` prop from the interface and component
-- Remove the `X` icon import and `Button` import (no longer needed)
-- Remove the entire dismiss button block (lines 27-37)
-- Remove the `pr-6` right padding on the content div (line 39) since there's no longer a close button to avoid overlapping
+### 2. `src/components/attendee/feed/cards/PostCard.tsx` (line 276)
+Replace `{post.caption}` with `<LinkifiedText text={post.caption} linkClassName="text-white underline break-all" />` so URLs in the attendee conference feed post captions are clickable. Uses white link styling to match the light-on-dark overlay text. Import `LinkifiedText` from `@/utils/linkifyText`.
 
-### 2. `src/components/announcements/AnnouncementBanner.tsx`
-- Stop passing `onDismiss={dismissAnnouncement}` to `AnnouncementCard`
-- Remove the `dismissAnnouncement` destructure from `useAnnouncements()` since it's no longer used
-- Switch from using the filtered `announcements` (which excludes dismissed ones) to `allAnnouncements` so every active announcement always shows, regardless of any prior dismissals
+### 3. `src/components/feed/CommentsSection.tsx` (line 117)
+Replace `{comment.content}` with `<LinkifiedText text={comment.content} />` so URLs posted in comments are also clickable. Import `LinkifiedText` from `@/utils/linkifyText`.
+
+All three use the existing `LinkifiedText` utility — no new files needed.
 
