@@ -3,6 +3,7 @@ import MuxPlayer from '@mux/mux-player-react';
 import { PostCard as PostCardType } from '@/types/conferenceFeed';
 import { Heart, MessageCircle, Share, Camera, Pin, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { HeartBurstAnimation } from '../HeartBurstAnimation';
+import { LinkifiedText } from '@/utils/linkifyText';
 
 interface PostCardProps {
   post: PostCardType;
@@ -273,7 +274,7 @@ export function PostCard({ post, isActive, isMuted, onLike, onToggleMute, onOpen
           className="text-[14px] text-white leading-relaxed line-clamp-3 mb-2"
           style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
         >
-          {post.caption}
+          <LinkifiedText text={post.caption} linkClassName="text-white underline break-all" />
         </p>
 
         {/* Timestamp Row */}

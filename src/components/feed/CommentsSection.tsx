@@ -8,6 +8,7 @@ import { Trash2, Send, MessageCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { ClickableUserAvatar } from '@/components/ui/clickable-user-avatar';
+import { LinkifiedText } from '@/utils/linkifyText';
 
 interface CommentsSectionProps {
   postId: string;
@@ -123,7 +124,7 @@ const CommentsSection = memo(function CommentsSection({ postId }: CommentsSectio
                       </Button>
                     )}
                   </div>
-                  <p className="text-sm text-foreground mt-0.5">{comment.content}</p>
+                  <p className="text-sm text-foreground mt-0.5"><LinkifiedText text={comment.content} /></p>
                 </div>
               </div>
             );
