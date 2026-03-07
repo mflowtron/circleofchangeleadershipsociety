@@ -54,7 +54,7 @@ export function useAgendaItems(eventId: string | undefined) {
       });
 
       // Fetch all speakers referenced by agenda items
-      let speakersMap = new Map<string, Speaker>();
+      const speakersMap = new Map<string, Speaker>();
       if (allSpeakerIds.size > 0) {
         const { data: speakers, error: speakersError } = await supabase
           .from('speakers')

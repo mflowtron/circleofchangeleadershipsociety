@@ -71,7 +71,7 @@ export function BadgePreview({
         const top = field.y * PX_PER_INCH * scale;
         const isSelected = selectedFieldId === field.id;
         
-        let textAlign: 'left' | 'center' | 'right' = field.align;
+        const textAlign: 'left' | 'center' | 'right' = field.align;
         let transform = '';
         
         if (field.align === 'center') {
