@@ -103,7 +103,7 @@ serve(async (req: Request) => {
 
     // Fetch attendees for these orders through order_items
     const orderIds = orders?.map(o => o.id) || [];
-    let attendeesByOrderItem: Map<string, any[]> = new Map();
+    const attendeesByOrderItem: Map<string, any[]> = new Map();
     
     if (orderIds.length > 0) {
       // Get all order_item_ids for these orders
