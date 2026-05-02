@@ -46,6 +46,7 @@ function friendlyUploadError(err: unknown): string {
   if (msg.includes('album_photos_caption_length')) return 'Caption is too long (max 500 characters).';
   if (msg.includes('album_photos_file_size_max')) return 'File is too large (max 25MB).';
   if (msg.includes('album_photos_storage_path_ext')) return 'Unsupported file type.';
+  if (msg.includes('storage_path must start with uploader')) return 'Upload rejected: invalid storage location.';
   if (msg.includes('row-level security')) return 'You do not have permission to upload.';
   if (msg.includes('payload too large') || msg.includes('413')) return 'File is too large to upload.';
   if (msg.includes('mime')) return 'Unsupported file type.';
