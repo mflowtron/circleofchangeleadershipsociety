@@ -4,7 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { ImagePlus, Upload, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useUploadAlbumPhotos, type PendingUpload } from '@/hooks/useAlbumPhotos';
+import {
+  useUploadAlbumPhotos,
+  validateAlbumFile,
+  validateAlbumCaption,
+  MAX_CAPTION_LENGTH,
+  type PendingUpload,
+} from '@/hooks/useAlbumPhotos';
 import { toast } from 'sonner';
 
 interface Props {
@@ -12,7 +18,6 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const MAX_FILES = 20;
 
 export function AlbumUploadDialog({ open, onOpenChange }: Props) {
