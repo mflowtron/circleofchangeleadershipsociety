@@ -294,6 +294,26 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/lms/album" 
+        element={
+          <ProtectedRoute>
+            <SuspenseWithErrorBoundary>
+              <Album />
+            </SuspenseWithErrorBoundary>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/lms/album/:photoId" 
+        element={
+          <ProtectedRoute>
+            <SuspenseWithErrorBoundary>
+              <Album />
+            </SuspenseWithErrorBoundary>
+          </ProtectedRoute>
+        } 
+      />
       
       
 
