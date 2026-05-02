@@ -103,6 +103,13 @@ export type Database = {
             referencedRelation: "album_photos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "album_photo_comments_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "album_photos_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       album_photo_likes: {
@@ -130,6 +137,13 @@ export type Database = {
             columns: ["photo_id"]
             isOneToOne: false
             referencedRelation: "album_photos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "album_photo_likes_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "album_photos_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1374,7 +1388,42 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      album_photos_safe: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          file_size: number | null
+          height: number | null
+          id: string | null
+          storage_path: string | null
+          updated_at: string | null
+          uploaded_by: string | null
+          width: number | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          file_size?: number | null
+          height?: number | null
+          id?: string | null
+          storage_path?: never
+          updated_at?: string | null
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          file_size?: number | null
+          height?: number | null
+          id?: string | null
+          storage_path?: never
+          updated_at?: string | null
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_manage_events: { Args: { p_user_id: string }; Returns: boolean }
@@ -1396,6 +1445,10 @@ export type Database = {
       reserve_tickets: {
         Args: { _quantity: number; _ticket_type_id: string }
         Returns: boolean
+      }
+      sign_album_photo: {
+        Args: { _expires_in?: number; _photo_id: string }
+        Returns: string
       }
       verify_order_edit_token: {
         Args: { p_order_id: string; p_token: string }
