@@ -42,6 +42,10 @@ const navItems = {
     label: 'Calendar',
     icon: CalendarDays
   }, {
+    path: '/lms/album',
+    label: 'Album',
+    icon: Images
+  }, {
     path: '/lms/my-chapter',
     label: 'My Chapter',
     icon: BookOpen
