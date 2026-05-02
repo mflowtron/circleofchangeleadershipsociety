@@ -36,12 +36,9 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
         toast.error(`You can upload up to ${MAX_FILES} photos at a time`);
         break;
       }
-      if (!file.type.startsWith('image/') && !/\.(heic|heif)$/i.test(file.name)) {
-        toast.error(`${file.name} is not an image`);
-        continue;
-      }
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error(`${file.name} exceeds 25MB`);
+      const fileError = validateAlbumFile(file);
+      if (fileError) {
+        toast.error(`${file.name}: ${fileError}`);
         continue;
       }
       accepted.push({
