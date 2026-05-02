@@ -4,7 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { ImagePlus, Upload, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useUploadAlbumPhotos, type PendingUpload } from '@/hooks/useAlbumPhotos';
+import {
+  useUploadAlbumPhotos,
+  validateAlbumFile,
+  validateAlbumCaption,
+  MAX_CAPTION_LENGTH,
+  type PendingUpload,
+} from '@/hooks/useAlbumPhotos';
 import { toast } from 'sonner';
 
 interface Props {
@@ -12,7 +18,6 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const MAX_FILES = 20;
 
 export function AlbumUploadDialog({ open, onOpenChange }: Props) {
@@ -31,12 +36,9 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
         toast.error(`You can upload up to ${MAX_FILES} photos at a time`);
         break;
       }
-      if (!file.type.startsWith('image/') && !/\.(heic|heif)$/i.test(file.name)) {
-        toast.error(`${file.name} is not an image`);
-        continue;
-      }
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error(`${file.name} exceeds 25MB`);
+      const fileError = validateAlbumFile(file);
+      if (fileError) {
+        toast.error(`${file.name}: ${fileError}`);
         continue;
       }
       accepted.push({
@@ -69,6 +71,11 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
 
   const handleUpload = async () => {
     if (items.length === 0) return;
+    const captionError = validateAlbumCaption(batchCaption);
+    if (captionError) {
+      toast.error(captionError);
+      return;
+    }
     const prepared = items.map((i) => ({
       ...i,
       caption: i.caption || batchCaption,
@@ -133,13 +140,14 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
                 </label>
                 <Textarea
                   value={batchCaption}
-                  onChange={(e) => setBatchCaption(e.target.value.slice(0, 500))}
+                  onChange={(e) => setBatchCaption(e.target.value.slice(0, MAX_CAPTION_LENGTH))}
                   placeholder="Add a caption everyone will see…"
                   disabled={isUploading}
                   className="resize-none"
                   rows={2}
+                  maxLength={MAX_CAPTION_LENGTH}
                 />
-                <p className="text-xs text-muted-foreground mt-1">{batchCaption.length}/500</p>
+                <p className="text-xs text-muted-foreground mt-1">{batchCaption.length}/{MAX_CAPTION_LENGTH}</p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
