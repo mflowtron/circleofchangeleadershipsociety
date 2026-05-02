@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X, Heart, Download, Trash2, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
