@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { ImagePlus, Upload, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ImagePlus, Upload, X, Loader2, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 import {
   useUploadAlbumPhotos,
   validateAlbumFile,
@@ -69,26 +69,48 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
     onOpenChange(next);
   };
 
-  const handleUpload = async () => {
-    if (items.length === 0) return;
+  const runUpload = async (targets: PendingUpload[]) => {
+    if (targets.length === 0) return;
     const captionError = validateAlbumCaption(batchCaption);
     if (captionError) {
       toast.error(captionError);
       return;
     }
-    const prepared = items.map((i) => ({
+    // Reset progress on retry targets so the bar restarts
+    const prepared = targets.map((i) => ({
       ...i,
       caption: i.caption || batchCaption,
+      progress: 0,
+      status: 'queued' as const,
+      error: undefined,
     }));
-    setItems(prepared);
+    setItems((prev) => prev.map((i) => prepared.find((p) => p.id === i.id) ?? i));
     const result = await upload.mutateAsync({
       uploads: prepared,
       onProgress: updateItem,
     });
-    if (result.succeeded === result.total) {
-      handleClose(false);
-    }
+    // Auto-close only when every item across the whole list is done
+    setItems((prev) => {
+      if (prev.every((i) => i.status === 'done')) {
+        setBatchCaption('');
+        onOpenChange(false);
+        return [];
+      }
+      return prev;
+    });
+    return result;
   };
+
+  const handleUpload = () => runUpload(items.filter((i) => i.status !== 'done'));
+  const handleRetryAll = () => runUpload(items.filter((i) => i.status === 'error'));
+  const handleRetryOne = (id: string) => {
+    const target = items.find((i) => i.id === id);
+    if (target) runUpload([target]);
+  };
+
+  const doneCount = items.filter((i) => i.status === 'done').length;
+  const errorCount = items.filter((i) => i.status === 'error').length;
+  const pendingCount = items.length - doneCount;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -150,6 +172,28 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
                 <p className="text-xs text-muted-foreground mt-1">{batchCaption.length}/{MAX_CAPTION_LENGTH}</p>
               </div>
 
+              {(doneCount > 0 || errorCount > 0) && !isUploading && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {doneCount > 0 && (
+                      <span className="flex items-center gap-1.5 text-primary">
+                        <CheckCircle2 className="h-4 w-4" /> {doneCount} uploaded
+                      </span>
+                    )}
+                    {errorCount > 0 && (
+                      <span className="flex items-center gap-1.5 text-destructive">
+                        <AlertCircle className="h-4 w-4" /> {errorCount} failed
+                      </span>
+                    )}
+                  </div>
+                  {errorCount > 0 && (
+                    <Button size="sm" variant="outline" onClick={handleRetryAll} className="gap-1.5">
+                      <RotateCcw className="h-3.5 w-3.5" /> Retry all failed
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {items.map((item) => {
                   const url = URL.createObjectURL(item.file);
@@ -177,7 +221,7 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
                         <div className="absolute inset-x-0 bottom-0 bg-background/90 p-2 space-y-1">
                           <Progress value={item.progress} className="h-1" />
                           <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
+                            <Loader2 className="h-3 w-3 animate-spin" /> Uploading… {Math.round(item.progress)}%
                           </p>
                         </div>
                       )}
@@ -187,9 +231,32 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
                         </div>
                       )}
                       {item.status === 'error' && (
-                        <div className="absolute inset-x-0 bottom-0 bg-destructive/90 text-destructive-foreground p-1.5 text-[10px] flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" /> {item.error}
-                        </div>
+                        <>
+                          <div className="absolute inset-0 bg-destructive/30 pointer-events-none" />
+                          <div className="absolute inset-x-0 bottom-0 bg-destructive/95 text-destructive-foreground p-1.5 text-[10px] flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span className="truncate flex-1">{item.error}</span>
+                          </div>
+                          {!isUploading && (
+                            <div className="absolute top-1.5 right-1.5 flex gap-1">
+                              <button
+                                onClick={() => handleRetryOne(item.id)}
+                                className="bg-background/90 hover:bg-background rounded-full p-1 transition shadow"
+                                aria-label="Retry upload"
+                                title="Retry"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => removeItem(item.id)}
+                                className="bg-background/90 hover:bg-background rounded-full p-1 transition shadow"
+                                aria-label="Remove"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );
@@ -201,9 +268,9 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
 
         <div className="flex justify-end gap-2 pt-2 border-t">
           <Button variant="outline" onClick={() => handleClose(false)} disabled={isUploading}>
-            {isUploading ? 'Uploading…' : 'Cancel'}
+            {isUploading ? 'Uploading…' : pendingCount === 0 && doneCount > 0 ? 'Close' : 'Cancel'}
           </Button>
-          <Button onClick={handleUpload} disabled={items.length === 0 || isUploading}>
+          <Button onClick={handleUpload} disabled={pendingCount === 0 || isUploading}>
             {isUploading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -212,7 +279,7 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                Upload {items.length > 0 ? `(${items.length})` : ''}
+                Upload {pendingCount > 0 ? `(${pendingCount})` : ''}
               </>
             )}
           </Button>
