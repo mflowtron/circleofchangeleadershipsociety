@@ -21,6 +21,10 @@ const navItems = {
     label: 'Calendar',
     icon: CalendarDays
   }, {
+    path: '/lms/album',
+    label: 'Album',
+    icon: Images
+  }, {
     path: '/lms/profile',
     label: 'Profile',
     icon: User
