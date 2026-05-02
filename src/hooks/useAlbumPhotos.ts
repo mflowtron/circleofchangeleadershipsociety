@@ -210,9 +210,12 @@ export function useUploadAlbumPhotos() {
           onProgress(item.id, { status: 'uploading', progress: 5 });
 
           let file = item.file;
-          if (file.size > MAX_FILE_SIZE) {
-            throw new Error('File exceeds 25MB');
-          }
+
+          // Server-aligned validation
+          const fileError = validateAlbumFile(file);
+          if (fileError) throw new Error(fileError);
+          const captionError = validateAlbumCaption(item.caption);
+          if (captionError) throw new Error(captionError);
 
           file = await convertHeicIfNeeded(file);
           onProgress(item.id, { progress: 25 });
@@ -250,12 +253,16 @@ export function useUploadAlbumPhotos() {
             height: dims.height || null,
             file_size: file.size,
           });
-          if (insertError) throw insertError;
+          if (insertError) {
+            // Best-effort cleanup of orphaned storage object
+            await supabase.storage.from('album-photos').remove([path]);
+            throw insertError;
+          }
 
           onProgress(item.id, { status: 'done', progress: 100 });
           succeeded++;
         } catch (err) {
-          const message = err instanceof Error ? err.message : 'Upload failed';
+          const message = friendlyUploadError(err);
           console.error('Album upload failed', err);
           onProgress(item.id, { status: 'error', error: message });
         }
@@ -272,7 +279,7 @@ export function useUploadAlbumPhotos() {
             : `Uploaded ${succeeded} of ${total} photos`,
         );
       } else if (total > 0) {
-        toast.error('No photos were uploaded');
+        toast.error('No photos were uploaded. Check the errors above and try again.');
       }
     },
   });
