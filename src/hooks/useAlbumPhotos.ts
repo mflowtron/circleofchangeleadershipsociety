@@ -266,11 +266,10 @@ export function useUploadAlbumPhotos() {
           if (uploadError) throw uploadError;
           onProgress(item.id, { progress: 85 });
 
-          const { data: urlData } = supabase.storage.from('album-photos').getPublicUrl(path);
-
           const { error: insertError } = await supabase.from('album_photos').insert({
             uploaded_by: user.id,
-            image_url: urlData.publicUrl,
+            // image_url is no longer stored — bucket is private and URLs are signed on demand.
+            image_url: null as unknown as string,
             storage_path: path,
             caption: item.caption.trim() || null,
             width: dims.width || null,
