@@ -135,13 +135,14 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
                 </label>
                 <Textarea
                   value={batchCaption}
-                  onChange={(e) => setBatchCaption(e.target.value.slice(0, 500))}
+                  onChange={(e) => setBatchCaption(e.target.value.slice(0, MAX_CAPTION_LENGTH))}
                   placeholder="Add a caption everyone will see…"
                   disabled={isUploading}
                   className="resize-none"
                   rows={2}
+                  maxLength={MAX_CAPTION_LENGTH}
                 />
-                <p className="text-xs text-muted-foreground mt-1">{batchCaption.length}/500</p>
+                <p className="text-xs text-muted-foreground mt-1">{batchCaption.length}/{MAX_CAPTION_LENGTH}</p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
