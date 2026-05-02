@@ -268,9 +268,9 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
 
         <div className="flex justify-end gap-2 pt-2 border-t">
           <Button variant="outline" onClick={() => handleClose(false)} disabled={isUploading}>
-            {isUploading ? 'Uploading…' : 'Cancel'}
+            {isUploading ? 'Uploading…' : pendingCount === 0 && doneCount > 0 ? 'Close' : 'Cancel'}
           </Button>
-          <Button onClick={handleUpload} disabled={items.length === 0 || isUploading}>
+          <Button onClick={handleUpload} disabled={pendingCount === 0 || isUploading}>
             {isUploading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -279,7 +279,7 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                Upload {items.length > 0 ? `(${items.length})` : ''}
+                Upload {pendingCount > 0 ? `(${pendingCount})` : ''}
               </>
             )}
           </Button>
