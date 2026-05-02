@@ -71,6 +71,11 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
 
   const handleUpload = async () => {
     if (items.length === 0) return;
+    const captionError = validateAlbumCaption(batchCaption);
+    if (captionError) {
+      toast.error(captionError);
+      return;
+    }
     const prepared = items.map((i) => ({
       ...i,
       caption: i.caption || batchCaption,
