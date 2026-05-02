@@ -390,7 +390,9 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
                 variant="ghost"
                 size="sm"
                 onClick={() => setConfirmDelete(true)}
+                disabled={deletePhoto.isPending}
                 className="gap-1.5 text-destructive hover:text-destructive ml-auto"
+                aria-label="Delete photo"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
