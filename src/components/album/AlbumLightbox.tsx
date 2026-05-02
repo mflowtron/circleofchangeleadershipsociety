@@ -153,7 +153,14 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
   };
 
   const content = (
-    <div className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md animate-fade-in flex flex-col lg:flex-row">
+    <div
+      ref={containerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Photo viewer"
+      tabIndex={-1}
+      className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md animate-fade-in flex flex-col lg:flex-row outline-none"
+    >
       {/* Close button */}
       <button
         onClick={onClose}
