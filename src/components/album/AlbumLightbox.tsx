@@ -181,6 +181,82 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
     backdropPressedRef.current = false;
   };
 
+  // ---------- Touch swipe handling (mobile) ----------
+  // Swipe left  → next photo
+  // Swipe right → previous photo
+  // Swipe down  → close
+  const SWIPE_THRESHOLD = 60; // px
+  const SWIPE_AXIS_LOCK = 12; // px before deciding axis
+  const touchRef = useRef<{
+    startX: number;
+    startY: number;
+    dx: number;
+    dy: number;
+    axis: 'x' | 'y' | null;
+    active: boolean;
+  } | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    if (isTypingTarget(e.target)) return;
+    const t = e.touches[0];
+    touchRef.current = {
+      startX: t.clientX,
+      startY: t.clientY,
+      dx: 0,
+      dy: 0,
+      axis: null,
+      active: true,
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const ref = touchRef.current;
+    if (!ref || !ref.active) return;
+    const t = e.touches[0];
+    ref.dx = t.clientX - ref.startX;
+    ref.dy = t.clientY - ref.startY;
+
+    if (!ref.axis) {
+      if (Math.abs(ref.dx) > SWIPE_AXIS_LOCK || Math.abs(ref.dy) > SWIPE_AXIS_LOCK) {
+        ref.axis = Math.abs(ref.dx) > Math.abs(ref.dy) ? 'x' : 'y';
+      }
+    }
+
+    if (ref.axis === 'x') {
+      setSwipeOffset({ x: ref.dx, y: 0 });
+    } else if (ref.axis === 'y' && ref.dy > 0) {
+      // Only follow downward drags for dismiss
+      setSwipeOffset({ x: 0, y: ref.dy });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    const ref = touchRef.current;
+    if (!ref || !ref.active) return;
+    ref.active = false;
+
+    if (ref.axis === 'x' && Math.abs(ref.dx) > SWIPE_THRESHOLD) {
+      if (ref.dx < 0) goNext();
+      else goPrev();
+    } else if (ref.axis === 'y' && ref.dy > SWIPE_THRESHOLD) {
+      onClose();
+    }
+
+    setSwipeOffset({ x: 0, y: 0 });
+    touchRef.current = null;
+  };
+
+  const handleTouchCancel = () => {
+    if (touchRef.current) touchRef.current.active = false;
+    setSwipeOffset({ x: 0, y: 0 });
+    touchRef.current = null;
+  };
+
+  const isSwiping = swipeOffset.x !== 0 || swipeOffset.y !== 0;
+  const swipeOpacity = swipeOffset.y > 0 ? Math.max(0.4, 1 - swipeOffset.y / 400) : 1;
+
   const content = (
     <div
       ref={containerRef}
@@ -192,6 +268,7 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
       onMouseUp={handleBackdropMouseUp}
       data-lightbox-backdrop="true"
       className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md animate-fade-in flex flex-col lg:flex-row outline-none"
+      style={{ backgroundColor: `rgba(0,0,0,${0.95 * swipeOpacity})` }}
     >
       {/* Close button — pinned within the image area so the side panel never covers it */}
       <button
@@ -205,7 +282,12 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
       {/* Image area — also acts as a backdrop region around the image */}
       <div
         data-lightbox-backdrop="true"
-        className="relative flex-1 flex items-center justify-center min-h-0 p-4 lg:p-8"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
+        className="relative flex-1 flex items-center justify-center min-h-0 p-4 lg:p-8 touch-pan-y select-none"
+        style={{ touchAction: 'pan-y' }}
       >
         {/* Prev */}
         {index > 0 && (
@@ -231,7 +313,12 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
           key={photo.id}
           src={photo.image_url}
           alt={photo.caption ?? 'Album photo'}
-          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-fade-in"
+          draggable={false}
+          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-fade-in will-change-transform"
+          style={{
+            transform: `translate3d(${swipeOffset.x}px, ${swipeOffset.y}px, 0)`,
+            transition: isSwiping ? 'none' : 'transform 220ms ease-out',
+          }}
         />
 
         {/* Counter */}
