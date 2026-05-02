@@ -69,25 +69,43 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
     onOpenChange(next);
   };
 
-  const handleUpload = async () => {
-    if (items.length === 0) return;
+  const runUpload = async (targets: PendingUpload[]) => {
+    if (targets.length === 0) return;
     const captionError = validateAlbumCaption(batchCaption);
     if (captionError) {
       toast.error(captionError);
       return;
     }
-    const prepared = items.map((i) => ({
+    // Reset progress on retry targets so the bar restarts
+    const prepared = targets.map((i) => ({
       ...i,
       caption: i.caption || batchCaption,
+      progress: 0,
+      status: 'queued' as const,
+      error: undefined,
     }));
-    setItems(prepared);
+    setItems((prev) => prev.map((i) => prepared.find((p) => p.id === i.id) ?? i));
     const result = await upload.mutateAsync({
       uploads: prepared,
       onProgress: updateItem,
     });
-    if (result.succeeded === result.total) {
-      handleClose(false);
-    }
+    // Auto-close only when every item across the whole list is done
+    setItems((prev) => {
+      if (prev.every((i) => i.status === 'done')) {
+        setBatchCaption('');
+        onOpenChange(false);
+        return [];
+      }
+      return prev;
+    });
+    return result;
+  };
+
+  const handleUpload = () => runUpload(items.filter((i) => i.status !== 'done'));
+  const handleRetryAll = () => runUpload(items.filter((i) => i.status === 'error'));
+  const handleRetryOne = (id: string) => {
+    const target = items.find((i) => i.id === id);
+    if (target) runUpload([target]);
   };
 
   return (
