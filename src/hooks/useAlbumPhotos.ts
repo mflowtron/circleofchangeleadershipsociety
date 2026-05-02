@@ -394,8 +394,9 @@ export function useUploadAlbumPhotos() {
 
           const dims = await getImageDimensions(file);
 
-          const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-          const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+          const path = buildAlbumStoragePath(user.id, file);
+          const pathError = validateAlbumStoragePath(path, user.id);
+          if (pathError) throw new Error(pathError);
 
           const { error: uploadError } = await supabase.storage
             .from('album-photos')
