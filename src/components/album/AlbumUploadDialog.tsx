@@ -172,6 +172,28 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
                 <p className="text-xs text-muted-foreground mt-1">{batchCaption.length}/{MAX_CAPTION_LENGTH}</p>
               </div>
 
+              {(doneCount > 0 || errorCount > 0) && !isUploading && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {doneCount > 0 && (
+                      <span className="flex items-center gap-1.5 text-primary">
+                        <CheckCircle2 className="h-4 w-4" /> {doneCount} uploaded
+                      </span>
+                    )}
+                    {errorCount > 0 && (
+                      <span className="flex items-center gap-1.5 text-destructive">
+                        <AlertCircle className="h-4 w-4" /> {errorCount} failed
+                      </span>
+                    )}
+                  </div>
+                  {errorCount > 0 && (
+                    <Button size="sm" variant="outline" onClick={handleRetryAll} className="gap-1.5">
+                      <RotateCcw className="h-3.5 w-3.5" /> Retry all failed
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {items.map((item) => {
                   const url = URL.createObjectURL(item.file);
