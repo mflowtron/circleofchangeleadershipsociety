@@ -101,6 +101,11 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
     });
   }, [index, photos]);
 
+  // Reset the inline delete confirmation when the displayed photo changes.
+  useEffect(() => {
+    setConfirmDelete(false);
+  }, [photo?.id]);
+
   if (!photo) return null;
 
   const initials = photo.uploader.full_name
