@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Home, Video, User, Users, BookOpen, Shield, X, Megaphone, CalendarDays, ArrowRight, ArrowLeftRight } from 'lucide-react';
+import { Home, Video, User, Users, BookOpen, Shield, X, Megaphone, CalendarDays, ArrowRight, ArrowLeftRight, Images } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import logoDark from '@/assets/coclc-logo-dark.png';
 import logoLight from '@/assets/coclc-logo-light.png';
