@@ -1406,7 +1406,7 @@ export type Database = {
           file_size?: number | null
           height?: number | null
           id?: string | null
-          storage_path?: never
+          storage_path?: string | null
           updated_at?: string | null
           uploaded_by?: string | null
           width?: number | null
@@ -1417,7 +1417,7 @@ export type Database = {
           file_size?: number | null
           height?: number | null
           id?: string | null
-          storage_path?: never
+          storage_path?: string | null
           updated_at?: string | null
           uploaded_by?: string | null
           width?: number | null
