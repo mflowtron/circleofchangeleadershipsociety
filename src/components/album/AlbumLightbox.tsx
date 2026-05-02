@@ -161,11 +161,11 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
       tabIndex={-1}
       className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md animate-fade-in flex flex-col lg:flex-row outline-none"
     >
-      {/* Close button */}
+      {/* Close button — pinned within the image area so the side panel never covers it */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur flex items-center justify-center text-white transition"
-        aria-label="Close"
+        className="absolute z-30 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur flex items-center justify-center text-white shadow-lg ring-1 ring-white/20 transition top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] lg:left-auto lg:right-[calc(24rem+1rem)]"
+        aria-label="Close photo viewer"
       >
         <X className="h-5 w-5" />
       </button>
