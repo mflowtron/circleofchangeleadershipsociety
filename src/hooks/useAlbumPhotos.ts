@@ -43,14 +43,73 @@ export function validateAlbumCaption(caption: string): string | null {
 function friendlyUploadError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err ?? '');
   const msg = raw.toLowerCase();
-  if (msg.includes('album_photos_caption_length')) return 'Caption is too long (max 500 characters).';
-  if (msg.includes('album_photos_file_size_max')) return 'File is too large (max 25MB).';
-  if (msg.includes('album_photos_storage_path_ext')) return 'Unsupported file type.';
-  if (msg.includes('storage_path must start with uploader')) return 'Upload rejected: invalid storage location.';
-  if (msg.includes('row-level security')) return 'You do not have permission to upload.';
-  if (msg.includes('payload too large') || msg.includes('413')) return 'File is too large to upload.';
-  if (msg.includes('mime')) return 'Unsupported file type.';
-  return raw || 'Upload failed';
+
+  // Named CHECK constraints on public.album_photos
+  if (msg.includes('album_photos_caption_length')) {
+    return `Caption is too long (max ${MAX_CAPTION_LENGTH} characters).`;
+  }
+  if (msg.includes('album_photos_file_size_max')) {
+    return 'File is too large (max 25MB).';
+  }
+  if (msg.includes('album_photos_file_size_positive')) {
+    return 'File appears to be empty. Please choose another photo.';
+  }
+  if (msg.includes('album_photos_storage_path_ext')) {
+    return 'Unsupported file type. Use JPG, PNG, WebP, GIF, or HEIC.';
+  }
+  if (msg.includes('album_photos_storage_path_format') || msg.includes('album_photos_storage_path_not_empty')) {
+    return 'Upload rejected: invalid storage path.';
+  }
+  if (msg.includes('album_photos_width_positive') || msg.includes('album_photos_height_positive') || msg.includes('album_photos_dimensions')) {
+    return 'Image dimensions are invalid. Please try a different photo.';
+  }
+
+  // Validation trigger: storage path must live under uploader's user folder
+  if (msg.includes('storage_path must start with uploader')) {
+    return 'Upload rejected: photo must be stored in your own folder.';
+  }
+  if (msg.includes('storage_path and uploaded_by are required')) {
+    return 'Upload rejected: missing photo metadata.';
+  }
+
+  // NOT NULL violations on album_photos columns
+  if (msg.includes('null value') && msg.includes('album_photos')) {
+    if (msg.includes('"storage_path"')) return 'Upload failed: missing storage path.';
+    if (msg.includes('"uploaded_by"')) return 'Upload failed: missing uploader. Please sign in again.';
+    return 'Upload failed: required information is missing.';
+  }
+
+  // Foreign key / unique constraints (defensive — none expected on insert today)
+  if (msg.includes('duplicate key') && msg.includes('album_photos')) {
+    return 'This photo has already been uploaded.';
+  }
+  if (msg.includes('violates foreign key') && msg.includes('album_photos')) {
+    return 'Upload rejected: linked record no longer exists.';
+  }
+
+  // RLS / auth
+  if (msg.includes('row-level security') || msg.includes('row level security') || msg.includes('permission denied')) {
+    return 'You do not have permission to upload to the album.';
+  }
+  if (msg.includes('jwt') || msg.includes('not authenticated')) {
+    return 'Your session expired. Please sign in and try again.';
+  }
+
+  // Storage layer
+  if (msg.includes('payload too large') || msg.includes('413')) {
+    return 'File is too large to upload (max 25MB).';
+  }
+  if (msg.includes('mime') || msg.includes('invalid_mime_type')) {
+    return 'Unsupported file type. Use JPG, PNG, WebP, GIF, or HEIC.';
+  }
+  if (msg.includes('the resource already exists') || msg.includes('duplicate') && msg.includes('storage')) {
+    return 'A file with that name already exists. Please try again.';
+  }
+  if (msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout')) {
+    return 'Network error. Check your connection and try again.';
+  }
+
+  return raw || 'Upload failed. Please try again.';
 }
 
 async function convertHeicIfNeeded(file: File): Promise<File> {
