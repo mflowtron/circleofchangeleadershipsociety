@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { ImagePlus, Upload, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ImagePlus, Upload, X, Loader2, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 import {
   useUploadAlbumPhotos,
   validateAlbumFile,
