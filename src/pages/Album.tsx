@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Images, Plus, Loader2 } from 'lucide-react';
+import { Images, Plus, Loader2, CheckSquare, X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAlbumPhotos } from '@/hooks/useAlbumPhotos';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useAlbumPhotos, useBulkDeleteAlbumPhotos } from '@/hooks/useAlbumPhotos';
 import { AlbumTile } from '@/components/album/AlbumTile';
 import { AlbumLightbox } from '@/components/album/AlbumLightbox';
 import { AlbumUploadDialog } from '@/components/album/AlbumUploadDialog';
@@ -18,11 +28,14 @@ const FILTERS: { id: AlbumFilter; label: string }[] = [
 ];
 
 export default function Album() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { photoId } = useParams<{ photoId?: string }>();
   const [filter, setFilter] = useState<AlbumFilter>('all');
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
   const {
     data,
@@ -33,6 +46,26 @@ export default function Album() {
   } = useAlbumPhotos(filter);
 
   const photos = useMemo(() => data?.pages.flatMap((p) => p.photos) ?? [], [data]);
+
+  const bulkDelete = useBulkDeleteAlbumPhotos();
+
+  // Reset selection when filter changes or selection mode is exited.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [filter, selectionMode]);
+
+  // Drop ids that no longer exist (e.g. after a delete or refetch).
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const valid = new Set(photos.map((p) => p.id));
+    let changed = false;
+    const next = new Set<string>();
+    selectedIds.forEach((id) => {
+      if (valid.has(id)) next.add(id);
+      else changed = true;
+    });
+    if (changed) setSelectedIds(next);
+  }, [photos, selectedIds]);
 
   // Lightbox index from URL
   const lightboxIndex = useMemo(() => {
@@ -63,6 +96,37 @@ export default function Album() {
     const p = photos[i];
     if (p) navigate(`/lms/album/${p.id}`, { replace: true });
   };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    const targets = photos.filter((p) => selectedIds.has(p.id));
+    if (targets.length === 0) {
+      setConfirmBulkDelete(false);
+      return;
+    }
+    try {
+      await bulkDelete.mutateAsync(targets);
+      setConfirmBulkDelete(false);
+      exitSelectionMode();
+    } catch {
+      // Toast handled by mutation onError; keep dialog open for retry.
+    }
+  };
+
+  const selectedCount = selectedIds.size;
 
   return (
     <div className="min-h-screen">
@@ -102,22 +166,48 @@ export default function Album() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6">
-        {/* Filters */}
+        {/* Filters + admin select toggle */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
+              disabled={selectionMode}
               className={cn(
                 'px-4 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border',
                 filter === f.id
                   ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                   : 'bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40',
+                selectionMode && 'opacity-50 cursor-not-allowed',
               )}
             >
               {f.label}
             </button>
           ))}
+
+          {isAdmin && photos.length > 0 && (
+            <button
+              onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+              className={cn(
+                'ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition whitespace-nowrap border shrink-0',
+                selectionMode
+                  ? 'bg-destructive/10 text-destructive border-destructive/40'
+                  : 'bg-background text-muted-foreground border-border hover:text-foreground hover:border-primary/40',
+              )}
+            >
+              {selectionMode ? (
+                <>
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <CheckSquare className="h-3.5 w-3.5" />
+                  Select
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Grid */}
@@ -149,9 +239,22 @@ export default function Album() {
           </div>
         ) : (
           <>
-            <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-4">
+            <div
+              className={cn(
+                'columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-4',
+                // Pad bottom so the floating action bar doesn't cover content.
+                selectionMode && 'pb-28',
+              )}
+            >
               {photos.map((photo) => (
-                <AlbumTile key={photo.id} photo={photo} onClick={() => openPhoto(photo.id)} />
+                <AlbumTile
+                  key={photo.id}
+                  photo={photo}
+                  onClick={() => openPhoto(photo.id)}
+                  selectionMode={selectionMode}
+                  selected={selectedIds.has(photo.id)}
+                  onToggleSelect={() => toggleSelect(photo.id)}
+                />
               ))}
             </div>
             <div ref={sentinelRef} className="h-10 flex items-center justify-center mt-4">
@@ -161,9 +264,75 @@ export default function Album() {
         )}
       </div>
 
+      {/* Floating selection action bar */}
+      {selectionMode && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-40 animate-fade-in"
+          style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        >
+          <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-background border border-border shadow-2xl backdrop-blur">
+            <span className="px-3 text-sm font-medium">
+              {selectedCount} selected
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={exitSelectionMode}
+              className="rounded-full"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={selectedCount === 0 || bulkDelete.isPending}
+              onClick={() => setConfirmBulkDelete(true)}
+              className="rounded-full"
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedCount} photo{selectedCount === 1 ? '' : 's'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the selected photo{selectedCount === 1 ? '' : 's'} and
+              all their comments and likes. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDelete.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleBulkDelete();
+              }}
+              disabled={bulkDelete.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDelete.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                `Delete ${selectedCount}`
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlbumUploadDialog open={uploadOpen} onOpenChange={setUploadOpen} />
 
-      {lightboxIndex >= 0 && (
+      {lightboxIndex >= 0 && !selectionMode && (
         <AlbumLightbox
           photos={photos}
           index={lightboxIndex}

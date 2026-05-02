@@ -450,15 +450,67 @@ export function useDeleteAlbumPhoto() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (photo: AlbumPhoto) => {
-      // Delete storage object first (best-effort)
-      await supabase.storage.from('album-photos').remove([photo.storage_path]);
+      // Delete the DB row first — RLS enforces ownership/admin and the
+      // cascade trigger removes child likes/comments. Storage cleanup is
+      // best-effort afterwards (orphan-cleanup edge function catches strays).
       const { error } = await supabase.from('album_photos').delete().eq('id', photo.id);
       if (error) throw error;
+      await supabase.storage.from('album-photos').remove([photo.storage_path]);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['album-photos'] });
+      queryClient.invalidateQueries({ queryKey: ['album-photo'] });
       toast.success('Photo deleted');
     },
-    onError: () => toast.error('Could not delete photo'),
+    onError: (err) => {
+      console.error('Album photo delete failed', err);
+      toast.error('Could not delete photo');
+    },
+  });
+}
+
+export function useBulkDeleteAlbumPhotos() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (photos: AlbumPhoto[]) => {
+      if (photos.length === 0) return { deleted: 0, failed: 0 };
+      const ids = photos.map((p) => p.id);
+      const paths = Array.from(
+        new Set(photos.map((p) => p.storage_path).filter((p): p is string => !!p)),
+      );
+
+      const { data: deletedRows, error } = await supabase
+        .from('album_photos')
+        .delete()
+        .in('id', ids)
+        .select('id');
+      if (error) throw error;
+
+      const deleted = deletedRows?.length ?? 0;
+      const failed = ids.length - deleted;
+
+      // Best-effort storage cleanup; orphan-cleanup edge fn handles stragglers.
+      if (paths.length > 0) {
+        await supabase.storage.from('album-photos').remove(paths);
+      }
+
+      return { deleted, failed };
+    },
+    onSuccess: ({ deleted, failed }) => {
+      queryClient.invalidateQueries({ queryKey: ['album-photos'] });
+      if (deleted > 0) {
+        toast.success(
+          failed > 0
+            ? `Deleted ${deleted} photo${deleted === 1 ? '' : 's'} (${failed} could not be removed)`
+            : `Deleted ${deleted} photo${deleted === 1 ? '' : 's'}`,
+        );
+      } else {
+        toast.error('No photos were deleted.');
+      }
+    },
+    onError: (err) => {
+      console.error('Album bulk delete failed', err);
+      toast.error('Could not delete selected photos');
+    },
   });
 }

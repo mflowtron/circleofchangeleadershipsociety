@@ -143,12 +143,21 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
   };
 
   const handleDelete = async () => {
-    await deletePhoto.mutateAsync(photo);
-    setConfirmDelete(false);
-    if (photos.length === 1) {
-      onClose();
-    } else if (index === photos.length - 1) {
-      onIndexChange(index - 1);
+    // Snapshot navigation intent BEFORE awaiting — the photos array changes
+    // when the query invalidates on success.
+    const wasLast = photos.length === 1;
+    const wasEnd = index === photos.length - 1;
+    try {
+      await deletePhoto.mutateAsync(photo);
+      setConfirmDelete(false);
+      if (wasLast) {
+        onClose();
+      } else if (wasEnd) {
+        onIndexChange(index - 1);
+      }
+    } catch {
+      // Toast is shown by the mutation's onError; keep dialog open so the
+      // user can retry or cancel.
     }
   };
 
@@ -381,7 +390,9 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
                 variant="ghost"
                 size="sm"
                 onClick={() => setConfirmDelete(true)}
+                disabled={deletePhoto.isPending}
                 className="gap-1.5 text-destructive hover:text-destructive ml-auto"
+                aria-label="Delete photo"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -403,12 +414,23 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deletePhoto.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDelete();
+              }}
+              disabled={deletePhoto.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {deletePhoto.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
