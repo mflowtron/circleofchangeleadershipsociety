@@ -192,7 +192,11 @@ export function useAlbumPhoto(id: string | undefined) {
     queryKey: ['album-photo', id, user?.id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase.from('album_photos').select('*').eq('id', id!).maybeSingle();
+      const { data, error } = await supabase
+        .from('album_photos_safe' as 'album_photos')
+        .select('id, uploaded_by, storage_path, caption, width, height, file_size, created_at')
+        .eq('id', id!)
+        .maybeSingle();
       if (error) throw error;
       if (!data) return null;
       const [hydrated] = await hydratePhotos([data as RawPhotoRow], user?.id);
