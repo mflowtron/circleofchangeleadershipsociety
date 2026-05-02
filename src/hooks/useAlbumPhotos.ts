@@ -6,7 +6,51 @@ import imageCompression from 'browser-image-compression';
 import type { AlbumPhoto, AlbumFilter } from '@/types/album';
 
 const PAGE_SIZE = 24;
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+export const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+export const MAX_CAPTION_LENGTH = 500;
+export const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+] as const;
+const ALLOWED_EXT_RE = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
+
+export function validateAlbumFile(file: File): string | null {
+  if (file.size === 0) return 'File is empty';
+  if (file.size > MAX_FILE_SIZE) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    return `File is too large (${mb}MB). Max allowed is 25MB.`;
+  }
+  const typeOk = (ALLOWED_MIME_TYPES as readonly string[]).includes(file.type);
+  const extOk = ALLOWED_EXT_RE.test(file.name);
+  if (!typeOk && !extOk) {
+    return 'Unsupported file type. Use JPG, PNG, WebP, GIF, or HEIC.';
+  }
+  return null;
+}
+
+export function validateAlbumCaption(caption: string): string | null {
+  if (caption.length > MAX_CAPTION_LENGTH) {
+    return `Caption is too long (${caption.length}/${MAX_CAPTION_LENGTH} characters).`;
+  }
+  return null;
+}
+
+function friendlyUploadError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err ?? '');
+  const msg = raw.toLowerCase();
+  if (msg.includes('album_photos_caption_length')) return 'Caption is too long (max 500 characters).';
+  if (msg.includes('album_photos_file_size_max')) return 'File is too large (max 25MB).';
+  if (msg.includes('album_photos_storage_path_ext')) return 'Unsupported file type.';
+  if (msg.includes('row-level security')) return 'You do not have permission to upload.';
+  if (msg.includes('payload too large') || msg.includes('413')) return 'File is too large to upload.';
+  if (msg.includes('mime')) return 'Unsupported file type.';
+  return raw || 'Upload failed';
+}
 
 async function convertHeicIfNeeded(file: File): Promise<File> {
   const isHeic =
