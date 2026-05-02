@@ -1446,10 +1446,6 @@ export type Database = {
         Args: { _quantity: number; _ticket_type_id: string }
         Returns: boolean
       }
-      sign_album_photo: {
-        Args: { _expires_in?: number; _photo_id: string }
-        Returns: string
-      }
       verify_order_edit_token: {
         Args: { p_order_id: string; p_token: string }
         Returns: boolean
