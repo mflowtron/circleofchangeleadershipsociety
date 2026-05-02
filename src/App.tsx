@@ -29,6 +29,7 @@ const AreaSelector = lazy(() => import("@/pages/AreaSelector"));
 const RootRouter = lazy(() => import("@/pages/RootRouter"));
 const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
 const Calendar = lazy(() => import("@/pages/Calendar"));
+const Album = lazy(() => import("@/pages/Album"));
 
 
 
