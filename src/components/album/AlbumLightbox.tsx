@@ -35,6 +35,8 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
   const deletePhoto = useDeleteAlbumPhoto();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   const goPrev = useCallback(() => {
     if (index > 0) onIndexChange(index - 1);
@@ -44,9 +46,24 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
     if (index < photos.length - 1) onIndexChange(index + 1);
   }, [index, photos.length, onIndexChange]);
 
-  // Keyboard navigation
+  const isTypingTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.isContentEditable) return true;
+    const tag = target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    // Inside a Radix dialog (e.g. delete confirmation) — let it own keys
+    if (target.closest('[role="dialog"][data-state="open"]')) return true;
+    return false;
+  };
+
+  // Keyboard navigation — ignore when user is typing or another dialog is open
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+      if (confirmDelete) return;
+
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         goNext();
@@ -56,19 +73,31 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
       } else if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
-      } else if (e.key.toLowerCase() === 'l' && photo) {
+      } else if ((e.key === 'l' || e.key === 'L') && photo) {
+        e.preventDefault();
         toggleLike.mutate({ photoId: photo.id, hasLiked: photo.user_has_liked });
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [goNext, goPrev, onClose, photo, toggleLike]);
+  }, [goNext, goPrev, onClose, photo, toggleLike, confirmDelete]);
 
-  // Lock body scroll
+  // Lock body scroll + manage focus (save/restore + focus container on mount)
   useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
     document.body.style.overflow = 'hidden';
+    // Defer focus until after the portal mounts
+    const id = window.requestAnimationFrame(() => {
+      containerRef.current?.focus({ preventScroll: true });
+    });
     return () => {
+      window.cancelAnimationFrame(id);
       document.body.style.overflow = '';
+      // Restore focus to the trigger if it's still in the DOM
+      const prev = previouslyFocusedRef.current;
+      if (prev && document.contains(prev)) {
+        prev.focus({ preventScroll: true });
+      }
     };
   }, []);
 
