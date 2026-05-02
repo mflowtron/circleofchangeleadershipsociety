@@ -1,0 +1,1 @@
+ALTER TABLE public.album_photos ALTER COLUMN image_url DROP NOT NULL;

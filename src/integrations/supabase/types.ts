@@ -155,7 +155,7 @@ export type Database = {
           file_size: number | null
           height: number | null
           id: string
-          image_url: string
+          image_url: string | null
           storage_path: string
           updated_at: string
           uploaded_by: string
@@ -167,7 +167,7 @@ export type Database = {
           file_size?: number | null
           height?: number | null
           id?: string
-          image_url: string
+          image_url?: string | null
           storage_path: string
           updated_at?: string
           uploaded_by: string
@@ -179,7 +179,7 @@ export type Database = {
           file_size?: number | null
           height?: number | null
           id?: string
-          image_url?: string
+          image_url?: string | null
           storage_path?: string
           updated_at?: string
           uploaded_by?: string
