@@ -221,7 +221,7 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
                         <div className="absolute inset-x-0 bottom-0 bg-background/90 p-2 space-y-1">
                           <Progress value={item.progress} className="h-1" />
                           <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
+                            <Loader2 className="h-3 w-3 animate-spin" /> Uploading… {Math.round(item.progress)}%
                           </p>
                         </div>
                       )}
@@ -231,9 +231,32 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
                         </div>
                       )}
                       {item.status === 'error' && (
-                        <div className="absolute inset-x-0 bottom-0 bg-destructive/90 text-destructive-foreground p-1.5 text-[10px] flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" /> {item.error}
-                        </div>
+                        <>
+                          <div className="absolute inset-0 bg-destructive/30 pointer-events-none" />
+                          <div className="absolute inset-x-0 bottom-0 bg-destructive/95 text-destructive-foreground p-1.5 text-[10px] flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3 shrink-0" />
+                            <span className="truncate flex-1">{item.error}</span>
+                          </div>
+                          {!isUploading && (
+                            <div className="absolute top-1.5 right-1.5 flex gap-1">
+                              <button
+                                onClick={() => handleRetryOne(item.id)}
+                                className="bg-background/90 hover:bg-background rounded-full p-1 transition shadow"
+                                aria-label="Retry upload"
+                                title="Retry"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => removeItem(item.id)}
+                                className="bg-background/90 hover:bg-background rounded-full p-1 transition shadow"
+                                aria-label="Remove"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );
