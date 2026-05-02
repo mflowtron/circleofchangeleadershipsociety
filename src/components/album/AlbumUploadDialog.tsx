@@ -108,6 +108,10 @@ export function AlbumUploadDialog({ open, onOpenChange }: Props) {
     if (target) runUpload([target]);
   };
 
+  const doneCount = items.filter((i) => i.status === 'done').length;
+  const errorCount = items.filter((i) => i.status === 'error').length;
+  const pendingCount = items.length - doneCount;
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
