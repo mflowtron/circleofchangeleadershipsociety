@@ -67,6 +67,10 @@ const navItems = {
     label: 'Calendar',
     icon: CalendarDays
   }, {
+    path: '/lms/album',
+    label: 'Album',
+    icon: Images
+  }, {
     path: '/lms/admin/announcements',
     label: 'Announcements',
     icon: Megaphone
