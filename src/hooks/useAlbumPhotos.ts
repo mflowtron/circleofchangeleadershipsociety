@@ -19,6 +19,17 @@ export const ALLOWED_MIME_TYPES = [
 ] as const;
 const ALLOWED_EXT_RE = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
 
+// Allowed extensions in storage paths (HEIC/HEIF are converted to jpg before upload).
+const ALLOWED_PATH_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'] as const;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Pattern: {uploader-uuid}/{file-uuid}.{ext}
+const ALBUM_STORAGE_PATH_RE = new RegExp(
+  `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/` +
+    `[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}` +
+    `\\.(${ALLOWED_PATH_EXTS.join('|')})$`,
+  'i',
+);
+
 export function validateAlbumFile(file: File): string | null {
   if (file.size === 0) return 'File is empty';
   if (file.size > MAX_FILE_SIZE) {
@@ -38,6 +49,72 @@ export function validateAlbumCaption(caption: string): string | null {
     return `Caption is too long (${caption.length}/${MAX_CAPTION_LENGTH} characters).`;
   }
   return null;
+}
+
+/**
+ * Validates that a storage path matches the exact required pattern for the
+ * `album-photos` bucket: `{uploaderUserId}/{uuid}.{allowedExt}`.
+ *
+ * Mirrors the server-side `validate_album_photo_path` trigger and the
+ * `album_photos_storage_path_ext` CHECK constraint, so violations are caught
+ * before round-tripping to Supabase.
+ */
+export function validateAlbumStoragePath(path: string, uploaderUserId: string): string | null {
+  if (!path || typeof path !== 'string') return 'Storage path is required.';
+  if (path.length > 512) return 'Storage path is too long.';
+  if (path !== path.trim()) return 'Storage path has leading or trailing whitespace.';
+  if (path.startsWith('/')) return 'Storage path must not start with a slash.';
+  if (path.includes('//')) return 'Storage path must not contain empty segments.';
+  if (path.includes('..') || path.includes('\\')) return 'Storage path contains invalid characters.';
+  if (/\s/.test(path)) return 'Storage path must not contain whitespace.';
+
+  const segments = path.split('/');
+  if (segments.length !== 2) {
+    return 'Storage path must be in the form {userId}/{uuid}.{ext}.';
+  }
+
+  const [folder, filename] = segments;
+
+  if (!UUID_RE.test(uploaderUserId)) {
+    return 'Uploader id is invalid.';
+  }
+  if (folder.toLowerCase() !== uploaderUserId.toLowerCase()) {
+    return 'Storage path must start with your own user folder.';
+  }
+
+  const dotIndex = filename.lastIndexOf('.');
+  if (dotIndex <= 0 || dotIndex === filename.length - 1) {
+    return 'File name must include a valid extension.';
+  }
+  const base = filename.slice(0, dotIndex);
+  const ext = filename.slice(dotIndex + 1).toLowerCase();
+
+  if (!UUID_RE.test(base)) {
+    return 'File name must be a UUID.';
+  }
+  if (!(ALLOWED_PATH_EXTS as readonly string[]).includes(ext)) {
+    return 'Unsupported file extension. Use JPG, PNG, WebP, GIF, or HEIC.';
+  }
+
+  // Final belt-and-suspenders regex check.
+  if (!ALBUM_STORAGE_PATH_RE.test(path)) {
+    return 'Storage path does not match the required format.';
+  }
+
+  return null;
+}
+
+/**
+ * Builds a guaranteed-valid `album-photos` storage path for the given uploader
+ * and file. Throws if the resulting path would fail validation.
+ */
+export function buildAlbumStoragePath(uploaderUserId: string, file: File): string {
+  const nameExt = (file.name.split('.').pop() || '').toLowerCase();
+  const safeExt = (ALLOWED_PATH_EXTS as readonly string[]).includes(nameExt) ? nameExt : 'jpg';
+  const path = `${uploaderUserId}/${crypto.randomUUID()}.${safeExt}`;
+  const err = validateAlbumStoragePath(path, uploaderUserId);
+  if (err) throw new Error(err);
+  return path;
 }
 
 function friendlyUploadError(err: unknown): string {
@@ -317,8 +394,9 @@ export function useUploadAlbumPhotos() {
 
           const dims = await getImageDimensions(file);
 
-          const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-          const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+          const path = buildAlbumStoragePath(user.id, file);
+          const pathError = validateAlbumStoragePath(path, user.id);
+          if (pathError) throw new Error(pathError);
 
           const { error: uploadError } = await supabase.storage
             .from('album-photos')
