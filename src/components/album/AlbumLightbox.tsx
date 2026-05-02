@@ -152,6 +152,35 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
     }
   };
 
+  // Backdrop click handling — close only when both press and release happen on
+  // the backdrop itself (not on the image, controls, side panel, or dialogs).
+  // Using mousedown/up (not click) prevents focus loss from inputs in the side
+  // panel: a click never fires on the backdrop after a focused input blurs.
+  const backdropPressedRef = useRef(false);
+
+  const isBackdropTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof HTMLElement)) return false;
+    // The element must be the backdrop wrapper itself.
+    return target.dataset.lightboxBackdrop === 'true';
+  };
+
+  const handleBackdropMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    backdropPressedRef.current = isBackdropTarget(e.target);
+  };
+
+  const handleBackdropMouseUp = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const releasedOnBackdrop = isBackdropTarget(e.target);
+    if (backdropPressedRef.current && releasedOnBackdrop) {
+      // Only close if a real form control isn't actively being interacted with.
+      if (!isTypingTarget(document.activeElement)) {
+        onClose();
+      }
+    }
+    backdropPressedRef.current = false;
+  };
+
   const content = (
     <div
       ref={containerRef}
@@ -159,6 +188,9 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
       aria-modal="true"
       aria-label="Photo viewer"
       tabIndex={-1}
+      onMouseDown={handleBackdropMouseDown}
+      onMouseUp={handleBackdropMouseUp}
+      data-lightbox-backdrop="true"
       className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md animate-fade-in flex flex-col lg:flex-row outline-none"
     >
       {/* Close button — pinned within the image area so the side panel never covers it */}
@@ -170,8 +202,11 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
         <X className="h-5 w-5" />
       </button>
 
-      {/* Image area */}
-      <div className="relative flex-1 flex items-center justify-center min-h-0 p-4 lg:p-8">
+      {/* Image area — also acts as a backdrop region around the image */}
+      <div
+        data-lightbox-backdrop="true"
+        className="relative flex-1 flex items-center justify-center min-h-0 p-4 lg:p-8"
+      >
         {/* Prev */}
         {index > 0 && (
           <button
