@@ -143,12 +143,21 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
   };
 
   const handleDelete = async () => {
-    await deletePhoto.mutateAsync(photo);
-    setConfirmDelete(false);
-    if (photos.length === 1) {
-      onClose();
-    } else if (index === photos.length - 1) {
-      onIndexChange(index - 1);
+    // Snapshot navigation intent BEFORE awaiting — the photos array changes
+    // when the query invalidates on success.
+    const wasLast = photos.length === 1;
+    const wasEnd = index === photos.length - 1;
+    try {
+      await deletePhoto.mutateAsync(photo);
+      setConfirmDelete(false);
+      if (wasLast) {
+        onClose();
+      } else if (wasEnd) {
+        onIndexChange(index - 1);
+      }
+    } catch {
+      // Toast is shown by the mutation's onError; keep dialog open so the
+      // user can retry or cancel.
     }
   };
 
