@@ -1,0 +1,262 @@
+import { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { ChevronLeft, ChevronRight, X, Heart, Download, Trash2, Loader2 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { formatDistanceToNow } from 'date-fns';
+import { useToggleAlbumLike } from '@/hooks/useAlbumLikes';
+import { useDeleteAlbumPhoto } from '@/hooks/useAlbumPhotos';
+import { useAuth } from '@/contexts/AuthContext';
+import { AlbumCommentList } from './AlbumCommentList';
+import type { AlbumPhoto } from '@/types/album';
+import { toast } from 'sonner';
+
+interface Props {
+  photos: AlbumPhoto[];
+  index: number;
+  onIndexChange: (index: number) => void;
+  onClose: () => void;
+}
+
+export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) {
+  const { user, isAdmin } = useAuth();
+  const photo = photos[index];
+  const toggleLike = useToggleAlbumLike();
+  const deletePhoto = useDeleteAlbumPhoto();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const goPrev = useCallback(() => {
+    if (index > 0) onIndexChange(index - 1);
+  }, [index, onIndexChange]);
+
+  const goNext = useCallback(() => {
+    if (index < photos.length - 1) onIndexChange(index + 1);
+  }, [index, photos.length, onIndexChange]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNext();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key.toLowerCase() === 'l' && photo) {
+        toggleLike.mutate({ photoId: photo.id, hasLiked: photo.user_has_liked });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [goNext, goPrev, onClose, photo, toggleLike]);
+
+  // Lock body scroll
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
+  // Prefetch neighbors
+  useEffect(() => {
+    [photos[index - 1], photos[index + 1]].forEach((p) => {
+      if (p) {
+        const img = new Image();
+        img.src = p.image_url;
+      }
+    });
+  }, [index, photos]);
+
+  if (!photo) return null;
+
+  const initials = photo.uploader.full_name
+    .split(' ')
+    .map((s) => s[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  const canDelete = user?.id === photo.uploaded_by || isAdmin;
+
+  const handleDownload = async () => {
+    try {
+      setDownloading(true);
+      const res = await fetch(photo.image_url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const ext = photo.storage_path.split('.').pop() ?? 'jpg';
+      a.download = `coclc-album-${photo.id.slice(0, 8)}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error('Could not download photo');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    await deletePhoto.mutateAsync(photo);
+    setConfirmDelete(false);
+    if (photos.length === 1) {
+      onClose();
+    } else if (index === photos.length - 1) {
+      onIndexChange(index - 1);
+    }
+  };
+
+  const content = (
+    <div className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md animate-fade-in flex flex-col lg:flex-row">
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur flex items-center justify-center text-white transition"
+        aria-label="Close"
+      >
+        <X className="h-5 w-5" />
+      </button>
+
+      {/* Image area */}
+      <div className="relative flex-1 flex items-center justify-center min-h-0 p-4 lg:p-8">
+        {/* Prev */}
+        {index > 0 && (
+          <button
+            onClick={goPrev}
+            className="absolute left-2 lg:left-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur flex items-center justify-center text-white transition"
+            aria-label="Previous photo"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
+        {index < photos.length - 1 && (
+          <button
+            onClick={goNext}
+            className="absolute right-2 lg:right-4 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur flex items-center justify-center text-white transition"
+            aria-label="Next photo"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        )}
+
+        <img
+          key={photo.id}
+          src={photo.image_url}
+          alt={photo.caption ?? 'Album photo'}
+          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-fade-in"
+        />
+
+        {/* Counter */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur text-white text-xs font-medium">
+          {index + 1} / {photos.length}
+        </div>
+      </div>
+
+      {/* Side panel */}
+      <div className="w-full lg:w-96 lg:h-full bg-background border-t lg:border-t-0 lg:border-l border-border flex flex-col max-h-[55vh] lg:max-h-none">
+        <div className="p-4 border-b">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={photo.uploader.avatar_url ?? undefined} />
+              <AvatarFallback className="bg-primary/10 text-primary">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold truncate">{photo.uploader.full_name}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(photo.created_at), { addSuffix: true })}
+              </p>
+            </div>
+          </div>
+          {photo.caption && (
+            <p className="text-sm mt-3 whitespace-pre-wrap break-words">{photo.caption}</p>
+          )}
+
+          <div className="flex items-center gap-1 mt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                toggleLike.mutate({ photoId: photo.id, hasLiked: photo.user_has_liked })
+              }
+              className="gap-1.5"
+            >
+              <Heart
+                className={`h-4 w-4 ${
+                  photo.user_has_liked ? 'fill-primary text-primary' : ''
+                }`}
+              />
+              {photo.likes_count}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="gap-1.5"
+            >
+              {downloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Download
+            </Button>
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDelete(true)}
+                className="gap-1.5 text-destructive hover:text-destructive ml-auto"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 p-4">
+          <AlbumCommentList photoId={photo.id} />
+        </div>
+      </div>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this photo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the photo and all its comments and likes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+
+  return createPortal(content, document.body);
+}

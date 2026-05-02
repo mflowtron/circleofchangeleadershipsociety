@@ -29,6 +29,7 @@ const AreaSelector = lazy(() => import("@/pages/AreaSelector"));
 const RootRouter = lazy(() => import("@/pages/RootRouter"));
 const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
 const Calendar = lazy(() => import("@/pages/Calendar"));
+const Album = lazy(() => import("@/pages/Album"));
 
 
 
@@ -289,6 +290,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <SuspenseWithErrorBoundary>
               <Calendar />
+            </SuspenseWithErrorBoundary>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/lms/album" 
+        element={
+          <ProtectedRoute>
+            <SuspenseWithErrorBoundary>
+              <Album />
+            </SuspenseWithErrorBoundary>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/lms/album/:photoId" 
+        element={
+          <ProtectedRoute>
+            <SuspenseWithErrorBoundary>
+              <Album />
             </SuspenseWithErrorBoundary>
           </ProtectedRoute>
         } 
