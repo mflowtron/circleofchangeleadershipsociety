@@ -3,16 +3,6 @@ import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X, Heart, Download, Trash2, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { formatDistanceToNow } from 'date-fns';
 import { useToggleAlbumLike } from '@/hooks/useAlbumLikes';
 import { useDeleteAlbumPhoto } from '@/hooks/useAlbumPhotos';
@@ -110,6 +100,11 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
       }
     });
   }, [index, photos]);
+
+  // Reset the inline delete confirmation when the displayed photo changes.
+  useEffect(() => {
+    setConfirmDelete(false);
+  }, [photo?.id]);
 
   if (!photo) return null;
 
@@ -385,7 +380,7 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
               )}
               Download
             </Button>
-            {canDelete && (
+            {canDelete && !confirmDelete && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -398,43 +393,58 @@ export function AlbumLightbox({ photos, index, onIndexChange, onClose }: Props) 
               </Button>
             )}
           </div>
+
+          {/* Inline delete confirmation — avoids portal-in-portal focus
+              conflicts with the lightbox's own dialog role. */}
+          {canDelete && confirmDelete && (
+            <div
+              role="alertdialog"
+              aria-label="Confirm delete photo"
+              className="mt-3 p-3 rounded-lg border border-destructive/40 bg-destructive/5 animate-fade-in"
+            >
+              <p className="text-sm font-medium mb-1">Delete this photo?</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                This permanently removes the photo and all its comments and likes.
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deletePhoto.isPending}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => void handleDelete()}
+                  disabled={deletePhoto.isPending}
+                  className="flex-1"
+                  autoFocus
+                >
+                  {deletePhoto.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      Deleting…
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-1.5" />
+                      Delete
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 min-h-0 p-4">
           <AlbumCommentList photoId={photo.id} />
         </div>
       </div>
-
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this photo?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently remove the photo and all its comments and likes.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletePhoto.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                void handleDelete();
-              }}
-              disabled={deletePhoto.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletePhoto.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting…
-                </>
-              ) : (
-                'Delete'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 
