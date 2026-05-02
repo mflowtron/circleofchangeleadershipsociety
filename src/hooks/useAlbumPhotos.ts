@@ -83,7 +83,6 @@ async function getImageDimensions(file: File): Promise<{ width: number; height: 
 interface RawPhotoRow {
   id: string;
   uploaded_by: string;
-  image_url: string;
   storage_path: string;
   caption: string | null;
   width: number | null;
@@ -92,15 +91,35 @@ interface RawPhotoRow {
   created_at: string;
 }
 
+const SIGNED_URL_TTL = 60 * 60; // 1 hour
+
+async function signPaths(paths: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (paths.length === 0) return map;
+  const { data, error } = await supabase.storage
+    .from('album-photos')
+    .createSignedUrls(paths, SIGNED_URL_TTL);
+  if (error) {
+    console.error('Failed to sign album photo URLs', error);
+    return map;
+  }
+  (data ?? []).forEach((row) => {
+    if (row.path && row.signedUrl) map.set(row.path, row.signedUrl);
+  });
+  return map;
+}
+
 async function hydratePhotos(rows: RawPhotoRow[], currentUserId: string | undefined): Promise<AlbumPhoto[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
   const userIds = Array.from(new Set(rows.map((r) => r.uploaded_by)));
+  const paths = Array.from(new Set(rows.map((r) => r.storage_path)));
 
-  const [{ data: profiles }, { data: likes }, { data: comments }] = await Promise.all([
+  const [{ data: profiles }, { data: likes }, { data: comments }, signedMap] = await Promise.all([
     supabase.from('profiles').select('user_id, full_name, avatar_url').in('user_id', userIds),
     supabase.from('album_photo_likes').select('photo_id, user_id').in('photo_id', ids),
     supabase.from('album_photo_comments').select('photo_id').in('photo_id', ids),
+    signPaths(paths),
   ]);
 
   const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
@@ -119,6 +138,7 @@ async function hydratePhotos(rows: RawPhotoRow[], currentUserId: string | undefi
     const p = profileMap.get(r.uploaded_by);
     return {
       ...r,
+      image_url: signedMap.get(r.storage_path) ?? '',
       uploader: {
         full_name: p?.full_name ?? 'Member',
         avatar_url: p?.avatar_url ?? null,
@@ -138,8 +158,8 @@ export function useAlbumPhotos(filter: AlbumFilter = 'all') {
     initialPageParam: 0,
     queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
-        .from('album_photos')
-        .select('*')
+        .from('album_photos_safe' as 'album_photos')
+        .select('id, uploaded_by, storage_path, caption, width, height, file_size, created_at')
         .order('created_at', { ascending: false })
         .range(pageParam as number, (pageParam as number) + PAGE_SIZE - 1);
 
@@ -172,7 +192,11 @@ export function useAlbumPhoto(id: string | undefined) {
     queryKey: ['album-photo', id, user?.id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase.from('album_photos').select('*').eq('id', id!).maybeSingle();
+      const { data, error } = await supabase
+        .from('album_photos_safe' as 'album_photos')
+        .select('id, uploaded_by, storage_path, caption, width, height, file_size, created_at')
+        .eq('id', id!)
+        .maybeSingle();
       if (error) throw error;
       if (!data) return null;
       const [hydrated] = await hydratePhotos([data as RawPhotoRow], user?.id);
@@ -242,11 +266,10 @@ export function useUploadAlbumPhotos() {
           if (uploadError) throw uploadError;
           onProgress(item.id, { progress: 85 });
 
-          const { data: urlData } = supabase.storage.from('album-photos').getPublicUrl(path);
-
           const { error: insertError } = await supabase.from('album_photos').insert({
             uploaded_by: user.id,
-            image_url: urlData.publicUrl,
+            // image_url is no longer stored — bucket is private and URLs are signed on demand.
+            image_url: null as unknown as string,
             storage_path: path,
             caption: item.caption.trim() || null,
             width: dims.width || null,
