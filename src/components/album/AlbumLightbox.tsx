@@ -3,16 +3,6 @@ import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X, Heart, Download, Trash2, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { formatDistanceToNow } from 'date-fns';
 import { useToggleAlbumLike } from '@/hooks/useAlbumLikes';
 import { useDeleteAlbumPhoto } from '@/hooks/useAlbumPhotos';
