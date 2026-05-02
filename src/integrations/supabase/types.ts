@@ -73,6 +73,106 @@ export type Database = {
           },
         ]
       }
+      album_photo_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          photo_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          photo_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          photo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "album_photo_comments_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "album_photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      album_photo_likes: {
+        Row: {
+          created_at: string
+          id: string
+          photo_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          photo_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          photo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "album_photo_likes_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "album_photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      album_photos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          file_size: number | null
+          height: number | null
+          id: string
+          image_url: string
+          storage_path: string
+          updated_at: string
+          uploaded_by: string
+          width: number | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          file_size?: number | null
+          height?: number | null
+          id?: string
+          image_url: string
+          storage_path: string
+          updated_at?: string
+          uploaded_by: string
+          width?: number | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          file_size?: number | null
+          height?: number | null
+          id?: string
+          image_url?: string
+          storage_path?: string
+          updated_at?: string
+          uploaded_by?: string
+          width?: number | null
+        }
+        Relationships: []
+      }
       announcement_analytics: {
         Row: {
           announcement_id: string
