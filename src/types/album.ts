@@ -1,8 +1,10 @@
 export interface AlbumPhoto {
   id: string;
   uploaded_by: string;
+  /** Short-lived signed URL (private bucket). Refreshed on demand. */
   image_url: string;
-  storage_path: string;
+  /** Only present for the uploader or admins. Hidden for other members. */
+  storage_path: string | null;
   caption: string | null;
   width: number | null;
   height: number | null;
