@@ -158,8 +158,8 @@ export function useAlbumPhotos(filter: AlbumFilter = 'all') {
     initialPageParam: 0,
     queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
-        .from('album_photos')
-        .select('*')
+        .from('album_photos_safe' as 'album_photos')
+        .select('id, uploaded_by, storage_path, caption, width, height, file_size, created_at')
         .order('created_at', { ascending: false })
         .range(pageParam as number, (pageParam as number) + PAGE_SIZE - 1);
 
