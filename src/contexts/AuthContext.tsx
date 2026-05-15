@@ -1,10 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-// Simplified role system - users have one role and module_access array
-export type UserRole = 'admin' | 'organizer' | 'advisor' | 'member';
-export type AccessModule = 'lms' | 'events' | 'attendee';
+export type UserRole = 'admin' | 'advisor' | 'member';
 
 interface ProfileData {
   id: string;
@@ -16,7 +14,6 @@ interface ProfileData {
   headline: string | null;
   default_role: string | null;
   role: UserRole;
-  module_access: string[] | null;
 }
 
 interface AuthContextType {
@@ -25,25 +22,11 @@ interface AuthContextType {
   loading: boolean;
   profile: ProfileData | null;
   isApproved: boolean;
-  
   signOut: () => Promise<void>;
-  
-  // Role check
   isAdmin: boolean;
-  
-  // Module access checks
-  hasModuleAccess: (module: AccessModule) => boolean;
-  hasLMSAccess: boolean;
-  hasEMAccess: boolean;
-  hasAttendeeAccess: boolean;
-  
-  // Legacy compatibility - these map to the new simplified system
   isLMSAdmin: boolean;
   isLMSAdvisor: boolean;
   isLMSStudent: boolean;
-  isEMAdmin: boolean;
-  isEMManager: boolean;
-  isEMAdvisor: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,18 +38,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<ProfileData | null>(null);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Fetch profile using setTimeout to avoid Supabase deadlock
           setTimeout(async () => {
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('id, full_name, avatar_url, chapter_id, is_approved, linkedin_url, headline, default_role, role, module_access')
+              .select('id, full_name, avatar_url, chapter_id, is_approved, linkedin_url, headline, default_role, role')
               .eq('user_id', session.user.id)
               .single();
 
@@ -80,11 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        setLoading(false);
-      }
+      if (!session) setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -94,52 +72,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  // Check if user has access to a specific module
-  const hasModuleAccess = useCallback((module: AccessModule): boolean => {
-    if (!profile) return false;
-    if (profile.role === 'admin') return true;
-    return profile.module_access?.includes(module) ?? false;
-  }, [profile]);
-
-  // Computed values
   const isAdmin = profile?.role === 'admin';
   const isApproved = profile?.is_approved ?? false;
-  
-  // Module access checks
-  const hasLMSAccess = hasModuleAccess('lms');
-  const hasEMAccess = hasModuleAccess('events');
-  const hasAttendeeAccess = hasModuleAccess('attendee');
-
-  // Legacy compatibility - map to new simplified role system
-  // For LMS: admin = lms_admin, advisor = lms_advisor, member = lms_student
   const isLMSAdmin = isAdmin;
-  const isLMSAdvisor = isAdmin || (profile?.role === 'advisor' && hasLMSAccess);
-  const isLMSStudent = hasLMSAccess;
-
-  // For EM: admin = em_admin, organizer = em_manager, advisor = em_advisor
-  const isEMAdmin = isAdmin;
-  const isEMManager = isAdmin || (profile?.role === 'organizer' && hasEMAccess);
-  const isEMAdvisor = hasEMAccess;
+  const isLMSAdvisor = isAdmin || profile?.role === 'advisor';
+  const isLMSStudent = !!profile;
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      loading, 
-      profile, 
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
+      profile,
       isApproved,
       signOut,
       isAdmin,
-      hasModuleAccess,
-      hasLMSAccess,
-      hasEMAccess,
-      hasAttendeeAccess,
       isLMSAdmin,
       isLMSAdvisor,
       isLMSStudent,
-      isEMAdmin,
-      isEMManager,
-      isEMAdvisor,
     }}>
       {children}
     </AuthContext.Provider>

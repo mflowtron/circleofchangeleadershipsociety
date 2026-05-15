@@ -3,8 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import { useSidebar } from '@/contexts/SidebarContext';
-import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { FullPageLoader } from '@/components/ui/circle-loader';
 
 interface AppLayoutProps {
@@ -13,15 +11,6 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const { user, loading } = useAuth();
-  const { setIsOpen, isOpen } = useSidebar();
-
-  // Enable swipe from left edge to open sidebar on mobile
-  useSwipeGesture({
-    onSwipeRight: () => setIsOpen(true),
-    onSwipeLeft: () => setIsOpen(false),
-    edgeWidth: 25,
-    threshold: 60,
-  });
 
   if (loading) {
     return <FullPageLoader />;
