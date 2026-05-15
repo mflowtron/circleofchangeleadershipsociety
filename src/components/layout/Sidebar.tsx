@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Home, Video, User, Users, BookOpen, Shield, X, Megaphone, CalendarDays, ArrowRight, Images } from 'lucide-react';
