@@ -1,38 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { usePosts } from '@/hooks/usePosts';
 import PostCard from '@/components/feed/PostCard';
 import CreatePostForm from '@/components/feed/CreatePostForm';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { MessageSquare } from 'lucide-react';
-import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { PullToRefreshIndicator } from '@/components/ui/pull-to-refresh';
 import AnnouncementBanner from '@/components/announcements/AnnouncementBanner';
 
 type FilterType = 'all' | 'chapter' | 'mine';
 
 export default function Feed() {
   const [filter, setFilter] = useState<FilterType>('all');
-  const { posts, loading, createPost, toggleLike, deletePost, refetch } = usePosts(filter);
+  const { posts, loading, createPost, toggleLike, deletePost } = usePosts(filter);
   const { profile } = useAuth();
 
-  const handleRefresh = useCallback(async () => {
-    await refetch();
-  }, [refetch]);
-
-  const { containerRef, pullDistance, isRefreshing, progress } = usePullToRefresh({
-    onRefresh: handleRefresh,
-    threshold: 80,
-  });
-
   return (
-    <div ref={containerRef} className="max-w-2xl mx-auto px-1">
-      <PullToRefreshIndicator
-        pullDistance={pullDistance}
-        isRefreshing={isRefreshing}
-        progress={progress}
-      />
-      
+    <div className="max-w-2xl mx-auto px-1">
       <AnnouncementBanner />
       
       <div className="space-y-6">

@@ -1,7 +1,7 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Home, Video, User, Users, BookOpen, Shield, X, Megaphone, CalendarDays, ArrowRight, ArrowLeftRight, Images } from 'lucide-react';
+import { Home, Video, User, Users, BookOpen, Shield, X, Megaphone, CalendarDays, ArrowRight, Images } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import logoDark from '@/assets/coclc-logo-dark.png';
 import logoLight from '@/assets/coclc-logo-light.png';
@@ -94,18 +94,8 @@ const navItems = {
 };
 export default function Sidebar() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const {
-    isLMSAdmin,
-    isLMSAdvisor,
-    hasEMAccess,
-    hasModuleAccess
-  } = useAuth();
-  const showSwitchOption = [hasModuleAccess('lms'), hasModuleAccess('events'), hasModuleAccess('attendee')].filter(Boolean).length > 1;
-  const {
-    isOpen,
-    setIsOpen
-  } = useSidebar();
+  const { isLMSAdmin, isLMSAdvisor } = useAuth();
+  const { isOpen, setIsOpen } = useSidebar();
   const {
     resolvedTheme
   } = useTheme();
@@ -119,10 +109,6 @@ export default function Sidebar() {
     return navItems.student;
   };
   const items = getNavItems();
-  const handleSwitchDashboard = () => {
-    setIsOpen(false);
-    navigate('/');
-  };
   return <>
       {/* Mobile overlay */}
       {isOpen && <div className="fixed inset-0 bg-foreground/60 backdrop-blur-sm z-40 md:hidden animate-fade-in" onClick={() => setIsOpen(false)} />}
@@ -162,11 +148,6 @@ export default function Sidebar() {
 
         {/* Footer */}
         <div className="p-4 border-t border-sidebar-border/50 space-y-3">
-          {/* Switch to Events Dashboard button for users with events access */}
-          {showSwitchOption && <Button variant="outline" className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border/50 text-sidebar-foreground hover:bg-sidebar-accent" onClick={handleSwitchDashboard}>
-              <ArrowLeftRight className="h-4 w-4" />
-              Switch Dashboard
-            </Button>}
           <div className="px-4 py-3 rounded-xl bg-sidebar-accent/50 text-center">
             <p className="text-xs text-sidebar-foreground/60">
               Circle of Change
