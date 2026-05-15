@@ -1,0 +1,1 @@
+UPDATE public.profiles SET role = 'member' WHERE full_name = 'Lovable QA';
