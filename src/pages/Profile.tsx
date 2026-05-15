@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -12,9 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { User, Mail, Shield, Save, Camera, Loader2, Linkedin, Briefcase } from 'lucide-react';
 
 export default function Profile() {
-  const location = useLocation();
-  const isEventsContext = location.pathname.startsWith('/events');
-  const { profile, isLMSAdmin, isLMSAdvisor, isEMAdmin, isEMManager, user } = useAuth();
+  const { profile, isLMSAdmin, isLMSAdvisor, user } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
   const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedin_url || '');
@@ -156,19 +153,10 @@ export default function Profile() {
     }
   };
 
-  // Determine role label and styling based on context
   const getRoleInfo = () => {
-    if (isEventsContext) {
-      // Events Management roles
-      if (isEMAdmin) return { label: 'Admin', color: 'bg-primary text-primary-foreground' };
-      if (isEMManager) return { label: 'Organizer', color: 'bg-secondary text-secondary-foreground' };
-      return { label: 'Staff', color: 'bg-muted text-muted-foreground' };
-    } else {
-      // LMS roles
-      if (isLMSAdmin) return { label: 'Admin', color: 'bg-primary text-primary-foreground' };
-      if (isLMSAdvisor) return { label: 'Advisor', color: 'bg-secondary text-secondary-foreground' };
-      return { label: 'Student', color: 'bg-muted text-muted-foreground' };
-    }
+    if (isLMSAdmin) return { label: 'Admin', color: 'bg-primary text-primary-foreground' };
+    if (isLMSAdvisor) return { label: 'Advisor', color: 'bg-secondary text-secondary-foreground' };
+    return { label: 'Student', color: 'bg-muted text-muted-foreground' };
   };
   const { label: roleLabel, color: roleColor } = getRoleInfo();
 
