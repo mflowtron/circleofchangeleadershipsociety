@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { authLog, authWarn, authError } from '@/utils/authLog';
 
 export type UserRole = 'admin' | 'advisor' | 'member';
 
@@ -48,18 +49,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { data: data as ProfileData | null, error };
       };
 
+      authLog('auth', 'profile_fetch_start', { user: userId });
       let { data, error } = await fetchOnce();
       if (error || !data) {
-        if (error) console.error('[AuthContext] profile fetch failed, retrying:', error);
+        if (error) {
+          authError('auth', 'profile_fetch_error', { user: userId, code: (error as any).code }, error);
+        } else {
+          authWarn('auth', 'profile_fetch_empty', { user: userId });
+        }
+        authLog('auth', 'profile_fetch_retry', { user: userId, delay_ms: 500 });
         await new Promise((r) => setTimeout(r, 500));
         ({ data, error } = await fetchOnce());
-        if (error) console.error('[AuthContext] profile retry failed:', error);
+        if (error) {
+          authError('auth', 'profile_fetch_retry_error', { user: userId, code: (error as any).code }, error);
+        }
+      }
+      if (data) {
+        authLog('auth', 'profile_fetch_success', {
+          user: userId,
+          role: data.role,
+          is_approved: data.is_approved,
+          has_chapter: !!data.chapter_id,
+        });
+      } else {
+        authWarn('auth', 'profile_fetch_gave_up', { user: userId });
       }
       return data;
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        authLog('auth', 'auth_state_change', {
+          event,
+          has_session: !!session,
+          user: session?.user?.id,
+        });
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -68,15 +92,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const profileData = await loadProfile(session.user.id);
             setProfile(profileData);
             setLoading(false);
+            authLog('auth', 'auth_ready', {
+              user: session.user.id,
+              has_profile: !!profileData,
+              is_approved: profileData?.is_approved ?? false,
+              role: profileData?.role,
+            });
           }, 0);
         } else {
           setProfile(null);
           setLoading(false);
+          authLog('auth', 'auth_ready', { has_session: false });
         }
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      authLog('auth', 'initial_get_session', {
+        has_session: !!session,
+        user: session?.user?.id,
+      });
       if (!session) setLoading(false);
     });
 
@@ -84,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    authLog('auth', 'sign_out_requested', { user: user?.id });
     await supabase.auth.signOut();
   };
 
