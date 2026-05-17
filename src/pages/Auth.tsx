@@ -12,6 +12,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import logoLight from '@/assets/coclc-logo-light.png';
 import logoDark from '@/assets/coclc-logo-dark.png';
 import { useTheme } from 'next-themes';
+import { authLog, authError } from '@/utils/authLog';
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
