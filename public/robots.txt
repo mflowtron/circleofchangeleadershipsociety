@@ -12,3 +12,8 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /lms/
+Disallow: /pending-approval
+Disallow: /auth/callback
+
+Sitemap: https://coclc.org/sitemap.xml

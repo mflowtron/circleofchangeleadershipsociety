@@ -1,0 +1,12 @@
+# Circle of Change Leadership Society
+
+> A private community platform for members of the Circle of Change Leadership Society to connect, learn from recorded sessions, and grow together. Most pages require an approved member account.
+
+## Pages
+
+- [Home](/): Landing entry point — redirects members to the in-app feed and visitors to sign in.
+- [Sign in / Sign up](/auth): Member sign in and new-account request (subject to admin approval).
+
+## Optional
+
+- The `/lms/*` routes (feed, recordings, calendar, photo album, chapter, profile, and admin tools) are gated behind member authentication and are not indexed.
