@@ -262,6 +262,7 @@ export default function Users() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              aria-label="Edit user"
                               onClick={() => handleEditUser(user)}
                             >
                               <Pencil className="h-4 w-4" />

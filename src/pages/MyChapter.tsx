@@ -192,6 +192,7 @@ export default function MyChapter() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="Delete post"
                           className="h-6 w-6 text-muted-foreground hover:text-destructive"
                           onClick={() => handleDeletePost(post.id)}
                         >

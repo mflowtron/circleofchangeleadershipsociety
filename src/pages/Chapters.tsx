@@ -223,6 +223,7 @@ export default function Chapters() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            aria-label="Delete chapter"
                             className="h-8 w-8 text-destructive"
                             onClick={() => handleDelete(chapter.id)}
                           >
