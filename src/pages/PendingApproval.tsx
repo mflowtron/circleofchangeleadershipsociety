@@ -56,7 +56,7 @@ export default function PendingApproval() {
   }, [user, navigate, profile]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <main className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md text-center">
         <CardHeader className="space-y-4">
           <div className="flex justify-center mb-4">
@@ -67,7 +67,9 @@ export default function PendingApproval() {
               <Clock className="h-12 w-12 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Account Pending Approval</CardTitle>
+          <h1 className="text-2xl font-semibold leading-none tracking-tight">
+            Account Pending Approval
+          </h1>
           <CardDescription className="text-base">
             Welcome{profile?.full_name ? `, ${profile.full_name}` : ''}! Your account is currently awaiting administrator approval.
           </CardDescription>
@@ -89,6 +91,6 @@ export default function PendingApproval() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

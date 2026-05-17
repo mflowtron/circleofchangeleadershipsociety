@@ -78,7 +78,8 @@ export default function Auth() {
       setLoading(false);
     }
   };
-  return <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+  return <main className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <h1 className="sr-only">Sign in to Circle of Change Leadership Society</h1>
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-gradient-radial from-primary/5 via-transparent to-transparent" />
@@ -155,5 +156,5 @@ export default function Auth() {
         </CardContent>
       </Card>
       </div>
-    </div>;
+    </main>;
 }
