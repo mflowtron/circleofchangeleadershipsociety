@@ -14,8 +14,10 @@ async function verifyMuxSignature(
   secret: string | null
 ): Promise<boolean> {
   if (!signature || !secret) {
-    console.log("No signature or secret provided, skipping verification");
-    return true; // Skip verification if no secret configured
+    console.error(
+      "Webhook rejected: missing signature header or MUX_WEBHOOK_SECRET env var"
+    );
+    return false; // Reject when verification cannot be performed
   }
 
   try {
