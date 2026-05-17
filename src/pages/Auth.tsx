@@ -25,10 +25,7 @@ export default function Auth() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const {
-      error,
-      data
-    } = await supabase.auth.signInWithPassword({
+    const { error, data } = await supabase.auth.signInWithPassword({
       email,
       password
     });
@@ -38,21 +35,9 @@ export default function Auth() {
       });
       setLoading(false);
     } else if (data.user) {
-      // Fetch profile to check approval status
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('is_approved')
-        .eq('user_id', data.user.id)
-        .single();
-      
-      const isApproved = profileData?.is_approved ?? false;
-      
-      if (!isApproved) {
-        navigate('/pending-approval');
-      } else {
-        // Redirect to root - let RootRouter handle routing based on roles
-        navigate('/');
-      }
+      // Let RootRouter + AuthContext decide where to send the user based on
+      // the authoritative profile (avoids racey duplicate fetch here).
+      navigate('/');
       setLoading(false);
     }
   };
