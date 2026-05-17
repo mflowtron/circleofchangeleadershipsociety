@@ -25,16 +25,19 @@ export default function Auth() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    authLog('auth', 'login_submit', { email });
     const { error, data } = await supabase.auth.signInWithPassword({
       email,
       password
     });
     if (error) {
+      authError('auth', 'login_error', { email, message: error.message }, error);
       toast.error('Login failed', {
         description: error.message
       });
       setLoading(false);
     } else if (data.user) {
+      authLog('auth', 'login_success', { user: data.user.id, email });
       // Let RootRouter + AuthContext decide where to send the user based on
       // the authoritative profile (avoids racey duplicate fetch here).
       navigate('/');
@@ -44,8 +47,10 @@ export default function Auth() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    authLog('auth', 'signup_submit', { email });
     const {
-      error
+      error,
+      data
     } = await supabase.auth.signUp({
       email,
       password,
@@ -57,11 +62,13 @@ export default function Auth() {
       }
     });
     if (error) {
+      authError('auth', 'signup_error', { email, message: error.message }, error);
       toast.error('Signup failed', {
         description: error.message
       });
       setLoading(false);
     } else {
+      authLog('auth', 'signup_success', { email, user: data.user?.id });
       toast.success('Account created!', {
         description: 'Your account is pending approval.'
       });
