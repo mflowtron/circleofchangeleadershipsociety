@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { FullPageLoader } from '@/components/ui/circle-loader';
+import { authLog, authWarn, authError } from '@/utils/authLog';
 
 /**
  * Handles auth callback for email verification and password reset flows
