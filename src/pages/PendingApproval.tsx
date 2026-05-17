@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { authLog, authError } from '@/utils/authLog';
 
 const APPROVAL_POLL_INTERVAL = 10000; // 10 seconds
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,13 @@ export default function PendingApproval() {
   useEffect(() => {
     if (!user) return;
 
+    authLog('pending', 'page_mounted', {
+      user: user.id,
+      has_profile: !!profile,
+      role: profile?.role,
+      is_approved: profile?.is_approved,
+    });
+
     const checkApproval = async () => {
       const { data, error } = await supabase
         .from('profiles')
@@ -28,12 +36,15 @@ export default function PendingApproval() {
         .maybeSingle();
 
       if (error) {
-        console.error('[PendingApproval] approval check failed:', error);
+        authError('pending', 'approval_check_error', { user: user.id, code: (error as any).code }, error);
         return;
       }
 
       if (data?.is_approved) {
+        authLog('pending', 'approved_redirecting', { user: user.id });
         navigate('/');
+      } else {
+        authLog('pending', 'still_pending', { user: user.id, has_row: !!data });
       }
     };
 
@@ -42,7 +53,7 @@ export default function PendingApproval() {
     const interval = setInterval(checkApproval, APPROVAL_POLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [user, navigate]);
+  }, [user, navigate, profile]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
