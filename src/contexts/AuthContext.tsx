@@ -38,6 +38,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<ProfileData | null>(null);
 
   useEffect(() => {
+    const loadProfile = async (userId: string): Promise<ProfileData | null> => {
+      const fetchOnce = async () => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, chapter_id, is_approved, linkedin_url, headline, default_role, role')
+          .eq('user_id', userId)
+          .maybeSingle();
+        return { data: data as ProfileData | null, error };
+      };
+
+      let { data, error } = await fetchOnce();
+      if (error || !data) {
+        if (error) console.error('[AuthContext] profile fetch failed, retrying:', error);
+        await new Promise((r) => setTimeout(r, 500));
+        ({ data, error } = await fetchOnce());
+        if (error) console.error('[AuthContext] profile retry failed:', error);
+      }
+      return data;
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
@@ -45,13 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user) {
           setTimeout(async () => {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('id, full_name, avatar_url, chapter_id, is_approved, linkedin_url, headline, default_role, role')
-              .eq('user_id', session.user.id)
-              .single();
-
-            setProfile(profileData as ProfileData | null);
+            const profileData = await loadProfile(session.user.id);
+            setProfile(profileData);
             setLoading(false);
           }, 0);
         } else {
