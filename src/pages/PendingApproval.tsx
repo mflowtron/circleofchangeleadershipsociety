@@ -67,9 +67,9 @@ export default function PendingApproval() {
               <Clock className="h-12 w-12 text-primary" />
             </div>
           </div>
-          <CardTitle asChild className="text-2xl">
-            <h1>Account Pending Approval</h1>
-          </CardTitle>
+          <h1 className="text-2xl font-semibold leading-none tracking-tight">
+            Account Pending Approval
+          </h1>
           <CardDescription className="text-base">
             Welcome{profile?.full_name ? `, ${profile.full_name}` : ''}! Your account is currently awaiting administrator approval.
           </CardDescription>
