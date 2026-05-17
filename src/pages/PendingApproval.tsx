@@ -21,17 +21,24 @@ export default function PendingApproval() {
     if (!user) return;
 
     const checkApproval = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('is_approved')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.error('[PendingApproval] approval check failed:', error);
+        return;
+      }
 
       if (data?.is_approved) {
         navigate('/');
       }
     };
 
+    // Run immediately so approved users aren't stuck for 10s
+    checkApproval();
     const interval = setInterval(checkApproval, APPROVAL_POLL_INTERVAL);
 
     return () => clearInterval(interval);
