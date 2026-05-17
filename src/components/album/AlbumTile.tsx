@@ -48,7 +48,7 @@ export function AlbumTile({
     >
       <img
         src={photo.image_url}
-        alt={photo.caption ?? 'Album photo'}
+        alt={photo.caption ?? `Community photo shared by ${photo.uploader.full_name}`}
         loading="lazy"
         decoding="async"
         className={cn(

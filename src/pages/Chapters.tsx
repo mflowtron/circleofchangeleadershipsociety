@@ -214,6 +214,7 @@ export default function Chapters() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            aria-label="Edit chapter"
                             className="h-8 w-8"
                             onClick={() => handleOpenDialog(chapter)}
                           >
