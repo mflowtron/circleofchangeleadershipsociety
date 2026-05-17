@@ -1,40 +1,53 @@
-## Diagnosis
+## Goal
 
-The user `mflotron91@gmail.com` (id `6d8fab70…9f9a`) is correctly stored as `role='admin'` and `is_approved=true` in the `profiles` table, and only one row exists. The Supabase auth logs show their password login returning 200 cleanly. So the database and login itself are fine — the bug is in our client-side post-login routing.
+Add structured, timestamped auth/routing logs so any future "stuck on pending approval" report can be diagnosed from the browser console alone.
 
-There are three weak spots that, together, can trap an already-approved user on `/pending-approval`:
+## Approach
 
-1. **`src/pages/Auth.tsx` does its own profile fetch right after `signInWithPassword` and navigates based on it.** If that single query returns nothing (transient error, race with the brand-new session, RLS edge case), the code falls back to `profileData?.is_approved ?? false` → `false`, and the user is sent to `/pending-approval` even though they're an approved admin. This duplicates work that `AuthContext` + `RootRouter` already do correctly.
+Create a tiny `src/utils/authLog.ts` helper that prefixes every entry with an ISO timestamp, a short tag (e.g. `[auth]`, `[routing]`), and — when available — the truncated `user_id`. Use a single `authLog(tag, event, fields)` function that emits `console.info` for normal events and `console.warn` / `console.error` for failures. This keeps call sites compact and grep-friendly (`[auth]`, `[routing]`).
 
-2. **`src/pages/PendingApproval.tsx` only checks approval via `setInterval` every 10s** — there's no initial check on mount. Even when `AuthContext` later loads `is_approved=true`, the `/pending-approval` route guard (`isApproved ? <Navigate to="/" />`) only re-evaluates when `AuthContext` state changes; if the user landed there from Auth.tsx's local navigate before context was ready, they wait up to 10s for the poll. If the polled query also misses (same RLS / race issue), they appear permanently stuck.
+Then instrument the five files that decide login + approval routing:
 
-3. **`AuthContext` swallows profile-fetch errors silently** (`const { data: profileData } = await supabase...`). When the fetch fails, `profile` becomes `null`, `isApproved` becomes `false`, and there's no retry — so a single hiccup leaves an admin looking unapproved for the rest of the session.
+### `src/utils/authLog.ts` (new)
+- `authLog(tag, event, fields?)`, `authWarn(...)`, `authError(...)`.
+- Format: `2026-05-17T00:35:12.301Z [auth] event_name user=6d8fab70 key=value …`.
+- No PII beyond `user_id` (truncated to first 8 chars).
 
-## Plan
+### `src/contexts/AuthContext.tsx`
+- On every `onAuthStateChange`: log event name, has-session, user_id.
+- Around `loadProfile`: log `profile_fetch_start`, `profile_fetch_success` (with role + is_approved + chapter_id presence), `profile_fetch_empty`, `profile_fetch_retry`, `profile_fetch_error` (with full error object).
+- On initial `getSession`: log result.
+- On `signOut`: log it.
 
-### 1. `src/pages/Auth.tsx` — stop second-guessing AuthContext
-- Remove the inline `profiles` query in `handleLogin`.
-- After a successful `signInWithPassword`, just `navigate('/')`. `RootRouter` (with `AuthContext`) already routes to `/lms`, `/pending-approval`, or `/auth` based on the authoritative loaded profile.
-- Keep the signup path as-is (new signups legitimately go to `/pending-approval`).
+### `src/pages/RootRouter.tsx`
+- Log every decision branch: `waiting_for_auth`, `redirect_auth` (no user), `redirect_pending` (with is_approved=false), `redirect_lms` (with role).
 
-### 2. `src/contexts/AuthContext.tsx` — make profile loading reliable
-- Capture and log the error from the profile select.
-- On error or empty result, retry once after ~500ms (covers the brand-new-session race and the `handle_new_user` trigger lag) before giving up.
-- Only set `loading=false` after the retry resolves so guarded routes don't render with a stale `isApproved=false`.
+### `src/pages/Auth.tsx`
+- Log `login_submit` (email only, no password), `login_success` (user_id), `login_error` (error.message), `signup_submit`, `signup_success`, `signup_error`.
 
-### 3. `src/pages/PendingApproval.tsx` — don't wait 10s for the first check
-- Run `checkApproval()` immediately on mount in addition to the interval.
-- If the query errors, log it (so we have a signal next time) instead of failing silently.
+### `src/pages/AuthCallback.tsx`
+- Log callback entry, profile lookup outcome, retry attempt, final redirect target.
 
-### 4. Verification
-- Confirm in the DB that `mflotron91@gmail.com` remains `role=admin, is_approved=true` (already verified).
-- After deploy, sign in as that user and confirm they land on `/lms` directly. Also sign in as the seeded `lovable-qa@coclc.org` member to confirm normal approved members still route correctly, and create a throwaway signup to confirm pending users still see `/pending-approval`.
+### `src/pages/PendingApproval.tsx`
+- Log mount with user_id, each `approval_check` result (`still_pending` / `approved_redirecting` / `check_error`).
 
-### Out of scope
-- No database, RLS, or migration changes — the data and policies are already correct.
-- No changes to other pages, layouts, or LMS routes.
+## Verification
 
-## Technical details
+- After deploy, open DevTools console and sign in as the QA member. Expect a clean trace ending in `[routing] redirect_lms role=member user=df0e63e8`.
+- Force-fail the profile fetch (e.g. sign out + sign in with throttled network) and confirm the retry + error logs appear.
+- If a real user reports being stuck again, ask them to copy the console — the log stream will pinpoint whether it was the fetch, the retry, the route decision, or something else.
 
-- Files touched: `src/pages/Auth.tsx`, `src/contexts/AuthContext.tsx`, `src/pages/PendingApproval.tsx`.
-- No new dependencies. No schema changes. Behavior change is limited to the login → routing handoff and the pending-approval screen's first-check timing.
+## Out of scope
+
+- No DB or RLS changes.
+- No UI changes.
+- No remote/log-aggregation pipeline — pure `console.*` so the user can read it from any browser session.
+
+## Files touched
+
+- `src/utils/authLog.ts` (new)
+- `src/contexts/AuthContext.tsx`
+- `src/pages/RootRouter.tsx`
+- `src/pages/Auth.tsx`
+- `src/pages/AuthCallback.tsx`
+- `src/pages/PendingApproval.tsx`
